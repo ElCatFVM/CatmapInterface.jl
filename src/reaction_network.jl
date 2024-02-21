@@ -82,7 +82,7 @@ function create_reaction_network(catmap_params::CatmapParams)
             activ_coefs[s]  = first(@parameters $gs)
         end
     end
-
+    print("Works")
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, catmap_params::CatmapParams, θ, σ, ϕ_we, ϕ, local_pH)
 
@@ -112,7 +112,7 @@ function create_reaction_network(catmap_params::CatmapParams)
         end
         Gf, rs, γs, a
     end
-    print("Works")
+    
     rxs = Reaction[]
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)

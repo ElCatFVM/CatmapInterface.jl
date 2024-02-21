@@ -57,6 +57,7 @@ The thermodynamical corrections to the DFT-data of the formation energies are ap
 New modes can be added by the user by adding a function with the same name to the module. 
 """
 function create_reaction_network(catmap_params::CatmapParams)
+    print("Works")
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH
@@ -82,7 +83,7 @@ function create_reaction_network(catmap_params::CatmapParams)
             activ_coefs[s]  = first(@parameters $gs)
         end
     end
-    print("Works")
+    
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, catmap_params::CatmapParams, θ, σ, ϕ_we, ϕ, local_pH)
 

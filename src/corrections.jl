@@ -287,3 +287,4 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
     end
     nothing
 end
+

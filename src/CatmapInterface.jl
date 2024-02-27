@@ -33,7 +33,10 @@ using RuntimeGeneratedFunctions
 using DocStringExtensions
 using Symbolics
 using SymbolicUtils
+using LinearAlgebra
+using JSON
 RuntimeGeneratedFunctions.init(@__MODULE__)
+include("ideal-gas-model.jl")
 include("species.jl")
 export AbstractSpecies, GasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies
 include("interface.jl")

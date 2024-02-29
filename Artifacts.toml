@@ -1,2 +1,6 @@
-[g2]
-git-tree-sha1 = "926222a8a3d6737937c402e1bf86ad1d8f2f9b66"
+[ase_collections]
+git-tree-sha1 = "3c25c882411580a071cd2a16b675cabda5360c2c"
+
+    [[ase_collections.download]]
+    sha256 = "e5c32c41a0c4951ed4b7bd1aacf4b88ada4f4b29723ab05f8ecd924bf4a85fb9"
+    url = "https://gitlab.com/api/v4/projects/ase%2Fase/repository/archive.tar.gz?path=ase%2Fcollections"

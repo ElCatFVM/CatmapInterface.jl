@@ -202,7 +202,7 @@ function parse_molecule_data(filename)
     return molecule_specs
 end
 
-const molecule_specs = parse_molecule_data(joinpath(artifact"g2", "g2.json"))
+const molecule_specs = parse_molecule_data(joinpath(readdir(artifact"ase_collections", join=true)[1], "ase", "collections", "g2.json"))
 
 
 """

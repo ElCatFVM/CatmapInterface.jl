@@ -1,6 +1,6 @@
 [ase_collections]
-git-tree-sha1 = "3c25c882411580a071cd2a16b675cabda5360c2c"
+git-tree-sha1 = "54435ee567dccf6c254de8fc21313ed39bc7d5cd"
 
     [[ase_collections.download]]
-    sha256 = "e5c32c41a0c4951ed4b7bd1aacf4b88ada4f4b29723ab05f8ecd924bf4a85fb9"
-    url = "https://gitlab.com/api/v4/projects/ase%2Fase/repository/archive.tar.gz?path=ase%2Fcollections"
+    sha256 = "8e06e6c327b388f03515f6e1b585407babb6a3d4678cd1f118c63047ffa053c4"
+    url = "https://gitlab.com/api/v4/projects/ase%2Fase/repository/archive.tar.gz?sha=0b6c9b373317db0785a72c6b3fb77c3222b5b5e7&path=ase%2Fcollections"

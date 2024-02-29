@@ -33,3 +33,20 @@ CatmapInterface._get_adsorbate_interaction_params
 CatmapInterface.ratelaw_TS
 CatmapInterface.compute_free_energies!
 ```
+
+## Statistical Models
+
+```@docs
+CatmapInterface.MoleculeGeometry
+CatmapInterface.IdealGas
+CatmapInterface.HarmonicPhase
+CatmapInterface.enthalpy
+CatmapInterface.entropy
+```
+
+## Utilities
+
+```@docs
+CatmapInterface.get_molecule_spec
+CatmapInterface.get_ideal_gas_params
+```

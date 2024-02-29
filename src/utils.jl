@@ -120,43 +120,127 @@ const atomic_masses = [
     294.214,        # 294Og
 ] .* ufac"u"
 
-const mspecs = open(joinpath(artifact"g2", "g2.json")) do file 
-    JSON.parse(file)
+@kwdef struct MoleculeSpec
+    name::String
+    numbers::Vector{Int}
+    masses::Vector{Float64} 
+    positions::Matrix{Float64}
 end
 
-function molecule(name)
-    for mspec in mspecs
-        if haskey(mspec, "key_value_pairs") && haskey(mspec["key_value_pairs"], "name") && mspec["key_value_pairs"]["name"] == name
-            local positions, masses
-            if haskey(mspec, "positions")
-                try
-                    positions = convert.(Vector{Float64}, mspec["positions"])
-                catch e
-                    if isa(e, MethodError)
-                        throw(ArgumentError("The position entry is not valid."))
-                    else
-                        rethrow(e)
-                    end
-                end
-            else
-                throw(ArgumentError("Missing positions in entry for the molecule $name"))
-            end
-            if haskey(mspec, "numbers")
-                local numbers
-                try
-                    numbers = convert(Vector{Int}, mspec["numbers"])
-                    masses = map(n->atomic_masses[n], numbers)
-                catch e
-                    if isa(e, MethodError)
-                        throw(ArgumentError("The numbers entry for the molecule $name is not valid."))
-                    else
-                        rethrow(e)
-                    end
-                end
-            else
-                throw(ArgumentError("Missing numbers in entry for the molecule $name"))
-            end
-            return (; "positions" = positions, "masses" = masses)
+function parse_molecule_spec(js)
+
+    name = try
+        js["key_value_pairs"]["name"]
+    catch e
+        if isa(e, KeyError)
+            throw("Molecule entry misses 'name' entry")
+        else
+            rethrow(e)
         end
-    end    
+    end
+
+    numbers = try
+        convert(Vector{Int}, js["numbers"])
+    catch e
+        if isa(e, KeyError)
+            throw("Molecule entry misses 'numbers' entry")
+        elseif isa(e, MethodError)
+            throw("The 'numbers' entry in for the molecule is invalid")
+        else
+            rethrow(e)
+        end
+    end
+    @assert all(map(number -> 1 ≤ number ≤ length(atomic_masses), numbers)) "Invalid atoms in the molecule"
+    masses = map(number->atomic_masses[number], numbers)
+
+    positions = try
+        convert.(Vector{Float64}, js["positions"])
+    catch
+        if isa(e, KeyError)
+            throw("Molecule entry with id=$id misses 'positions' entry")
+        elseif isa(e, MethodError)
+            throw("The 'positions' entry in for the molecule with id=$id is invalid")
+        else
+            rethrow(e)
+        end
+    end
+    @assert length(positions) == length(numbers) "Too many/few positions"
+    @assert all(length.(positions) .== 3) "Every positions must be a coordinate in 3D"
+    positions = stack(positions; dims=1) * ufac"Å"
+ 
+    return MoleculeSpec(; name, numbers, masses, positions)
+end
+
+function parse_molecule_data(filename)
+    js = open(filename) do file
+        JSON.parse(file)
+    end
+
+    # check ids entry
+    ids = Int64[]
+    if haskey(js, "ids")
+        try
+            ids = convert(Vector{Int}, js["ids"])
+        catch e
+            if isa(e, MethodError)
+                throw(ArgumentError("Entry 'ids' in the molecule database is invalid."))
+            end
+        end
+    else
+        throw(ArgumentError("Missing 'ids' entry in the molecule database."))
+    end
+    delete!(js, "ids")
+    haskey(js, "nextid") && delete!(js, "nextid") # also delete nextid from json
+
+    @assert all(map(id->haskey(js, "$id"), ids)) "Invalid molecule database."
+
+    molecule_specs = Dict{String, MoleculeSpec}()
+    for id in ids
+        molecule_spec = parse_molecule_spec(js["$id"])
+        molecule_specs[molecule_spec.name] = molecule_spec
+    end
+    return molecule_specs
+end
+
+const molecule_specs = parse_molecule_data(joinpath(artifact"g2", "g2.json"))
+
+
+"""
+$(SIGNATURES)
+
+Get the specification of the molecule of type 'name'
+"""
+function get_molecule_spec(name)
+    if !haskey(molecule_specs, name)
+        throw(ArgumentError("The molecule $name is not included in the molecule database"))
+    end
+    return  molecule_specs[name]
+end
+
+"""
+$(SIGNATURES)
+
+Get the symmetrynumber, geometry, and spin of the ideal gas' molecules of type 'name'
+"""
+function get_ideal_gas_params(name)
+    (symmetrynumber, geometry, spin) = try
+        py"ideal_gas_params"[name * "_g"]
+    catch e
+        if isa(e, KeyError)
+            throw(ArgumentError("$name has no specified ideal gas parameters"))
+        else
+            rethrow(e)
+        end
+    end
+    if geometry == "monoatomic"
+        geometry = monoatomic    
+    elseif geometry == "linear"
+        geometry = linear
+    elseif geometry == "nonlinear"
+        geometry = nonlinear
+    else
+        throw(ArgumentError("The molecular geometry $geometry is not valid"))
+    end
+
+    return (; symmetrynumber = symmetrynumber, geometry = geometry, spin = spin)
 end

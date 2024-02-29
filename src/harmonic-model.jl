@@ -7,10 +7,6 @@ $(TYPEDFIELDS)
 """
 @kwdef struct HarmonicPhase
     """
-    Molecule geometry, one of monoatomic/linear/nonlinear
-    """
-    geometry::MoleculeGeometry
-    """
     List of normal modes of vibration
     """
     frequencies::Vector{Float64}
@@ -28,14 +24,7 @@ function entropy(harmonicphase::HarmonicPhase)
     @local_phconstants k_B h
 
     T = harmonicphase.temperature
-    geometry = harmonicphase.geometry
-    if geometry == monoatomic
-        ω = []
-    elseif geometry == linear
-        ω = sort(harmonicphase.frequencies, rev=true)[1:(3 * N - 5)]
-    else
-        ω = sort(harmonicphase.frequencies, rev=true)[1:(3 * N - 6)]
-    end
+    ω = harmonicphase.frequencies
 
     vibrational = k_B * sum(@. h * ω / (k_B * T * (exp(h * ω / (k_B * T)) - 1)) - log(1 - exp(-h * ω / (k_B * T))))
 
@@ -49,15 +38,8 @@ function enthalpy(harmonicphase::HarmonicPhase)
     @local_phconstants k_B h R
 
     T = harmonicphase.temperature
-    geometry = harmonicphase.geometry
-    if geometry == monoatomic
-        ω = []
-    elseif geometry == linear
-        ω = sort(harmonicphase.frequencies, rev=true)[1:(3 * N - 5)]
-    else
-        ω = sort(harmonicphase.frequencies, rev=true)[1:(3 * N - 6)]
-    end
-
+    ω = harmonicphase.frequencies
+    
     zpe = h * sum(ω) / 2
     vibrational = h * sum(@. ω / (exp(h * ω / (k_B * T)) - 1))
 

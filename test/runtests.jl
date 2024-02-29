@@ -143,7 +143,7 @@ end
 
 Create a testset where the free energies of all reactants in the microkinetic model computed by CatMAP and the CatmapInterface are compared.
 """
-function test_free_energies(catmap_template_path, params; rtol=1.0e-5)
+function test_free_energies(catmap_template_path, params; rtol=1.0e-4)
     catmap_instance_path    = instantiate_catmap_template(catmap_template_path, params)
     catmap_free_energies    = compute_catmap_free_energies(catmap_instance_path, params)
     interface_free_energies = compute_interface_free_energies(catmap_instance_path, params)

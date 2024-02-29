@@ -151,24 +151,19 @@ $(SIGNATURES)
 Add thermodynamic correction terms for all gas species using the ideal gas approximation.
 """
 function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real
-    @local_unitfactors eV
-    @local_phconstants h c_0
+    @local_unitfactors cm
+    @local_phconstants c_0
     
     ideal_gas_params = py"ideal_gas_params"
     (; species_list, T) = catmap_params
     for (s, sp) in species_list
         if isa(sp, GasSpecies)
             (; species_name, frequencies) = sp
-            try
-                (symmetrynumber, geometry, spin) = ideal_gas_params[s]
-                energies[s] += py"get_thermal_correction_ideal_gas"(T, frequencies * (h * c_0 / eV), symmetrynumber, geometry, spin, species_name) * eV
-            catch e
-                if isa(e, KeyError)
-                    throw(ArgumentError("$s has no specified ideal gas parameters"))
-                else
-                    throw(e)
-                end
-            end
+            frequencies .*= c_0
+            (; symmetrynumber, geometry, spin) = get_ideal_gas_params(species_name)
+            (; numbers, positions, masses) = get_molecule_spec(species_name)
+            ideal_gas = IdealGas(; elements=numbers, masses, positions, symmetrynumber, frequencies, spin, geometry, temperature=T)
+            energies[s] += enthalpy(ideal_gas) - T * entropy(ideal_gas)
         end
     end
 end
@@ -179,20 +174,22 @@ $(SIGNATURES)
 Add thermodynamic correction terms for all adsorbed species using the harmonic adsorbate approximation.
 """
 function harmonic_adsorbate(energies, catmap_params::CatmapParams)
-    @local_unitfactors eV
-    @local_phconstants h c_0
+    @local_unitfactors cm
+    @local_phconstants c_0
     (; species_list, T) = catmap_params
     for (s, sp) in species_list
         if isa(sp, AdsorbateSpecies)
-            (; frequencies) = sp
-            energies[s] += py"get_thermal_correction_adsorbate"(T, frequencies * (h * c_0 / eV)) * eV
+            frequencies = sp.frequencies .* (c_0)
+            harmonic_phase = HarmonicPhase(; frequencies, temperature = T)
+            energies[s] += enthalpy(harmonic_phase) - T * entropy(harmonic_phase)
         end
     end
     for (s, sp) in species_list
         if isa(sp, TStateSpecies)
             if !isempty(sp.frequencies)
-                (; frequencies) = sp
-                energies[s] += py"get_thermal_correction_adsorbate"(T, frequencies * (h * c_0 / eV)) * eV
+                frequencies = sp.frequencies .* (c_0)
+                harmonic_phase = HarmonicPhase(; frequencies, temperature = T)
+                energies[s] += enthalpy(harmonic_phase) - T * entropy(harmonic_phase)
             else
                 (; between_species) = sp
                 for bs in first.(between_species)

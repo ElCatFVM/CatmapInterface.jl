@@ -151,15 +151,12 @@ $(SIGNATURES)
 Add thermodynamic correction terms for all gas species using the ideal gas approximation.
 """
 function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real
-    @local_unitfactors cm
-    @local_phconstants c_0
     
     ideal_gas_params = py"ideal_gas_params"
     (; species_list, T) = catmap_params
     for (s, sp) in species_list
         if isa(sp, GasSpecies)
             (; species_name, frequencies) = sp
-            frequencies .*= c_0
             (; symmetrynumber, geometry, spin) = get_ideal_gas_params(species_name)
             (; numbers, positions, masses) = get_molecule_spec(species_name)
             ideal_gas = IdealGas(; elements=numbers, masses, positions, symmetrynumber, frequencies, spin, geometry, temperature=T)
@@ -174,12 +171,10 @@ $(SIGNATURES)
 Add thermodynamic correction terms for all adsorbed species using the harmonic adsorbate approximation.
 """
 function harmonic_adsorbate(energies, catmap_params::CatmapParams)
-    @local_unitfactors cm
-    @local_phconstants c_0
     (; species_list, T) = catmap_params
     for (s, sp) in species_list
         if isa(sp, AdsorbateSpecies)
-            frequencies = sp.frequencies .* (c_0)
+            frequencies = sp.frequencies
             harmonic_phase = HarmonicPhase(; frequencies, temperature = T)
             energies[s] += enthalpy(harmonic_phase) - T * entropy(harmonic_phase)
         end
@@ -187,7 +182,7 @@ function harmonic_adsorbate(energies, catmap_params::CatmapParams)
     for (s, sp) in species_list
         if isa(sp, TStateSpecies)
             if !isempty(sp.frequencies)
-                frequencies = sp.frequencies .* (c_0)
+                frequencies = sp.frequencies
                 harmonic_phase = HarmonicPhase(; frequencies, temperature = T)
                 energies[s] += enthalpy(harmonic_phase) - T * entropy(harmonic_phase)
             else

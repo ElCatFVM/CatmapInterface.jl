@@ -4,6 +4,16 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ 252a1d28-d7eb-11ee-1f6a-990ae6a3184f
 begin
     import Pkg as _Pkg
@@ -13,53 +23,23 @@ begin
 	using PlutoUI
 	using Format
 	using CatmapInterface
+	using LessUnitful
     using CairoMakie
     CairoMakie.activate!(; type = "svg", visible = false)
 end;
 
-# ╔═╡ 0b0228fc-8ff0-4c04-b075-39597e1cbca4
-function compute_interface_free_energies(
-	catmap_params; 
-	θ = 0.0:0.02:0.06,
-	σ = (ϕ, ϕ_we) -> 0.2 * (ϕ_we - ϕ - 0.16),
-	ϕ_we = -1.0:0.2:0.0,
-	ϕ = -1.0:0.2:0.0,
-	local_pH = 5.0:1.0:8.0
-)
-	nads = count(p->isa(p.second, AdsorbateSpecies), catmap_params.species_list)
-	θ = stack(reshape(collect(Iterators.product(fill(θ, nads)...),), :))
-	params = reshape(collect(Iterators.product(ϕ_we, ϕ, local_pH),), :)
-	params = stack([[ϕ_we, ϕ, σ(ϕ_we, ϕ), local_pH] for (ϕ_we, ϕ, local_pH) in params])
-	compute_interface_free_energies(catmap_params, θ, params)
-end
+# ╔═╡ bb3b204b-5b55-4a70-ab14-ac4de457e563
+begin
+	const θ 		= 0.0:0.2:0.2
+	const ϕ_we 		= -1.0:0.5:0.0
+	const ϕ 		= -1.0:0.5:0.0
+	const local_pH 	= 5.0:2.0:8.0
+	const ϕ_pzc 	= 0.16 * ufac"V"
+	const C_gap 	= 0.2 * ufac"F"
+end;
 
-# ╔═╡ 5fdb6ba2-cdce-48b0-9992-9f43f70cf95e
-function compute_interface_free_energies(catmap_params, θ::Matrix{Float64}, params::Matrix{Float64})
-	ads_species = filter(p->isa(p.second,AdsorbateSpecies), catmap_params.species_list)
-	@assert size(θ, 1) == length(ads_species) && size(params, 1) == 4
-
-	free_energies = Dict{@NamedTuple{θ::Dict{String, Float64}, ϕ_we::Float64, ϕ::Float64, σ::Float64, local_pH::Float64}, Dict{String, Float64}}()
-	for θcol in eachcol(θ)
-		θdict = Dict(zip(sort(collect(keys(ads_species))), θcol))
-		for paramscol in eachcol(params)
-			(ϕ_we, ϕ, σ, local_pH) = paramscol
-			(k, v) = compute_interface_free_energies(catmap_params, (; θ=θdict, ϕ_we=ϕ_we, ϕ=ϕ, σ=σ, local_pH=local_pH))
-			free_energies[k] = v
-		end
-	end
-	return free_energies
-end
-
-# ╔═╡ 92188346-7a2f-4cdf-bca3-2fd54aeb6e9e
-function compute_interface_free_energies(
-	catmap_params, 
-	params#::@NamedTuple{θ::Dict{String, Float64}, ϕ_we::Float64, ϕ::Float64, σ::Float64, local_pH::Float64}
-)
-    (; θ, σ, ϕ_we, ϕ, local_pH) = params
-	free_energies 	= Dict([sp => 0.0 for sp in keys(catmap_params.species_list)])
-	CatmapInterface.compute_free_energies!(free_energies, catmap_params, θ, σ, ϕ_we, ϕ, local_pH)
-    return params => free_energies
-end
+# ╔═╡ 66ed4181-1393-4ed0-9555-b3608b01f223
+surface_charge_relation(Δϕ) = round(C_gap * (Δϕ - ϕ_pzc); digits=6)
 
 # ╔═╡ 29d5bcf8-6332-4ab6-91ed-9d6cf30e5421
 function energyplot(catmap_params, free_energies, ireaction)
@@ -73,9 +53,9 @@ function energyplot(catmap_params, free_energies, ireaction)
 	function get_label(state)
 		label = ""
 		for (species, c) in state
-			label *= (c > 0) ? "$c $species" : "" 
+			label *= (c > 0) ? "$(c > 1 ? c : "") $species + " : "" 
 		end
-		return label
+		return label[1:end-3]
 	end
 
 	(; educts, products, tstate) = catmap_params.reactions[ireaction]
@@ -99,17 +79,37 @@ function energyplot(catmap_params, free_energies, ireaction)
 	push!(labels, get_label(products))
 	push!(hlines, (0.66, 1.0))
 
-	f = Figure(; resolution=(600, 600))
+	f = Figure(; size=(800, 300))
 	ax = Axis(f[1, 1],
 	    title = "Energy Diagram",
 	    xlabel = "Reaction Path",
 	    ylabel = "Free Energy [eV]",
-		limits = (0, 1, -4, 4)
+		limits = (0, 1, -3, 3)
 	)
+	Gfs ./= ufac"eV"
 	hlines!(ax, Gfs, xmin=first.(hlines), xmax=last.(hlines))
 	text!(ax,first.(hlines).+0.02, Gfs, text=labels)
 	f
 end
+
+# ╔═╡ 0b0228fc-8ff0-4c04-b075-39597e1cbca4
+# ╠═╡ disabled = true
+#=╠═╡
+function compute_interface_free_energies!(
+	free_energies, catmap_params; 
+	θ = 0.0:0.02:0.06,
+	σ = surface_charge,
+	ϕ_we = -1.0:0.2:0.0,
+	ϕ = -1.0:0.2:0.0,
+	local_pH = 5.0:1.0:8.0
+)
+	nads = count(p->isa(p.second, AdsorbateSpecies), catmap_params.species_list)
+	θ = stack(reshape(collect(Iterators.product(fill(θ, nads)...),), :))
+	params = reshape(collect(Iterators.product(ϕ_we, ϕ, local_pH),), :)
+	params = stack([[ϕ_we, ϕ, σ(ϕ_we, ϕ), local_pH] for (ϕ_we, ϕ, local_pH) in params])
+	compute_interface_free_energies!(free_energies, catmap_params, θ, params)
+end
+  ╠═╡ =#
 
 # ╔═╡ 1cfbb9ef-8e32-4482-bf70-c5a63427d518
 function listmodels(datadir)
@@ -125,68 +125,196 @@ end
 # ╔═╡ 2273a044-adb2-45b1-b166-88b47f30ca68
 const models = listmodels("../data")
 
-# ╔═╡ bef65566-e229-440b-9a31-935a44c52cd6
-begin
-	catmap_params = parse_catmap_input(models["Au-model-simple"])
-	free_energies = compute_interface_free_energies(catmap_params)
+# ╔═╡ bd93f2e2-9368-4ea1-a58b-80ac76e15f59
+md"""
+#### Model
+$(@bind model_name PlutoUI.Select(collect(keys(models))))
+"""
+
+# ╔═╡ 667684f7-3835-4a4d-80ab-d9229b9c1898
+function Base.show(io::Base.IO, reaction::CatmapInterface.ParsedReaction)
+	educt_string = ""
+	for (educt, c) in reaction.educts
+		educt_string *= "$(c > 1 ? c : "") $educt + "
+	end
+
+	product_string = ""
+	for (product, c) in reaction.products
+		product_string *= "$(c > 1 ? c : "") $product + "
+	end
+
+	if !isnothing(reaction.tstate)
+		tstate_string = ""
+		for (s, c) in reaction.tstate.components
+			tstate_string *= "$(c > 1 ? c : "") $s + "
+		end
+		print(io, educt_string[1:end-3] * " <-> " * tstate_string[1:end-3] * " <-> " * product_string[1:end-3])
+	else
+		print(io, educt_string[1:end-3] * " <-> " * product_string[1:end-3])
+	end
+	nothing
 end
 
-# ╔═╡ 02ec7d2c-d70b-4959-b7e7-c4020cc071ad
-catmap_params
+# ╔═╡ a5599e78-e722-4212-9cd2-4a356b9a8382
+begin
+	@kwdef struct InterfaceParams{T <: Real}
+		θ::Dict{String, T}
+		ϕ_we::T
+		ϕ::T
+		σ::T
+		local_pH::T
+	end
+	function Base.isequal(a::InterfaceParams{T}, b::InterfaceParams{T}) where {T <: Real}
+		a.θ == b.θ && a.ϕ_we == b.ϕ_we && a.ϕ == b.ϕ && a.local_pH == b.local_pH 
+	end
+	function Base.hash(a::InterfaceParams{T}) where {T <: Real}
+		hash((; θ=a.θ, ϕ_we=a.ϕ_we, ϕ=a.ϕ, σ=a.σ, local_pH=a.local_pH))
+	end
+end
+
+# ╔═╡ 17b3ef9b-fa14-4bd8-841a-ad3d55bfeacf
+function reformulate(params_input)
+	(; ϕ_we, ϕ, local_pH) = params_input
+	θdict = Dict{String, Float64}()
+	for (k, v) in pairs(params_input)
+		k = String(k)
+		if k[1] == 'θ'
+			θdict[k[3:end]] = v
+		end
+	end
+	InterfaceParams(; θ=θdict, ϕ_we=ϕ_we, ϕ=ϕ, σ=surface_charge_relation(ϕ_we-ϕ), local_pH=local_pH)
+end
+
+# ╔═╡ ab25b4ab-3ab4-41d5-bc6d-c46d64b224ad
+begin
+	struct θProductIterator
+		prod
+		θnames
+		θProductIterator(θs) = new(Iterators.product(last.(θs)...), first.(θs))
+	end
+	function Iterators.iterate(iter::θProductIterator)
+		o = Iterators.iterate(iter.prod)
+		if isnothing(o)
+			return nothing
+		end
+		(first_item, initial_state) = o
+		return Dict(zip(iter.θnames, first_item)), initial_state
+	end
+	function Iterators.iterate(iter::θProductIterator, state)
+		next = Iterators.iterate(iter.prod, state)
+		if isnothing(next)
+			return nothing
+		end
+		(next_item, next_state) = next
+		return Dict(zip(iter.θnames, next_item)), next_state
+	end
+end
+
+# ╔═╡ c673b346-a6e0-4a26-8802-7edbad98643b
+begin
+	struct InterfaceParamsProductIterator
+		prod
+		surface_charge_relation
+		function InterfaceParamsProductIterator(; θ, ϕ_we, ϕ, local_pH, surface_charge_relation)
+			new(Iterators.product(θ, ϕ_we, ϕ, local_pH), surface_charge_relation)
+		end
+	end
+	function Iterators.iterate(iter::InterfaceParamsProductIterator)
+		o = Iterators.iterate(iter.prod)
+		if isnothing(o)
+			return nothing
+		end
+		(first_item, initial_state) = o
+		(θ, ϕ_we, ϕ, local_pH) = first_item
+		σ = iter.surface_charge_relation(ϕ_we - ϕ)
+		return InterfaceParams(; θ, ϕ_we, ϕ, σ, local_pH), initial_state
+	end
+	function Iterators.iterate(iter::InterfaceParamsProductIterator, state)
+		next = Iterators.iterate(iter.prod, state)
+		if isnothing(next)
+			return nothing
+		end
+		(next_item, next_state) = next
+		(θ, ϕ_we, ϕ, local_pH) = next_item
+		σ = iter.surface_charge_relation(ϕ_we - ϕ)
+		return InterfaceParams(θ, ϕ_we, ϕ, σ, local_pH), next_state
+	end
+end
+
+# ╔═╡ c0b84914-1c6a-4cae-bfaf-8dd64846d1fa
+eltype(iter::InterfaceParamsProductIterator) = InterfaceParams
+
+# ╔═╡ 7585bca0-bb38-4c55-8f0c-192bc7d690fb
+length(iter::InterfaceParamsProductIterator) = length(iter.prod)
+
+# ╔═╡ d38b5a63-9fc6-4148-ad30-ff22c2cdb3c6
+eltype(iter::θProductIterator) = Dict{String, eltype(iter.prod)}
+
+# ╔═╡ 7c73608a-54d1-4319-98c5-98c5061a391b
+length(iter::θProductIterator) = length(iter.prod)
+
+# ╔═╡ f4642fac-9bcd-44bd-ba67-2616ebff6ab1
+function CatmapInterface.compute_free_energies!(
+	free_energies::Dict{InterfaceParams, Dict{String, T}}, 
+	catmap_params, 
+	params
+) where {T <: Real}
+	for intparams in params
+		free_energies[intparams] = Dict([
+			sp => 0.0 
+			for sp in keys(catmap_params.species_list)
+		])
+		CatmapInterface.compute_free_energies!(free_energies[intparams], catmap_params, intparams)
+	end
+end
+
+# ╔═╡ 61c8ce78-3284-43d3-a7e4-c7c53abffc88
+begin
+	catmap_params = parse_catmap_input(models[model_name])
+	free_energies = Dict{InterfaceParams, Dict{String, Float64}}()
+	let
+		ads_species = filter(p->isa(p.second,AdsorbateSpecies), catmap_params.species_list)
+		θiter = θProductIterator(
+			ads_name => copy(θ)
+			for ads_name in keys(ads_species)
+		)
+		params = InterfaceParamsProductIterator(; θ=θiter, ϕ_we, ϕ, local_pH, surface_charge_relation)
+		CatmapInterface.compute_free_energies!(free_energies, catmap_params, params)
+	end
+end
+
+# ╔═╡ b983297c-697d-4058-a2ba-0003bd55d8dd
+md"""
+#### Reaction:
+$(@bind ireaction PlutoUI.Select([i => r for (i, r) in enumerate(catmap_params.reactions)]))
+"""
+
+# ╔═╡ c765b5a4-e706-4151-83b7-a27ee59ea068
+@bind params_input PlutoUI.combine() do Child
+	input_params = [
+		(; name="ϕ_we", range=ϕ_we, unit="V"),
+		(; name="ϕ", range=ϕ, unit="V"),
+		(; name="local_pH", range=local_pH, unit="")
+	]
+	ads_species = filter(p->isa(p.second,AdsorbateSpecies), catmap_params.species_list)
+	append!(input_params, [
+		(; name="θ$(first(p))", range=θ, unit="")
+		for p in ads_species
+	])
+
+	params_input = [
+		md""" $(name) : $(Child(name, PlutoUI.Slider(range, show_value=true))) $unit
+		"""
+		for (; name, range, unit) in input_params
+	]
+	md"""
+	#### Input Parameters:
+	$(params_input)
+	"""
+end
 
 # ╔═╡ e52df405-05f3-447d-907a-d1106aa47b15
-energyplot(catmap_params, free_energies[first(keys(free_energies))], 1)
-
-# ╔═╡ 44d25c73-cd7f-415e-bb1a-43af52c8ca47
-free_energies
-
-# ╔═╡ 2ec797c5-c334-4b57-9ef1-36b7cf13553a
-function savename(; θ, kwargs...)
-	fmt = "%.4f"
-	θstr = mapreduce(*, θ) do kv
-		(k, v) = first(kv), last(kv)
-		"θ$k=$(cfmt(fmt, v)),"
-	end
-	otherstr = mapreduce(*, kwargs) do kv
-		(k, v) = first(kv), last(kv)
-		"$k=$(cfmt(fmt, v)),"
-	end
-	θstr * otherstr[1:end-1]
-end
-
-# ╔═╡ 211cbc50-ba8b-49e5-b3a5-c84a5d9f7677
-function get_states(catmap_params)
-	states = Dict{String, Int}[]
-	species = keys(catmap_params.species_list)
-	start_state = Dict{String, Int}(zip(species, zeros(Int64, length(species))))
-	for reaction in catmap_params.reactions
-		for (educt, c) in reaction.educts
-			start_state[educt] += c
-		end
-		for (product, c) in reaction.products
-			start_state[product] -= c
-		end
-	end
-	for (s, c) in start_state
-		if start_state[s] < 0
-			start_state[s] = 0
-		end
-	end
-	push!(states, copy(start_state))
-	for reaction in catmap_params.reactions
-		for (educt, c) in reaction.educts
-			start_state[educt] -= c
-		end
-		for (product, c) in reaction.products
-			start_state[product] += c
-		end
-		push!(states, copy(start_state))
-	end
-	return states
-end
-
-# ╔═╡ d4b69ba8-5981-48d5-954e-c315dd7277f0
-get_states(catmap_params)
+energyplot(catmap_params, free_energies[reformulate(params_input)], ireaction)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -194,6 +322,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 CatmapInterface = "6b1bba67-9fa6-466a-8c93-71aaf28c16e6"
 Format = "1fa38f19-a742-5d3f-a2b9-30dd87b9d5f8"
+LessUnitful = "f29f6376-6e90-4d80-80c9-fb8ec61203d5"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
@@ -203,6 +332,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 CairoMakie = "~0.11.9"
 CatmapInterface = "~0.0.2"
 Format = "~1.3.6"
+LessUnitful = "~0.6.1"
 PlutoUI = "~0.7.58"
 Revise = "~3.5.14"
 """
@@ -213,7 +343,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.0"
 manifest_format = "2.0"
-project_hash = "06b0f460d069196b3dc08bbbabaafc58616cc989"
+project_hash = "6428564f510fbad2e6578dcae1fa2101945f09bc"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "41c37aa88889c171f1300ceac1313c06e891d245"
@@ -2724,17 +2854,25 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═252a1d28-d7eb-11ee-1f6a-990ae6a3184f
 # ╠═2273a044-adb2-45b1-b166-88b47f30ca68
-# ╠═0b0228fc-8ff0-4c04-b075-39597e1cbca4
-# ╠═bef65566-e229-440b-9a31-935a44c52cd6
-# ╠═02ec7d2c-d70b-4959-b7e7-c4020cc071ad
-# ╠═5fdb6ba2-cdce-48b0-9992-9f43f70cf95e
-# ╠═92188346-7a2f-4cdf-bca3-2fd54aeb6e9e
-# ╠═29d5bcf8-6332-4ab6-91ed-9d6cf30e5421
+# ╠═bb3b204b-5b55-4a70-ab14-ac4de457e563
+# ╠═66ed4181-1393-4ed0-9555-b3608b01f223
+# ╠═61c8ce78-3284-43d3-a7e4-c7c53abffc88
+# ╟─29d5bcf8-6332-4ab6-91ed-9d6cf30e5421
 # ╠═e52df405-05f3-447d-907a-d1106aa47b15
-# ╠═44d25c73-cd7f-415e-bb1a-43af52c8ca47
+# ╟─bd93f2e2-9368-4ea1-a58b-80ac76e15f59
+# ╟─b983297c-697d-4058-a2ba-0003bd55d8dd
+# ╟─c765b5a4-e706-4151-83b7-a27ee59ea068
+# ╟─0b0228fc-8ff0-4c04-b075-39597e1cbca4
+# ╟─17b3ef9b-fa14-4bd8-841a-ad3d55bfeacf
 # ╟─1cfbb9ef-8e32-4482-bf70-c5a63427d518
-# ╠═2ec797c5-c334-4b57-9ef1-36b7cf13553a
-# ╠═211cbc50-ba8b-49e5-b3a5-c84a5d9f7677
-# ╠═d4b69ba8-5981-48d5-954e-c315dd7277f0
+# ╠═667684f7-3835-4a4d-80ab-d9229b9c1898
+# ╠═a5599e78-e722-4212-9cd2-4a356b9a8382
+# ╠═c673b346-a6e0-4a26-8802-7edbad98643b
+# ╠═c0b84914-1c6a-4cae-bfaf-8dd64846d1fa
+# ╠═7585bca0-bb38-4c55-8f0c-192bc7d690fb
+# ╠═ab25b4ab-3ab4-41d5-bc6d-c46d64b224ad
+# ╠═d38b5a63-9fc6-4148-ad30-ff22c2cdb3c6
+# ╠═7c73608a-54d1-4319-98c5-98c5061a391b
+# ╠═f4642fac-9bcd-44bd-ba67-2616ebff6ab1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

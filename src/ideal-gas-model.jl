@@ -34,18 +34,18 @@ $(TYPEDFIELDS)
     """
     elements::Vector{Int}
     """
-    List of the masses of the molecule's atoms
+    List of the masses of the molecule's atoms in kg
     """
     masses::Vector{Float64}
     """
-    Matrix of 3D-positions with one row per atom in the molecule
+    Matrix of 3D-positions with one row per atom in the molecule in m
     """
     positions::Matrix{Float64}
     """
     """
     symmetrynumber::Int32
     """
-    List of normal modes of vibration
+    List of normal modes of vibration in m⁻¹ (wavenumbers)
     """
     frequencies::Vector{Float64}
     """
@@ -57,7 +57,7 @@ $(TYPEDFIELDS)
     """
     geometry::MoleculeGeometry
     """
-    Temperature of a canonical ensemble
+    Temperature of a canonical ensemble in K
     """
     temperature::Float64
 end
@@ -85,7 +85,7 @@ end
 Compute the entropy of an ideal gas
 """
 function entropy(idealgas::IdealGas)
-    @local_phconstants k_B h R ħ
+    @local_phconstants k_B h R ħ c_0
     @local_unitfactors bar eV atm
 
     N = length(idealgas.elements)
@@ -96,9 +96,9 @@ function entropy(idealgas::IdealGas)
     if geometry == monoatomic
         ω = []
     elseif geometry == linear
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 5)]
+        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 5)] .* c_0
     else
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 6)]
+        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 6)] .* c_0
     end
     S = idealgas.spin
     (IA, IB, IC) = momentsofinertia(idealgas)
@@ -124,7 +124,7 @@ end
 Compute the enthalpy of an ideal gas with 0 eV electronic ground-state energy
 """
 function enthalpy(idealgas::IdealGas)
-    @local_phconstants k_B h R
+    @local_phconstants k_B h R c_0
     @local_unitfactors eV
 
     N = length(idealgas.elements)
@@ -133,9 +133,9 @@ function enthalpy(idealgas::IdealGas)
     if geometry == monoatomic
         ω = []
     elseif geometry == linear
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 5)]
+        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 5)] .* c_0
     else
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 6)]
+        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 6)] .* c_0
     end
 
     zpe = h * sum(ω) / 2

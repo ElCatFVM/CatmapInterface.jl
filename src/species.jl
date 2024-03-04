@@ -52,7 +52,7 @@ struct GasSpecies <: AbstractSpecies
     """
     pressure::Float64
     """
-    Normal modes of vibration of the species in m⁻¹
+    Normal modes of vibration of the species in m⁻¹ (wavenumbers)
     """
     frequencies::Vector{Float64}
     """
@@ -100,7 +100,7 @@ struct AdsorbateSpecies <: AbstractSpecies
     """
     surface_name::String
     """
-    Normal modes of vibration of the species in m⁻¹
+    Normal modes of vibration of the species in m⁻¹ (wavenumbers)
     """
     frequencies::Vector{Float64}
     """

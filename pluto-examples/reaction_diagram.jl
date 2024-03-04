@@ -53,41 +53,63 @@ end
 # ╔═╡ 92188346-7a2f-4cdf-bca3-2fd54aeb6e9e
 function compute_interface_free_energies(
 	catmap_params, 
-	params::@NamedTuple{θ::Dict{String, Float64}, ϕ_we::Float64, ϕ::Float64, σ::Float64, local_pH::Float64}
+	params#::@NamedTuple{θ::Dict{String, Float64}, ϕ_we::Float64, ϕ::Float64, σ::Float64, local_pH::Float64}
 )
     (; θ, σ, ϕ_we, ϕ, local_pH) = params
 	free_energies 	= Dict([sp => 0.0 for sp in keys(catmap_params.species_list)])
-    CatmapInterface.compute_free_energies!(free_energies, catmap_params, θ, σ, ϕ_we, ϕ, local_pH)
+	CatmapInterface.compute_free_energies!(free_energies, catmap_params, θ, σ, ϕ_we, ϕ, local_pH)
     return params => free_energies
 end
 
 # ╔═╡ 29d5bcf8-6332-4ab6-91ed-9d6cf30e5421
+function energyplot(catmap_params, free_energies, ireaction)
+	function get_free_energy(state)
+		Gf = 0.0
+		for (species, c) in state
+			Gf += c * free_energies[species]
+		end
+		return Gf
+	end
+	function get_label(state)
+		label = ""
+		for (species, c) in state
+			label *= (c > 0) ? "$c $species" : "" 
+		end
+		return label
+	end
 
+	(; educts, products, tstate) = catmap_params.reactions[ireaction]
 
-# ╔═╡ bc2c277e-005b-4dee-be69-cde2380e09ad
-function energyplot(result, cell, vindex)
-	(; iϕ) = electrolytedata(cell)
-	sol = voltages_solutions(result)
-	Δϕ = sol.t .- sol[iϕ, 1, :]
-	Gf = @. [
-			Gf⁰_A⁺ + Gf⁰_site  + Gf⁰_e⁻(Δϕ);; 
-			Gf⁰_A⁺_ads + Gf⁰_e⁻(Δϕ);;
-			Gf⁰_A⁺_e⁻_ads(Δϕ);;
-			Gf⁰_A_ads + 0 * Δϕ;;
-			Gf⁰_A + Gf⁰_site + 0 * Δϕ
-	] ./ eV
+	Gfs = Float64[]
+	labels = String[]
+	hlines = Tuple{Float64, Float64}[]
+	
+	# educts
+	push!(Gfs, get_free_energy(educts))
+	push!(labels, get_label(educts))
+	push!(hlines, (0.0, 0.33))
+	# tstate
+	if !isnothing(tstate)
+		push!(Gfs, get_free_energy(tstate.components))
+		push!(labels, get_label(tstate.components))
+		push!(hlines, (0.33, 0.67))
+	end
+	# products
+	push!(Gfs, get_free_energy(products))
+	push!(labels, get_label(products))
+	push!(hlines, (0.66, 1.0))
+
 	f = Figure(; resolution=(600, 600))
 	ax = Axis(f[1, 1],
 	    title = "Energy Diagram",
 	    xlabel = "Reaction Path",
 	    ylabel = "Free Energy [eV]",
-		limits = (0, 1, -2, 2)
+		limits = (0, 1, -4, 4)
 	)
-	hlines!(ax, Gf[vindex,:], xmin=[0.0, 0.2,0.4,0.6, 0.8], xmax=[0.2,0.4,0.6, 0.8,1])
-	text!(ax,[0.0, 0.2,0.4,0.6, 0.8].+0.02, Gf[vindex, :], text=["A⁺(aq), *, e⁻", "*A⁺(ad), e⁻", "*A⁺-e⁻(ads)", "*A(ad)", "A(aq), *"])
+	hlines!(ax, Gfs, xmin=first.(hlines), xmax=last.(hlines))
+	text!(ax,first.(hlines).+0.02, Gfs, text=labels)
 	f
 end
-
 
 # ╔═╡ 1cfbb9ef-8e32-4482-bf70-c5a63427d518
 function listmodels(datadir)
@@ -109,9 +131,17 @@ begin
 	free_energies = compute_interface_free_energies(catmap_params)
 end
 
+# ╔═╡ 02ec7d2c-d70b-4959-b7e7-c4020cc071ad
+catmap_params
+
+# ╔═╡ e52df405-05f3-447d-907a-d1106aa47b15
+energyplot(catmap_params, free_energies[first(keys(free_energies))], 1)
+
+# ╔═╡ 44d25c73-cd7f-415e-bb1a-43af52c8ca47
+free_energies
+
 # ╔═╡ 2ec797c5-c334-4b57-9ef1-36b7cf13553a
 function savename(; θ, kwargs...)
-	@show θ
 	fmt = "%.4f"
 	θstr = mapreduce(*, θ) do kv
 		(k, v) = first(kv), last(kv)
@@ -123,6 +153,40 @@ function savename(; θ, kwargs...)
 	end
 	θstr * otherstr[1:end-1]
 end
+
+# ╔═╡ 211cbc50-ba8b-49e5-b3a5-c84a5d9f7677
+function get_states(catmap_params)
+	states = Dict{String, Int}[]
+	species = keys(catmap_params.species_list)
+	start_state = Dict{String, Int}(zip(species, zeros(Int64, length(species))))
+	for reaction in catmap_params.reactions
+		for (educt, c) in reaction.educts
+			start_state[educt] += c
+		end
+		for (product, c) in reaction.products
+			start_state[product] -= c
+		end
+	end
+	for (s, c) in start_state
+		if start_state[s] < 0
+			start_state[s] = 0
+		end
+	end
+	push!(states, copy(start_state))
+	for reaction in catmap_params.reactions
+		for (educt, c) in reaction.educts
+			start_state[educt] -= c
+		end
+		for (product, c) in reaction.products
+			start_state[product] += c
+		end
+		push!(states, copy(start_state))
+	end
+	return states
+end
+
+# ╔═╡ d4b69ba8-5981-48d5-954e-c315dd7277f0
+get_states(catmap_params)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2662,11 +2726,15 @@ version = "3.5.0+0"
 # ╠═2273a044-adb2-45b1-b166-88b47f30ca68
 # ╠═0b0228fc-8ff0-4c04-b075-39597e1cbca4
 # ╠═bef65566-e229-440b-9a31-935a44c52cd6
+# ╠═02ec7d2c-d70b-4959-b7e7-c4020cc071ad
 # ╠═5fdb6ba2-cdce-48b0-9992-9f43f70cf95e
 # ╠═92188346-7a2f-4cdf-bca3-2fd54aeb6e9e
 # ╠═29d5bcf8-6332-4ab6-91ed-9d6cf30e5421
-# ╠═bc2c277e-005b-4dee-be69-cde2380e09ad
+# ╠═e52df405-05f3-447d-907a-d1106aa47b15
+# ╠═44d25c73-cd7f-415e-bb1a-43af52c8ca47
 # ╟─1cfbb9ef-8e32-4482-bf70-c5a63427d518
 # ╠═2ec797c5-c334-4b57-9ef1-36b7cf13553a
+# ╠═211cbc50-ba8b-49e5-b3a5-c84a5d9f7677
+# ╠═d4b69ba8-5981-48d5-954e-c315dd7277f0
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

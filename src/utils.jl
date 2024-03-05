@@ -246,26 +246,26 @@ function get_ideal_gas_params(name)
 end
 
 """
-    instantiate_catmap_template(template_file_path, params)
+    instantiate_catmap_template!(instance_file_path, template_file_path, params)
 
-Instantiate a template file by inserting the parameters in the `NamedTuple` `params`.
+Instantiate a template file by inserting the parameters in the `params`.
 """
-function instantiate_catmap_template!(instance_file_path, template_file_path, params)
-    (; σ, ϕ_we, ϕ, local_pH, T) = params
+function instantiate_catmap_template!(instance_file_path, template_file_path, params, T)
+    (; σ, ϕ_we, ϕ, local_pH) = params
     instance_string = open(template_file_path, "r") do template_file
         read(template_file, String)
     end
 
-	replacements = Dict(
+	replacements = [
 		r"descriptor_ranges.?=.*" =>"descriptor_ranges = [[$ϕ_we, $ϕ_we], [$T, $T]]",
 		r"voltage_diff_drop.?=.*" => "voltage_diff_drop = $ϕ",
 		r"pH.?=.*" => "pH = $local_pH",
 		r"\nsigma_input.?=.*" => "\nsigma_input = $σ/0.01", # in μF/cm^2
-	)
-    replace!(instance_string, replacements...)
+	]
+    instance_string = replace(instance_string, replacements...)
 
     open(instance_file_path, "w") do instance_file
-        write(instance_file, input_instance_string)
+        write(instance_file, instance_string)
     end
 
     return instance_file_path

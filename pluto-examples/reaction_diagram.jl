@@ -18,20 +18,20 @@ end
 begin
     import Pkg as _Pkg
     haskey(ENV, "PLUTO_PROJECT") && _Pkg.activate(ENV["PLUTO_PROJECT"])
-	using Revise
+	# using Revise
     using Test
 	using PlutoUI
 	using Format
 	using CatmapInterface
 	using LessUnitful
-	using PyCall
     using CairoMakie
     CairoMakie.activate!(; type = "svg", visible = false)
 end;
 
-# ╔═╡ 08fa8dfb-efe4-4009-aa35-d71e84cf3a2c
-if haskey(ENV, "CATMAP")
-    pushfirst!(pyimport("sys")."path", ENV["CATMAP"])
+# ╔═╡ af65d97c-dae1-4ea8-8a95-58bbd2ffd80a
+begin
+	include("Utils.jl")
+	using .Utils
 end
 
 # ╔═╡ 1cfbb9ef-8e32-4482-bf70-c5a63427d518
@@ -111,7 +111,7 @@ function energyplot(catmap_params, free_energies, ireaction)
 	    title = "Energy Diagram",
 	    xlabel = "Reaction Path",
 	    ylabel = "Free Energy [eV]",
-		limits = (0, 1, -3, 3)
+		limits = (0, 1, -1, 5)
 	)
 	Gfs ./= ufac"eV"
 	hlines!(ax, Gfs, xmin=first.(hlines), xmax=last.(hlines))
@@ -169,106 +169,87 @@ $(@bind ireaction PlutoUI.Select([i => r for (i, r) in enumerate(catmap_params_d
 	"""
 end
 
+# ╔═╡ 01e29eca-6a92-4b32-a6a4-79248402a87a
+const params_dict = let
+	ps = []
+	for (model_name, catmap_params) in catmap_params_dict
+		ads_species = CatmapInterface.adsorbatespecies(catmap_params.species_list)
+		θiter = Utils.θProductIterator(
+			ads_name => copy(θ) for ads_name in keys(ads_species)
+		)
+		push!(ps, model_name => 
+			Utils.InterfaceParamsProductIterator(; θ=θiter, ϕ_we=copy(ϕ_we), ϕ=copy(ϕ), 						local_pH=copy(local_pH), surface_charge_relation)
+		)
+	end
+	Dict(ps)
+end
+
 # ╔═╡ 04dab72e-a847-4470-816b-4c94931019fb
 md"""
 ### Free Energy Calculations
 """
+
+# ╔═╡ 9b06dd0d-721a-4947-b749-f59d722d3420
+begin 
+	const free_energies_dict = Dict(
+		model_name => Dict{CatmapInterface.InterfaceParams, Dict{String, Float64}}()
+		for model_name in keys(models)
+	)
+	for model_name in keys(models)
+		catmap_params 	= catmap_params_dict[model_name]
+		params 			= params_dict[model_name]
+		CatmapInterface.compute_free_energies!(
+			free_energies_dict[model_name], catmap_params, params
+		)
+	end
+end
+
+# ╔═╡ e52df405-05f3-447d-907a-d1106aa47b15
+let
+	catmap_params = catmap_params_dict[model_name]
+	free_energies = free_energies_dict[model_name][reformulate(params_input)]
+	energyplot(catmap_params, free_energies, ireaction)
+end
 
 # ╔═╡ 0b857ada-a26a-4637-8f57-8262a0c13ca2
 md"""
 ### Tests
 """
 
-# ╔═╡ 5d4f5646-8d9e-45ea-b238-5bfed9e9d531
+# ╔═╡ 6fe83143-ae95-426b-8242-bde4f830fb07
 begin
-py"""
-from catmap import ReactionModel
-import catmap
-
-def catmap_kinetic_model(setup_file, theta):
-
-    # ReactionModel is the main class that is initialized with a setup-file
-    model = ReactionModel(setup_file=setup_file)
-
-    # some solver parameters have to be set manually (?!)
-    import mpmath as mp
-    model.solver._mpfloat = mp.mpf
-    model.solver._math = mp
-    model.solver._matrix = mp.matrix
-
-    model.solver.compile() # compiles all templates, here (rate_constants) are needed
-
-    # Set up interaction model.
-    if model.adsorbate_interaction_model == 'first_order':
-        interaction_model = \
-            catmap.thermodynamics.FirstOrderInteractions(model)
-        interaction_model.get_interaction_info()
-        response_func = interaction_model.interaction_response_function
-        if not callable(response_func):
-            int_function = getattr(interaction_model,
-                                    response_func+'_response')
-            interaction_model.interaction_response_function = int_function
-        model.thermodynamics.__dict__['adsorbate_interactions'] = interaction_model
-    elif model.adsorbate_interaction_model in ['ideal',None]:
-        model.thermodynamics.adsorbate_interactions = None
-    else:
-        raise AttributeError(
-                'Invalid adsorbate_interaction_model specified.')
-
-    descriptor_values = [descriptor_range[0] for descriptor_range in model.descriptor_ranges]
-    rxn_parameters = model.scaler.get_rxn_parameters(descriptor_values)
-    n_tot = len(model.adsorbate_names) + len(model.transition_state_names)
-    energies = rxn_parameters[:n_tot]
-    if len(rxn_parameters) == n_tot + n_tot**2:
-        interaction_vector = rxn_parameters[-n_tot**2:]
-    elif len(rxn_parameters) == n_tot:
-        interaction_vector = [0]*n_tot**2
-    F = model.interaction_response_function if hasattr(model, 'interaction_response_function') else None
-    theta = [theta[species] for species in model.adsorbate_names] + len(model.transition_state_names) * [0.0]
-    _, Gf, _ = model.interaction_function(theta, energies, interaction_vector, F)
-
-    energies = {
-        k:v for k, v in zip(
-            model.adsorbate_names + model.transition_state_names,
-            Gf
-        )
-    }
-    for k, v in zip(model.gas_names, model.solver._gas_energies):
-        energies[k] = v
-    for k, v in zip(model.site_names, model.solver._site_energies):
-        energies[k] = v
-
-    return energies
-"""
-catmap_kinetic_model = py"catmap_kinetic_model"
-end
-
-# ╔═╡ a9776b31-a571-49ef-97dd-998366b752fa
-function compute_catmap_free_energies!(
-	free_energies::Dict{CatmapInterface.InterfaceParams, Dict{String, T}}, 
-	catmap_template_path, 
-	params
-) where {T <: Real}
-	(dname, fname) = splitdir(catmap_template_path)
-	catmap_instance_path = joinpath(dname,
-		replace(fname, 
-			r"(?<pre>.*)_template(?<post>.*)" => s"\g<pre>_instance\g<post>"
-		)
+	const catmap_free_energies_dict = Dict(
+		model_name => Dict{CatmapInterface.InterfaceParams, Dict{String, Float64}}()
+		for model_name in keys(models)
 	)
-	for intparams in params
-		CatmapInterface.instantiate_catmap_template!(catmap_instance_path, catmap_template_path, intparams, temp)
-		free_energies[intparams] = Dict{String, Float64}()
-		compute_catmap_free_energies!(free_energies[intparams], catmap_instance_path, intparams)
-		rm(catmap_instance_path)
+	for (model_name, catmap_template_path) in models
+		params = params_dict[model_name]
+		Utils.compute_catmap_free_energies!(
+			catmap_free_energies_dict[model_name], catmap_template_path, params
+		)
 	end
 end
 
 # ╔═╡ 79ba095b-dc84-44c5-863e-d7d70322254d
 const rtol = 1.0e-5
 
+# ╔═╡ f6a9addf-c580-4ae9-b9c2-0b978d6216b9
+@testset "model=$model_name" for model_name in keys(models)
+	free_energies_ps = free_energies_dict[model_name]
+	catmap_free_energies_ps = catmap_free_energies_dict[model_name]
+	params = params_dict[model_name]
+	@testset "$(convert(String, intparams))" for intparams in params
+		free_energies = free_energies_ps[intparams]
+		catmap_free_energies = catmap_free_energies_ps[intparams]
+		@testset "species=$species" for (species, free_energy) in free_energies
+	        @test isapprox(free_energy/ufac"eV", catmap_free_energies[species]; rtol)
+	    end 
+	end
+end
+
 # ╔═╡ 2e2e73b2-288a-43fd-a9aa-5f189b545825
 md"""
-### Some Base Extensions
+### Improve Printing of ParsedReactions
 """
 
 # ╔═╡ 667684f7-3835-4a4d-80ab-d9229b9c1898
@@ -295,198 +276,6 @@ function Base.show(io::Base.IO, reaction::CatmapInterface.ParsedReaction)
 	nothing
 end
 
-# ╔═╡ a5599e78-e722-4212-9cd2-4a356b9a8382
-begin
-	function Base.isequal(a::CatmapInterface.InterfaceParams{T}, b::CatmapInterface.InterfaceParams{T}) where {T <: Real}
-		a.θ == b.θ && a.ϕ_we == b.ϕ_we && a.ϕ == b.ϕ && a.local_pH == b.local_pH 
-	end
-	function Base.hash(a::CatmapInterface.InterfaceParams{T}) where {T <: Real}
-		hash((; θ=a.θ, ϕ_we=a.ϕ_we, ϕ=a.ϕ, σ=a.σ, local_pH=a.local_pH))
-	end
-end
-
-# ╔═╡ 54f769b6-2cc6-4e88-aa06-cd6e74b75234
-md"""
-### Product Iterators
-"""
-
-# ╔═╡ c673b346-a6e0-4a26-8802-7edbad98643b
-begin
-	struct InterfaceParamsProductIterator
-		prod
-		surface_charge_relation
-		function InterfaceParamsProductIterator(; θ, ϕ_we, ϕ, local_pH, surface_charge_relation)
-			new(Iterators.product(θ, ϕ_we, ϕ, local_pH), surface_charge_relation)
-		end
-	end
-	function Iterators.iterate(iter::InterfaceParamsProductIterator)
-		o = Iterators.iterate(iter.prod)
-		if isnothing(o)
-			return nothing
-		end
-		(first_item, initial_state) = o
-		(θ, ϕ_we, ϕ, local_pH) = first_item
-		σ = iter.surface_charge_relation(ϕ_we - ϕ)
-		return CatmapInterface.InterfaceParams(; θ, ϕ_we, ϕ, σ, local_pH), initial_state
-	end
-	function Iterators.iterate(iter::InterfaceParamsProductIterator, state)
-		next = Iterators.iterate(iter.prod, state)
-		if isnothing(next)
-			return nothing
-		end
-		(next_item, next_state) = next
-		(θ, ϕ_we, ϕ, local_pH) = next_item
-		σ = iter.surface_charge_relation(ϕ_we - ϕ)
-		return CatmapInterface.InterfaceParams(θ, ϕ_we, ϕ, σ, local_pH), next_state
-	end
-	Base.eltype(iter::InterfaceParamsProductIterator) = CatmapInterface.InterfaceParams
-	Base.length(iter::InterfaceParamsProductIterator) = length(iter.prod)
-end;
-
-# ╔═╡ ab25b4ab-3ab4-41d5-bc6d-c46d64b224ad
-begin
-	struct θProductIterator
-		prod
-		θnames
-		θProductIterator(θs) = new(Iterators.product(last.(θs)...), first.(θs))
-	end
-	function Base.iterate(iter::θProductIterator)
-		o = Iterators.iterate(iter.prod)
-		if isnothing(o)
-			return nothing
-		end
-		(first_item, initial_state) = o
-		return Dict(zip(iter.θnames, first_item)), initial_state
-	end
-	function Base.iterate(iter::θProductIterator, state)
-		next = Iterators.iterate(iter.prod, state)
-		if isnothing(next)
-			return nothing
-		end
-		(next_item, next_state) = next
-		return Dict(zip(iter.θnames, next_item)), next_state
-	end
-	Base.eltype(iter::θProductIterator) = Dict{String, eltype(iter.prod)}
-	Base.length(iter::θProductIterator) = length(iter.prod)
-end
-
-# ╔═╡ 01e29eca-6a92-4b32-a6a4-79248402a87a
-const params_dict = let
-	ps = []
-	for (model_name, catmap_params) in catmap_params_dict
-		ads_species = CatmapInterface.adsorbatespecies(catmap_params.species_list)
-		θiter = θProductIterator(
-			ads_name => copy(θ) for ads_name in keys(ads_species)
-		)
-		push!(ps, model_name => 
-			InterfaceParamsProductIterator(; θ=θiter, ϕ_we=copy(ϕ_we), ϕ=copy(ϕ), 						local_pH=copy(local_pH), surface_charge_relation)
-		)
-	end
-	Dict(ps)
-end
-
-# ╔═╡ 9b06dd0d-721a-4947-b749-f59d722d3420
-begin 
-	const free_energies_dict = Dict(
-		model_name => Dict{CatmapInterface.InterfaceParams, Dict{String, Float64}}()
-		for model_name in keys(models)
-	)
-	for model_name in keys(models)
-		catmap_params 	= catmap_params_dict[model_name]
-		params 			= params_dict[model_name]
-		CatmapInterface.compute_free_energies!(
-			free_energies_dict[model_name], catmap_params, params
-		)
-	end
-end
-
-# ╔═╡ e52df405-05f3-447d-907a-d1106aa47b15
-let
-	catmap_params = catmap_params_dict[model_name]
-	free_energies = free_energies_dict[model_name][reformulate(params_input)]
-	energyplot(catmap_params, free_energies, ireaction)
-end
-
-# ╔═╡ 2a18dae3-9f0e-4db2-82c0-f8c87f6344ff
-function Base.convert(::Type{String}, intparams::CatmapInterface.InterfaceParams)
-	(; θ, ϕ_we, ϕ, σ, local_pH) = intparams
-	fmt = "%.5f"
-	θstr = mapreduce(*, θ) do kv
-		(k, v) = first(kv), last(kv)
-		"θ$k=$(cfmt(fmt, v)),"
-	end
-	otherstr = mapreduce(*,["ϕ_we"=>ϕ_we, "ϕ"=>ϕ, "σ"=>σ, "local_pH"=>local_pH]) do kv
-		(k, v) = first(kv), last(kv)
-		"$k=$(cfmt(fmt, v)),"
-	end
-	return θstr * otherstr[1:end-1]
-end
-
-# ╔═╡ 684f54b6-5582-4afa-89e6-fb12cc3f90aa
-function Base.convert(::Type{CatmapInterface.InterfaceParams}, s)
-	ps = split.(split(s, ","), "=")
-	ps = Dict(pname => parse(Float64, pvalue) for (pname, pvalue) in ps)
-	θdict = Dict{String, Float64}()
-	for (k, v) in ps
-		k = String(k)
-		if k[1] == 'θ'
-			θdict[k[3:end]] = v
-		end
-	end
-	CatmapInterface.InterfaceParams(; θ=θdict, ϕ_we=ps["ϕ_we"], ϕ=ps["ϕ"], σ=ps["σ"], local_pH=ps["local_pH"])
-end
-
-# ╔═╡ 13f7d534-e8af-4290-ae35-fbd4008e8039
-function compute_catmap_free_energies!(free_energies, catmap_instance_path, params)
-    (; θ) = params
-    starting_dir = pwd()
-    catmap_instance_path = abspath(catmap_instance_path)
-    cd(dirname(catmap_instance_path))
-    local tmp
-	try
-        tmp = catmap_kinetic_model(catmap_instance_path, θ)
-	finally
-        cd(starting_dir)
-    end
-	for (k, v) in tmp
-		if length(k) == 1 && k != "g"
-			free_energies["_$k"] = convert(Float64, v)
-		else
-			free_energies[k] = convert(Float64, v)
-		end
-	end
-    nothing
-end
-
-# ╔═╡ 6fe83143-ae95-426b-8242-bde4f830fb07
-begin
-	const catmap_free_energies_dict = Dict(
-		model_name => Dict{CatmapInterface.InterfaceParams, Dict{String, Float64}}()
-		for model_name in keys(models)
-	)
-	for (model_name, catmap_template_path) in models
-		#catmap_template_path = abspath(catmap_template_path)
-		params 			= params_dict[model_name]
-		compute_catmap_free_energies!(
-			catmap_free_energies_dict[model_name], catmap_template_path, params
-		)
-	end
-end
-
-# ╔═╡ f6a9addf-c580-4ae9-b9c2-0b978d6216b9
-@testset "model=$model_name" for model_name in keys(models)
-	free_energies_ps = free_energies_dict[model_name]
-	catmap_free_energies_ps = catmap_free_energies_dict[model_name]
-	params = params_dict[model_name]
-	@testset "$(convert(String, intparams))" for intparams in params
-		free_energies = free_energies_ps[intparams]
-		catmap_free_energies = catmap_free_energies_ps[intparams]
-		@testset "species=$species" for (species, free_energy) in free_energies
-	        @test isapprox(free_energy/ufac"eV", catmap_free_energies[species]; rtol)
-	    end 
-	end
-end
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -496,8 +285,6 @@ Format = "1fa38f19-a742-5d3f-a2b9-30dd87b9d5f8"
 LessUnitful = "f29f6376-6e90-4d80-80c9-fb8ec61203d5"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
@@ -506,8 +293,6 @@ CatmapInterface = "~0.0.2"
 Format = "~1.3.6"
 LessUnitful = "~0.6.1"
 PlutoUI = "~0.7.58"
-PyCall = "~1.96.4"
-Revise = "~3.5.14"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -516,7 +301,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.0"
 manifest_format = "2.0"
-project_hash = "d2c1dba0e4124399bc4dbe02fab63517ed6a7a2a"
+project_hash = "a5a49947f76aa3475ce87551e4713635e2fa0c83"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "41c37aa88889c171f1300ceac1313c06e891d245"
@@ -757,12 +542,6 @@ deps = ["Static", "StaticArrayInterface"]
 git-tree-sha1 = "70232f82ffaab9dc52585e0dd043b5e0c6b714f1"
 uuid = "fb6a15b2-703c-40df-9091-08a04967cfa9"
 version = "0.1.12"
-
-[[deps.CodeTracking]]
-deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "c0216e792f518b39b22212127d4a84dc31e4e386"
-uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "1.3.5"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -1515,12 +1294,6 @@ git-tree-sha1 = "fde717f9e3fe6ffb0336bcc2142cfa71dd9df1f5"
 uuid = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 version = "1.0.50"
 
-[[deps.JuliaInterpreter]]
-deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "7b762d81887160169ddfc93a47e5fd7a6a3e78ef"
-uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.9.29"
-
 [[deps.JumpProcesses]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DocStringExtensions", "FunctionWrappers", "Graphs", "LinearAlgebra", "Markdown", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "SciMLBase", "StaticArrays", "UnPack"]
 git-tree-sha1 = "c451feb97251965a9fe40bacd62551a72cc5902c"
@@ -1777,12 +1550,6 @@ weakdeps = ["ChainRulesCore", "ForwardDiff", "SpecialFunctions"]
     [deps.LoopVectorization.extensions]
     ForwardDiffExt = ["ChainRulesCore", "ForwardDiff"]
     SpecialFunctionsExt = "SpecialFunctions"
-
-[[deps.LoweredCodeUtils]]
-deps = ["JuliaInterpreter"]
-git-tree-sha1 = "31e27f0b0bf0df3e3e951bfcc43fe8c730a219f6"
-uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-version = "2.4.5"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -2363,12 +2130,6 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
-
-[[deps.Revise]]
-deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "12aa2d7593df490c407a3bbd8b86b8b515017f3e"
-uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.5.14"
 
 [[deps.RingLists]]
 deps = ["Random"]
@@ -3026,7 +2787,7 @@ version = "3.5.0+0"
 
 # ╔═╡ Cell order:
 # ╠═252a1d28-d7eb-11ee-1f6a-990ae6a3184f
-# ╠═08fa8dfb-efe4-4009-aa35-d71e84cf3a2c
+# ╠═af65d97c-dae1-4ea8-8a95-58bbd2ffd80a
 # ╟─1cfbb9ef-8e32-4482-bf70-c5a63427d518
 # ╠═2273a044-adb2-45b1-b166-88b47f30ca68
 # ╠═bb3b204b-5b55-4a70-ab14-ac4de457e563
@@ -3042,19 +2803,10 @@ version = "3.5.0+0"
 # ╟─04dab72e-a847-4470-816b-4c94931019fb
 # ╠═9b06dd0d-721a-4947-b749-f59d722d3420
 # ╟─0b857ada-a26a-4637-8f57-8262a0c13ca2
-# ╟─5d4f5646-8d9e-45ea-b238-5bfed9e9d531
-# ╠═13f7d534-e8af-4290-ae35-fbd4008e8039
-# ╠═a9776b31-a571-49ef-97dd-998366b752fa
 # ╠═6fe83143-ae95-426b-8242-bde4f830fb07
 # ╠═79ba095b-dc84-44c5-863e-d7d70322254d
 # ╠═f6a9addf-c580-4ae9-b9c2-0b978d6216b9
 # ╟─2e2e73b2-288a-43fd-a9aa-5f189b545825
 # ╠═667684f7-3835-4a4d-80ab-d9229b9c1898
-# ╠═a5599e78-e722-4212-9cd2-4a356b9a8382
-# ╟─54f769b6-2cc6-4e88-aa06-cd6e74b75234
-# ╠═c673b346-a6e0-4a26-8802-7edbad98643b
-# ╠═ab25b4ab-3ab4-41d5-bc6d-c46d64b224ad
-# ╠═2a18dae3-9f0e-4db2-82c0-f8c87f6344ff
-# ╠═684f54b6-5582-4afa-89e6-fb12cc3f90aa
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

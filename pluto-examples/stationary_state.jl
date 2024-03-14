@@ -51,6 +51,9 @@ end
 # ╔═╡ 80528835-701e-4b9d-a15d-5f36433e39fa
 const models = listmodels(joinpath("..", "data"))
 
+# ╔═╡ ce979e00-c49f-4ca9-97eb-e990162bc4be
+const SymmapType = Vector{Pair{Symbol, Float64}}
+
 # ╔═╡ d8bc0043-3960-420f-8237-024cb6c0e2c4
 md"""
 #### Structural Parameters
@@ -58,20 +61,30 @@ md"""
 
 # ╔═╡ 3942627a-621d-4e3e-ab4d-6dee080557c9
 begin
-	const θ 		= 0.2:0.2:0.2
-	const ϕ_we 		= -1.0:0.5:0.0
-	const ϕ 		= -1.0:0.5:0.0
-	const local_pH 	= 6.0:2.0:8.0
-	const ϕ_pzc 	= 0.16 * ufac"V"
-	const C_gap 	= 0.2 * ufac"F"
-	const temp 		= 298 * ufac"K"
+	const ϕ_we_iter      = -1.0:0.5:0.0
+	const ϕ_iter         = -1.0:0.5:0.0
+	const local_pH_iter  = 6.0:2.0:8.0
+	const ϕ_pzc          = 0.16 * ufac"V"
+	const C_gap          = 0.2 * ufac"F"
+	const temp 	         = 298 * ufac"K"
 	surface_charge_relation(Δϕ) = round(C_gap * (Δϕ - ϕ_pzc); digits=6)
+end;
+
+# ╔═╡ 9af57aec-4d83-4a15-bb5a-599705b06387
+md"""
+#### Initial Data
+"""
+
+# ╔═╡ e0e61b0d-c071-43cf-86a5-5ff140179f92
+begin
+	u0gas = 1.0 * ufac"bar"
+	θ0    = 1.0e-10
 end;
 
 # ╔═╡ bea2dbf3-c98a-4817-87f0-729156bbea4b
 md"""
 #### Model
-$(@bind model_name PlutoUI.Select(collect(keys(models))))
+$(@bind model_name PlutoUI.Select(collect(keys(models)), default="Au-model-simple"))
 """
 
 # ╔═╡ 447eb575-5e95-4d2a-a356-bc5a2ff84557
@@ -79,21 +92,6 @@ const catmap_params_dict = Dict([
 	model_name => parse_catmap_input(model_template_path)
 	for (model_name, model_template_path) in models
 ])
-
-# ╔═╡ 393f69a6-037e-4194-aa1e-a8796928459c
-const params_dict = let
-	ps = []
-	for (model_name, catmap_params) in catmap_params_dict
-		ads_species = CatmapInterface.adsorbatespecies(catmap_params.species_list)
-		θiter = Utils.θProductIterator(
-			ads_name => copy(θ) for ads_name in keys(ads_species)
-		)
-		push!(ps, model_name => 
-			Utils.InterfaceParamsProductIterator(; θ=θiter, ϕ_we=copy(ϕ_we), ϕ=copy(ϕ), 						local_pH=copy(local_pH), surface_charge_relation)
-		)
-	end
-	Dict(ps)
-end
 
 # ╔═╡ 4cf13019-7a25-4f4f-90d7-6d20d871e9dd
 function conserve_pressures!(rn, catmap_params)
@@ -118,82 +116,88 @@ begin
 	odesys = convert(ODESystem, rn)
 end
 
-# ╔═╡ 1bd452fc-c967-4556-bd95-2a2345500811
-ssprob = let
-	params = first(params_dict[model_name])
-	u0 = symmap_to_varmap(odesys, [
-		:CO2_g  => 1.0,
-		:CO_g   => 1.0,
-		:OH_g   => 1.0,
-		:H2_g   => 1.0,
-		:CO2_t  => 0.0001,
-		:CO_t   => 0.0001,
-		:COOH_t => 0.0001,
-	])
-	ps = symmap_to_varmap(odesys,[
-		[psym => getfield(params, psym) for psym in [:ϕ_we, :ϕ, :local_pH]];
-		[
-			:a_t    => 1.0,
-			:γCO2_g => 1.0,
-			:γCO_g  => 1.0,
+# ╔═╡ 888607af-2af0-4c1e-91c9-c785054a3e1e
+function add_param_iter!(param_iter_dict, model_name, catmap_params)
+	(; species_list, electrochemical_thermo_mode) = catmap_params
+	param_list = @NamedTuple{u0::SymmapType, ps::SymmapType}[]
+	for (ϕ_we, ϕ, local_pH) in Iterators.product(ϕ_we_iter, ϕ_iter, local_pH_iter)
+		ps = [
+			:ϕ_we     => ϕ_we,
+			:ϕ        => ϕ,
+			:local_pH => local_pH,
 			:aH2O_g => 1.0,
-			:γH2_g  => 1.0,
 		]
-	])
-	ODEProblem(odesys, u0, (0, 1.0e-5), ps)
+		if electrochemical_thermo_mode == :hbond_surface_charge_density
+			push!(ps, :σ => surface_charge_relation(ϕ_we - ϕ))
+		end
+		u0 = SymmapType()
+		for (s, sp) in species_list
+			if isa(sp, GasSpecies) && s ≠ "H2O_g"
+				push!(ps, Symbol("γ$s") => 1.0)
+				push!(u0, Symbol(s) => u0gas)
+			elseif isa(sp, FictiousSpecies) && s ≠ "ele_g"
+				push!(u0, Symbol(s) => u0gas)
+			elseif isa(sp, AdsorbateSpecies)
+				push!(u0, Symbol(s) => θ0)
+			end
+		end
+		push!(param_list, (; u0=u0, ps=ps))
+	end
+	param_iter_dict[model_name] = param_list
 end
 
-# ╔═╡ 88483ea0-8f8e-4bd2-a911-d5c8c39fc437
-sol = solve(ssprob, Rosenbrock23())
-
-# ╔═╡ 4c3b8787-9e69-4518-8fae-ebaa4da0226d
-sol[:CO2_t]
-
-# ╔═╡ 300425f4-2c90-4157-9485-f2d5fc2e3661
-conservationlaws(rn)
-
-# ╔═╡ 790c4532-729b-4efe-9074-251b8f20ca46
-let
-	@variables t
-	@species A(t), _t(t), A_t(t)
-	testmodel = @reaction_network TestModel begin
-		(0.5, 0.5), A + _t <--> A_t
+# ╔═╡ 2977286d-df7a-48bf-9b6b-2a9c2fc63404
+begin
+	param_iter_dict = Dict{
+		String, 
+		Vector{@NamedTuple{u0::SymmapType, ps::SymmapType}}
+	}()
+	for (model_name, catmap_params) in catmap_params_dict
+		add_param_iter!(param_iter_dict, model_name, catmap_params)
 	end
-	conservationlaws(testmodel)
-	conservationlaw_constants(testmodel)
-	#testrn = extend(ODESystem([1 ~ _t + A_t], t; name=:res), testmodel)
+end
+
+# ╔═╡ dccead6e-5773-4312-84b2-b88c88725bbb
+function ssolve!(ssols, odesys, ParamIter)
+	for params in ParamIter
+		(; u0, ps) = params
+		ssprob = SteadyStateProblem(
+			odesys, 
+			symmap_to_varmap(odesys, u0), 
+			symmap_to_varmap(odesys, ps)
+		)
+		ssols[params] = solve(ssprob, DynamicSS(Rodas5P()))
+	end
+end
+
+# ╔═╡ fac037c8-bbaa-4e81-8658-6b35faa34c37
+begin
+	ssols_dict = Dict{String, Dict{
+			@NamedTuple{u0::SymmapType, ps::SymmapType}, 
+			SciMLBase.NonlinearSolution
+		}}()
+	for model_name in keys(models)
+		rn = create_reaction_network(catmap_params_dict[model_name])
+		conserve_pressures!(rn, catmap_params_dict[model_name])
+		odesys = convert(ODESystem, rn)
+		ssols_dict[model_name] = Dict{
+			@NamedTuple{u0::SymmapType, ps::SymmapType}, 
+			SciMLBase.NonlinearSolution
+		}()
+		ssolve!(ssols_dict[model_name], odesys, param_iter_dict[model_name])
+	end
 end
 
 # ╔═╡ a640ab74-d76e-4d88-8e7e-16ad5383a335
 let
-	params = first(params_dict[model_name])
-	ps = symmap_to_varmap(odesys,[
-		[psym => getfield(params, psym) for psym in [:ϕ_we, :ϕ, :local_pH]];
-		[
-			:a_t    => 1.0,
-			:γCO2_g => 1.0,
-			:γCO_g  => 1.0,
-			:aH2O_g => 1.0,
-			:γH2_g  => 1.0,
-		]
-	])
-	substitute(substitute(reactionrates(rn)[1], ps), Dict(sp => sol[sp, 1] for sp in species(rn)))
+	rn = create_reaction_network(catmap_params_dict[model_name])
+	params, ssol = first(ssols_dict[model_name])
+	(; ps) = params
+	substitute(
+		substitute(reactionrates(rn)[1], symmap_to_varmap(rn, ps)), 
+		Dict(sp => ssol[sp] for sp in species(rn))
+	)
 end
-
-# ╔═╡ 98507fd0-9012-4e11-b0c2-d5ddc7d864ca
-symmap_to_varmap(rn, sol[1])
-
-# ╔═╡ fa4698b0-9062-4ee1-a532-c9e40953333d
-propertynames(sol)
-
-# ╔═╡ 815864a6-44ae-448d-84eb-e93d17d887f4
-sol[species(rn)[3], 1]
-
-# ╔═╡ a6c63939-c2e9-40db-a70a-64460a049a6b
-equations(rn)
-
-# ╔═╡ fd6a06a5-6ae0-468d-8dd7-82a8624c7342
-reactions(rn)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2817,23 +2821,19 @@ version = "3.5.0+0"
 # ╠═af7335cb-f6c0-43bb-8f97-6543daf13768
 # ╠═a730c7ff-883d-4918-8156-cdf71901ddde
 # ╠═80528835-701e-4b9d-a15d-5f36433e39fa
+# ╠═ce979e00-c49f-4ca9-97eb-e990162bc4be
 # ╟─d8bc0043-3960-420f-8237-024cb6c0e2c4
 # ╠═3942627a-621d-4e3e-ab4d-6dee080557c9
+# ╟─9af57aec-4d83-4a15-bb5a-599705b06387
+# ╠═e0e61b0d-c071-43cf-86a5-5ff140179f92
 # ╟─bea2dbf3-c98a-4817-87f0-729156bbea4b
-# ╠═447eb575-5e95-4d2a-a356-bc5a2ff84557
-# ╠═393f69a6-037e-4194-aa1e-a8796928459c
+# ╟─447eb575-5e95-4d2a-a356-bc5a2ff84557
 # ╠═4cf13019-7a25-4f4f-90d7-6d20d871e9dd
 # ╠═37670a88-b591-4c0e-b5ac-24811a681be4
-# ╠═1bd452fc-c967-4556-bd95-2a2345500811
-# ╠═88483ea0-8f8e-4bd2-a911-d5c8c39fc437
-# ╠═4c3b8787-9e69-4518-8fae-ebaa4da0226d
-# ╠═300425f4-2c90-4157-9485-f2d5fc2e3661
-# ╠═790c4532-729b-4efe-9074-251b8f20ca46
+# ╠═888607af-2af0-4c1e-91c9-c785054a3e1e
+# ╠═2977286d-df7a-48bf-9b6b-2a9c2fc63404
+# ╠═dccead6e-5773-4312-84b2-b88c88725bbb
+# ╠═fac037c8-bbaa-4e81-8658-6b35faa34c37
 # ╠═a640ab74-d76e-4d88-8e7e-16ad5383a335
-# ╠═98507fd0-9012-4e11-b0c2-d5ddc7d864ca
-# ╠═fa4698b0-9062-4ee1-a532-c9e40953333d
-# ╠═815864a6-44ae-448d-84eb-e93d17d887f4
-# ╠═a6c63939-c2e9-40db-a70a-64460a049a6b
-# ╠═fd6a06a5-6ae0-468d-8dd7-82a8624c7342
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

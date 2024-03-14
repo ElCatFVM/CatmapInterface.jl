@@ -9,6 +9,45 @@ if haskey(ENV, "CATMAP")
     pushfirst!(pyimport("sys")."path", ENV["CATMAP"])
 end
 
+"""
+instantiate_catmap_template!(instance_file_path, template_file_path, params)
+
+Instantiate a template file by inserting the parameters in the `params`.
+"""
+function instantiate_catmap_template!(instance_file_path, template_file_path, params, T)
+    (; u0, ps) = params
+    ps = Dict(ps)
+    ϕ_we, ϕ, local_pH = (ps[:ϕ_we], ps[:ϕ], ps[:local_pH])
+    σ = get(ps, :σ, nothing)
+    instance_string = open(template_file_path, "r") do template_file
+        read(template_file, String)
+    end
+
+	replacements = [
+		r"descriptor_ranges.?=.*" =>SubstitutionString("descriptor_ranges = [[$ϕ_we, $ϕ_we], [$T, $T]]"),
+		r"voltage_diff_drop.?=.*" => SubstitutionString("voltage_diff_drop = $ϕ"),
+		r"pH.?=.*" => SubstitutionString("pH = $local_pH"),
+	]
+    if !isnothing(σ)
+        push!(replacements, r"\nsigma_input.?=.*" => SubstitutionString("\\nsigma_input = $(σ/0.01)")) # in μF/cm^2
+    end
+
+    for (sym, val) in u0
+        s = string(sym)
+        push!(replacements, Regex("^species_definitions\\[['|\"]\\Q$s\\E['|\"]\\].?=.*?{(?<before>.*?)['|\"]pressure['|\"].*?:.*?[0-9\\.]*(?<after>.*?)}", "m") => SubstitutionString("species_definitions['$s'] = {\\g<before>'pressure':$(val/1.0e5)\\g<after>}"))
+    end
+
+    instance_string = replace(instance_string, replacements...)
+
+    open(instance_file_path, "w") do instance_file
+        write(instance_file, instance_string)
+    end
+
+    return instance_file_path
+end
+
+
+
 py"""
 from catmap import ReactionModel
 import catmap
@@ -214,5 +253,6 @@ end
 export compute_catmap_free_energies!
 export InterfaceParamsProductIterator
 export θProductIterator
+export instantiate_catmap_template!
 
 end;

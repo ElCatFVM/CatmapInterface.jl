@@ -18,7 +18,7 @@ end
 begin
     import Pkg as _Pkg
     haskey(ENV, "PLUTO_PROJECT") && _Pkg.activate(ENV["PLUTO_PROJECT"])
-	# using Revise
+	using Revise
     using Test
 	using PlutoUI
 	using Format
@@ -199,6 +199,12 @@ let
 	)
 end
 
+# ╔═╡ d4525612-6e2f-4a75-994b-9a7e3536ebfb
+begin
+	instance_file_path = "test.mkm"
+	Utils.instantiate_catmap_template!(instance_file_path, models["Au-model-simple"], first(param_iter_dict["Au-model-simple"]), temp)
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -211,6 +217,7 @@ LessUnitful = "f29f6376-6e90-4d80-80c9-fb8ec61203d5"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
@@ -222,6 +229,7 @@ Format = "~1.3.6"
 LessUnitful = "~0.6.1"
 ModelingToolkit = "~8.75.0"
 PlutoUI = "~0.7.58"
+Revise = "~3.5.14"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -230,7 +238,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "12e2e4cf01d0a3f2e4a9fa0df95baf584fdd062c"
+project_hash = "f64f946b2e153cbc66da774cfbcf0ad24eecd21a"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "016833eb52ba2d6bea9fcb50ca295980e728ee24"
@@ -501,6 +509,12 @@ deps = ["Static", "StaticArrayInterface"]
 git-tree-sha1 = "70232f82ffaab9dc52585e0dd043b5e0c6b714f1"
 uuid = "fb6a15b2-703c-40df-9091-08a04967cfa9"
 version = "0.1.12"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "c0216e792f518b39b22212127d4a84dc31e4e386"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.5"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -1274,6 +1288,12 @@ git-tree-sha1 = "cb2a396ac30525079dfe56adf3fc9c301ea1a2bb"
 uuid = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 version = "1.0.53"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "7b762d81887160169ddfc93a47e5fd7a6a3e78ef"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.29"
+
 [[deps.JumpProcesses]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DocStringExtensions", "FunctionWrappers", "Graphs", "LinearAlgebra", "Markdown", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "SciMLBase", "StaticArrays", "UnPack"]
 git-tree-sha1 = "c451feb97251965a9fe40bacd62551a72cc5902c"
@@ -1536,6 +1556,12 @@ weakdeps = ["ChainRulesCore", "ForwardDiff", "SpecialFunctions"]
     [deps.LoopVectorization.extensions]
     ForwardDiffExt = ["ChainRulesCore", "ForwardDiff"]
     SpecialFunctionsExt = "SpecialFunctions"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "31e27f0b0bf0df3e3e951bfcc43fe8c730a219f6"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.4.5"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -2128,6 +2154,12 @@ deps = ["StaticArrays"]
 git-tree-sha1 = "256eeeec186fa7f26f2801732774ccf277f05db9"
 uuid = "ae5879a3-cd67-5da8-be7f-38c6eb64a37b"
 version = "1.1.1"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "12aa2d7593df490c407a3bbd8b86b8b515017f3e"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.14"
 
 [[deps.RingLists]]
 deps = ["Random"]
@@ -2835,5 +2867,6 @@ version = "3.5.0+0"
 # ╠═dccead6e-5773-4312-84b2-b88c88725bbb
 # ╠═fac037c8-bbaa-4e81-8658-6b35faa34c37
 # ╠═a640ab74-d76e-4d88-8e7e-16ad5383a335
+# ╠═d4525612-6e2f-4a75-994b-9a7e3536ebfb
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

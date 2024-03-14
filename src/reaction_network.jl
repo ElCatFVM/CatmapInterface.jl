@@ -65,16 +65,22 @@ function create_reaction_network(catmap_params::CatmapParams)
     θ           = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
     for (s, sp) in species_list
-        if s =="H2O_g" || isa(sp, SiteSpecies) # site species and the solvent are not considered proper species
+        if isa(sp, SiteSpecies) # the coverage of the free sites of site type is 1 - sum(coverages of adsorbates on site)
+            vars[s] = Num(1)
+        end
+    end
+    for (s, sp) in species_list
+        if s =="H2O_g" # the solvent is assumed to have constant activity
             as      = Symbol("a$s")
             vars[s] = first(@parameters $as)
         elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
             ss          = Symbol(s)
             vars[s]     = first(@species $ss(t))
         elseif isa(sp, AdsorbateSpecies)
-            ss          = Symbol(s)
-            vars[s]     = first(@species $ss(t))
-            θ[s]        = vars[s]
+            ss                  = Symbol(s)
+            vars[s]             = first(@species $ss(t))
+            θ[s]                = vars[s]
+            vars["_$(sp.site)"]-= vars[s]
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))

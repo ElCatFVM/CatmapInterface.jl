@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.38
+# v0.19.40
 
 using Markdown
 using InteractiveUtils
@@ -34,6 +34,43 @@ begin
 	using .Utils
 end
 
+# ╔═╡ b591ebbf-e98a-4e79-abb3-77b523c6e652
+md"""
+#### Improve Printing of Parsed Reactions
+"""
+
+# ╔═╡ 667684f7-3835-4a4d-80ab-d9229b9c1898
+begin
+	function Base.show(io::Base.IO, reaction::CatmapInterface.ParsedReaction)
+		educt_string = ""
+		for (educt, c) in reaction.educts
+			educt_string *= "$(c > 1 ? c : "") $educt + "
+		end
+	
+		product_string = ""
+		for (product, c) in reaction.products
+			product_string *= "$(c > 1 ? c : "") $product + "
+		end
+	
+		if !isnothing(reaction.tstate)
+			tstate_string = ""
+			for (s, c) in reaction.tstate.components
+				tstate_string *= "$(c > 1 ? c : "") $s + "
+			end
+			print(io, educt_string[1:end-3] * " <-> " * tstate_string[1:end-3] * " <-> " * product_string[1:end-3])
+		else
+			print(io, educt_string[1:end-3] * " <-> " * product_string[1:end-3])
+		end
+		nothing
+	end
+	CatmapInterface.ParsedReaction(["H2O_g" => 1, "ele_g" => 1, "_t" => 1], ["H_t" => 1, "OH_g" => 1], CatmapInterface.TState(["H2O-ele_t" => 1], 0.5))
+end
+
+# ╔═╡ 617f2253-a80c-4feb-b292-47337bd36752
+md"""
+#### Models
+"""
+
 # ╔═╡ 1cfbb9ef-8e32-4482-bf70-c5a63427d518
 function listmodels(datadir)
 	ismodeldir(f) = isdir(joinpath(datadir, f)) && occursin("model", f)
@@ -47,6 +84,11 @@ end
 
 # ╔═╡ 2273a044-adb2-45b1-b166-88b47f30ca68
 const models = listmodels("../data")
+
+# ╔═╡ 5b294ca8-d63f-4277-ad20-5327e418a219
+md"""
+#### Structural Parameters
+"""
 
 # ╔═╡ bb3b204b-5b55-4a70-ab14-ac4de457e563
 begin
@@ -231,50 +273,29 @@ begin
 end
 
 # ╔═╡ 79ba095b-dc84-44c5-863e-d7d70322254d
-const rtol = 1.0e-5
-
-# ╔═╡ f6a9addf-c580-4ae9-b9c2-0b978d6216b9
-@testset "model=$model_name" for model_name in keys(models)
-	free_energies_ps = free_energies_dict[model_name]
-	catmap_free_energies_ps = catmap_free_energies_dict[model_name]
-	params = params_dict[model_name]
-	@testset "$(convert(String, intparams))" for intparams in params
-		free_energies = free_energies_ps[intparams]
-		catmap_free_energies = catmap_free_energies_ps[intparams]
-		@testset "species=$species" for (species, free_energy) in free_energies
-	        @test isapprox(free_energy/ufac"eV", catmap_free_energies[species]; rtol)
-	    end 
-	end
-end
-
-# ╔═╡ 2e2e73b2-288a-43fd-a9aa-5f189b545825
 md"""
-### Improve Printing of ParsedReactions
+__Relative tolerance__: $(@bind rtol PlutoUI.Select([1.0e-4,1.0e-5, 1.0e-6]))
 """
 
-# ╔═╡ 667684f7-3835-4a4d-80ab-d9229b9c1898
-function Base.show(io::Base.IO, reaction::CatmapInterface.ParsedReaction)
-	educt_string = ""
-	for (educt, c) in reaction.educts
-		educt_string *= "$(c > 1 ? c : "") $educt + "
-	end
-
-	product_string = ""
-	for (product, c) in reaction.products
-		product_string *= "$(c > 1 ? c : "") $product + "
-	end
-
-	if !isnothing(reaction.tstate)
-		tstate_string = ""
-		for (s, c) in reaction.tstate.components
-			tstate_string *= "$(c > 1 ? c : "") $s + "
+# ╔═╡ a656e35a-9184-4241-8aa9-301379bcf728
+function runtests(models, free_energies_dict, catmap_free_energies_dict; rtol=1.0e-5)
+	@testset "model=$model_name" for model_name in keys(models)
+		free_energies_ps = free_energies_dict[model_name]
+		catmap_free_energies_ps = catmap_free_energies_dict[model_name]
+		params = params_dict[model_name]
+		@testset "$(convert(String, intparams))" for intparams in params
+			free_energies = free_energies_ps[intparams]
+			catmap_free_energies = catmap_free_energies_ps[intparams]
+			@testset "species=$species" for (species, free_energy) in free_energies
+		        @test isapprox(free_energy/ufac"eV", catmap_free_energies[species]; rtol)
+		    end 
 		end
-		print(io, educt_string[1:end-3] * " <-> " * tstate_string[1:end-3] * " <-> " * product_string[1:end-3])
-	else
-		print(io, educt_string[1:end-3] * " <-> " * product_string[1:end-3])
 	end
 	nothing
 end
+
+# ╔═╡ f6a9addf-c580-4ae9-b9c2-0b978d6216b9
+runtests(models, free_energies_dict, catmap_free_energies_dict; rtol)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -299,7 +320,7 @@ PlutoUI = "~0.7.58"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.0"
+julia_version = "1.10.2"
 manifest_format = "2.0"
 project_hash = "a5a49947f76aa3475ce87551e4713635e2fa0c83"
 
@@ -624,7 +645,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.5+1"
+version = "1.1.0+0"
 
 [[deps.CompositeTypes]]
 git-tree-sha1 = "02d2316b7ffceff992f3096ae48c7829a8aa0638"
@@ -1791,7 +1812,7 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.23+2"
+version = "0.3.23+4"
 
 [[deps.OpenEXR]]
 deps = ["Colors", "FileIO", "OpenEXR_jll"]
@@ -2788,8 +2809,12 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═252a1d28-d7eb-11ee-1f6a-990ae6a3184f
 # ╠═af65d97c-dae1-4ea8-8a95-58bbd2ffd80a
+# ╟─b591ebbf-e98a-4e79-abb3-77b523c6e652
+# ╟─667684f7-3835-4a4d-80ab-d9229b9c1898
+# ╟─617f2253-a80c-4feb-b292-47337bd36752
 # ╟─1cfbb9ef-8e32-4482-bf70-c5a63427d518
 # ╠═2273a044-adb2-45b1-b166-88b47f30ca68
+# ╟─5b294ca8-d63f-4277-ad20-5327e418a219
 # ╠═bb3b204b-5b55-4a70-ab14-ac4de457e563
 # ╠═66ed4181-1393-4ed0-9555-b3608b01f223
 # ╟─bd93f2e2-9368-4ea1-a58b-80ac76e15f59
@@ -2804,9 +2829,8 @@ version = "3.5.0+0"
 # ╠═9b06dd0d-721a-4947-b749-f59d722d3420
 # ╟─0b857ada-a26a-4637-8f57-8262a0c13ca2
 # ╠═6fe83143-ae95-426b-8242-bde4f830fb07
-# ╠═79ba095b-dc84-44c5-863e-d7d70322254d
+# ╟─79ba095b-dc84-44c5-863e-d7d70322254d
+# ╟─a656e35a-9184-4241-8aa9-301379bcf728
 # ╠═f6a9addf-c580-4ae9-b9c2-0b978d6216b9
-# ╟─2e2e73b2-288a-43fd-a9aa-5f189b545825
-# ╠═667684f7-3835-4a4d-80ab-d9229b9c1898
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

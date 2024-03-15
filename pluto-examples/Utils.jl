@@ -1,20 +1,25 @@
 module Utils
 using PyCall
 using CatmapInterface
+using ModelingToolkit
+using Catalyst
+using DifferentialEquations
 using Format
 
-const temp = 298
+const SymmapType    = Vector{Pair{Symbol, Float64}}
+const SSParamsType  = @NamedTuple{u0::SymmapType, ps::SymmapType}
+const temp = 298.0
 
 if haskey(ENV, "CATMAP")
     pushfirst!(pyimport("sys")."path", ENV["CATMAP"])
 end
 
 """
-instantiate_catmap_template!(instance_file_path, template_file_path, params)
+instantiate_catmap_template!(instance_file_path::String, template_file_path::String, params, T::Float64)
 
 Instantiate a template file by inserting the parameters in the `params`.
 """
-function instantiate_catmap_template!(instance_file_path, template_file_path, params, T)
+function instantiate_catmap_template!(instance_file_path::String, template_file_path::String, params::SSParamsType, T)
     (; u0, ps) = params
     ps = Dict(ps)
     ϕ_we, ϕ, local_pH = (ps[:ϕ_we], ps[:ϕ], ps[:local_pH])
@@ -149,6 +154,130 @@ function compute_catmap_free_energies!(
 	end
 end
 
+# Steady State
+
+## Catmap
+
+py"""
+from catmap import ReactionModel
+
+def runcatmap(setup_file):
+	model = ReactionModel(setup_file=setup_file)
+	return model.run()
+"""
+	
+"""
+runcatmap(instance_file_path::String)
+
+Run CatMAP on the microkinetic model at `instance_file_path`.
+"""
+function runcatmap(instance_file_path)
+    @assert isfile(instance_file_path)
+    currdir = pwd()
+    cd(dirname(instance_file_path))
+    try
+        py"runcatmap"(splitdir(instance_file_path)[end])
+    finally
+        cd(currdir)
+    end
+end
+
+"""
+get_coverage_map(logfile_path::String)
+
+Get the coverage map from CatMAP's logfile at `logfile_path`
+"""
+function get_coverage_map(logfile_path)
+    @assert isfile(logfile_path)
+	currdir = pwd()
+	newdir = dirname(logfile_path)
+	cd(newdir)
+	local cmap
+	try
+		@pyinclude(splitdir(logfile_path)[end])
+		labels = Symbol.(py"output_labels"["coverage"])
+		coverages = py"coverage_map"[2]
+		coverages = py"float".(coverages)
+		cmap = Dict(zip(labels, coverages))
+	finally
+		cd(currdir)
+	end
+	cmap
+end
+
+"""
+ssolve!(ssols::Dict{String, Dict{Utils.SSParamsType, SciMLBase.NonlinearSolution}}, template_file_path::String, params_iter)
+
+Solve the microkinetic model specified in `template_file_path` for the steady state using CatMAP for each parameter set in `params_iter` and add it to `ssols`. 
+"""
+function ssolve!(ssols, template_file_path::String, params_iter)
+    @assert isfile(template_file_path)
+	for params in params_iter
+		instance_file_path = joinpath(dirname(template_file_path), "test.mkm")
+		instantiate_catmap_template!(
+			instance_file_path, 
+			template_file_path, 
+			params, 
+			temp
+		)
+		try
+			runcatmap(instance_file_path)
+			logfile = splitext(instance_file_path)[1] * ".log"
+			@pyinclude(instance_file_path)
+			datafile = joinpath(dirname(instance_file_path), py"data_file")
+			try
+				ssols[params] = get_coverage_map(logfile)
+			finally
+				rm(logfile)
+				rm(datafile)
+			end
+		finally
+			rm(instance_file_path)
+		end
+	end
+end
+
+## CatmapInterface
+
+"""
+conserve_pressures!(rn::Catalyst.ReactionSystem, catmap_params::CatmapInterface.CatmapParams)
+
+Conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network `rn`.
+
+The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
+"""
+function conserve_pressures!(rn, catmap_params)
+	(; species_list) = catmap_params
+	stoichmat = netstoichmat(rn)
+	rr = reactionrates(rn)
+	nr = numreactions(rn)
+	for (is, s) in enumerate(species(rn))
+		sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+		if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
+			R = sum([stoichmat[is,i] * rr[i] for i in 1:nr])
+			addreaction!(rn, Reaction(R, [s], nothing; only_use_rate=true))
+		end
+	end
+end
+
+"""
+ssolve!(ssols::Dict{String, Dict{Utils.SSParamsType, SciMLBase.NonlinearSolution}}, odesys::ModelingToolkit.ODESystem, params_iter)
+
+Solve the `odesys` for the steady state for each parameter set in `params_iter` and add it to `ssols`. 
+"""
+function ssolve!(ssols, odesys::ModelingToolkit.ODESystem, params_iter)
+	for params in params_iter
+		(; u0, ps) = params
+		ssprob = SteadyStateProblem(
+			odesys, 
+			symmap_to_varmap(odesys, u0), 
+			symmap_to_varmap(odesys, ps)
+		)
+		ssols[params] = solve(ssprob, DynamicSS(Rodas5P()); maxiters=1e6)
+	end
+end
+
+
 # Product Iterators
 
 ## InterfaceParamsProductIterator
@@ -246,13 +375,23 @@ begin
 	end
 end
 
-
+# Data Loading
+function listmodels(datadir)
+	ismodeldir(f) = isdir(joinpath(datadir, f)) && occursin("model", f)
+	ismodeltemplate(f) = splitext(f)[end] == ".mkm"
+	modeldirs = filter(ismodeldir, readdir(datadir))
+	modeltemplates = map(modeldirs) do d
+		filter(ismodeltemplate, readdir(joinpath(datadir, d); join=true))[end]
+	end
+	return Dict(zip(modeldirs, modeltemplates))
+end
 
 
 # Exports 
 export compute_catmap_free_energies!
 export InterfaceParamsProductIterator
 export θProductIterator
-export instantiate_catmap_template!
+export listmodels
+export conserve_pressures!, ssolve!
 
 end;

@@ -27,6 +27,7 @@ begin
 	using ModelingToolkit
 	using DifferentialEquations
 	using LessUnitful
+	using PyCall
     using CairoMakie
     CairoMakie.activate!(; type = "svg", visible = false)
 end;
@@ -34,25 +35,17 @@ end;
 # ╔═╡ af7335cb-f6c0-43bb-8f97-6543daf13768
 begin
 	include("Utils.jl")
-	using .Utils
-end
-
-# ╔═╡ a730c7ff-883d-4918-8156-cdf71901ddde
-function listmodels(datadir)
-	ismodeldir(f) = isdir(joinpath(datadir, f)) && occursin("model", f)
-	ismodeltemplate(f) = splitext(f)[end] == ".mkm"
-	modeldirs = filter(ismodeldir, readdir(datadir))
-	modeltemplates = map(modeldirs) do d
-		filter(ismodeltemplate, readdir(joinpath(datadir, d); join=true))[end]
-	end
-	return Dict(zip(modeldirs, modeltemplates))
+	import .Utils: listmodels, conserve_pressures!, ssolve!
+	import .Utils: SymmapType, SSParamsType
 end
 
 # ╔═╡ 80528835-701e-4b9d-a15d-5f36433e39fa
-const models = listmodels(joinpath("..", "data"))
-
-# ╔═╡ ce979e00-c49f-4ca9-97eb-e990162bc4be
-const SymmapType = Vector{Pair{Symbol, Float64}}
+const models = let
+	tmp_models = listmodels(joinpath("..", "data"))
+	delete!(tmp_models, "Liu-model-first-order")
+	#delete!(tmp_models, "Liu-model-simple")
+	tmp_models
+end
 
 # ╔═╡ d8bc0043-3960-420f-8237-024cb6c0e2c4
 md"""
@@ -66,7 +59,7 @@ begin
 	const local_pH_iter  = 6.0:2.0:8.0
 	const ϕ_pzc          = 0.16 * ufac"V"
 	const C_gap          = 0.2 * ufac"F"
-	const temp 	         = 298 * ufac"K"
+	const temp 	         = 298.0 * ufac"K"
 	surface_charge_relation(Δϕ) = round(C_gap * (Δϕ - ϕ_pzc); digits=6)
 end;
 
@@ -94,6 +87,8 @@ const catmap_params_dict = Dict([
 ])
 
 # ╔═╡ 4cf13019-7a25-4f4f-90d7-6d20d871e9dd
+# ╠═╡ disabled = true
+#=╠═╡
 function conserve_pressures!(rn, catmap_params)
 	# make pressures constant
 	(; species_list) = catmap_params
@@ -108,6 +103,7 @@ function conserve_pressures!(rn, catmap_params)
 		end
 	end
 end
+  ╠═╡ =#
 
 # ╔═╡ 37670a88-b591-4c0e-b5ac-24811a681be4
 begin
@@ -117,9 +113,9 @@ begin
 end
 
 # ╔═╡ 888607af-2af0-4c1e-91c9-c785054a3e1e
-function add_param_iter!(param_iter_dict, model_name, catmap_params)
+function add_params_iter!(params_iter_dict, model_name, catmap_params)
 	(; species_list, electrochemical_thermo_mode) = catmap_params
-	param_list = @NamedTuple{u0::SymmapType, ps::SymmapType}[]
+	params_list = @NamedTuple{u0::SymmapType, ps::SymmapType}[]
 	for (ϕ_we, ϕ, local_pH) in Iterators.product(ϕ_we_iter, ϕ_iter, local_pH_iter)
 		ps = [
 			:ϕ_we     => ϕ_we,
@@ -141,50 +137,44 @@ function add_param_iter!(param_iter_dict, model_name, catmap_params)
 				push!(u0, Symbol(s) => θ0)
 			end
 		end
-		push!(param_list, (; u0=u0, ps=ps))
+		push!(params_list, (; u0=u0, ps=ps))
 	end
-	param_iter_dict[model_name] = param_list
+	params_iter_dict[model_name] = params_list
 end
 
 # ╔═╡ 2977286d-df7a-48bf-9b6b-2a9c2fc63404
 begin
-	param_iter_dict = Dict{
-		String, 
-		Vector{@NamedTuple{u0::SymmapType, ps::SymmapType}}
-	}()
+	params_iter_dict = Dict{String, Vector{SSParamsType}}()
 	for (model_name, catmap_params) in catmap_params_dict
-		add_param_iter!(param_iter_dict, model_name, catmap_params)
+		add_params_iter!(params_iter_dict, model_name, catmap_params)
 	end
 end
 
 # ╔═╡ dccead6e-5773-4312-84b2-b88c88725bbb
-function ssolve!(ssols, odesys, ParamIter)
-	for params in ParamIter
+# ╠═╡ disabled = true
+#=╠═╡
+function ssolve!(ssols, odesys, params_iter)
+	for params in params_iter
 		(; u0, ps) = params
 		ssprob = SteadyStateProblem(
 			odesys, 
 			symmap_to_varmap(odesys, u0), 
 			symmap_to_varmap(odesys, ps)
 		)
-		ssols[params] = solve(ssprob, DynamicSS(Rodas5P()))
+		ssols[params] = solve(ssprob, DynamicSS(Rodas5P()); maxiters=1e6)
 	end
 end
+  ╠═╡ =#
 
 # ╔═╡ fac037c8-bbaa-4e81-8658-6b35faa34c37
 begin
-	ssols_dict = Dict{String, Dict{
-			@NamedTuple{u0::SymmapType, ps::SymmapType}, 
-			SciMLBase.NonlinearSolution
-		}}()
+	ssols_dict = Dict{String, Dict{SSParamsType, SciMLBase.NonlinearSolution}}()
 	for model_name in keys(models)
 		rn = create_reaction_network(catmap_params_dict[model_name])
 		conserve_pressures!(rn, catmap_params_dict[model_name])
 		odesys = convert(ODESystem, rn)
-		ssols_dict[model_name] = Dict{
-			@NamedTuple{u0::SymmapType, ps::SymmapType}, 
-			SciMLBase.NonlinearSolution
-		}()
-		ssolve!(ssols_dict[model_name], odesys, param_iter_dict[model_name])
+		ssols_dict[model_name] = Dict{SSParamsType, SciMLBase.NonlinearSolution}()
+		ssolve!(ssols_dict[model_name], odesys, params_iter_dict[model_name])
 	end
 end
 
@@ -199,11 +189,116 @@ let
 	)
 end
 
-# ╔═╡ d4525612-6e2f-4a75-994b-9a7e3536ebfb
+# ╔═╡ 0ad2f2b4-52d3-45fc-8331-0ee1fcfc1467
+# ╠═╡ disabled = true
+#=╠═╡
 begin
-	instance_file_path = "test.mkm"
-	Utils.instantiate_catmap_template!(instance_file_path, models["Au-model-simple"], first(param_iter_dict["Au-model-simple"]), temp)
+	py"""
+from catmap import ReactionModel
+
+def runcatmap(setup_file):
+	model = ReactionModel(setup_file=setup_file)
+	return model.run()
+	"""
+	
+	function runcatmap(instance_file_path)
+		currdir = pwd()
+		cd(dirname(instance_file_path))
+		try
+			py"runcatmap"(splitdir(instance_file_path)[end])
+		finally
+			cd(currdir)
+		end
+	end
 end
+  ╠═╡ =#
+
+# ╔═╡ b2d7e8f4-6303-4941-953d-29783e478725
+# ╠═╡ disabled = true
+#=╠═╡
+function get_coverage_map(logfile)
+	currdir = pwd()
+	newdir = dirname(logfile)
+	cd(newdir)
+	local cmap
+	try
+		@pyinclude(splitdir(logfile)[end])
+		labels = Symbol.(py"output_labels"["coverage"])
+		coverages = py"coverage_map"[2]
+		coverages = py"float".(coverages)
+		cmap = Dict(zip(labels, coverages))
+	finally
+		cd(currdir)
+	end
+	cmap
+end
+  ╠═╡ =#
+
+# ╔═╡ ecc18074-6d77-49f4-ac51-993fdb1cbf34
+# ╠═╡ disabled = true
+#=╠═╡
+function catmap_ssolve!(ssols, template_file_path, params_iter)
+	for params in params_iter
+		instance_file_path = joinpath(dirname(template_file_path), "test.mkm")
+		Utils.instantiate_catmap_template!(
+			instance_file_path, 
+			template_file_path, 
+			params, 
+			temp
+		)
+		try
+			runcatmap(instance_file_path)
+			logfile = splitext(instance_file_path)[1] * ".log"
+			@pyinclude(instance_file_path)
+			datafile = joinpath(dirname(instance_file_path), py"data_file")
+			try
+				ssols[params] = get_coverage_map(logfile)
+			finally
+				rm(logfile)
+				rm(datafile)
+			end
+		finally
+			rm(instance_file_path)
+		end
+	end
+end
+  ╠═╡ =#
+
+# ╔═╡ cc0557ba-d21f-4427-8196-1930aebd23fb
+begin
+	catmap_ssols_dict = Dict{String, Dict{SSParamsType, Dict{Symbol, Float64}}}()
+	for (model_name, template_file_path) in models
+		catmap_ssols_dict[model_name] = Dict{SSParamsType, Dict{Symbol, Float64}}()
+		ssolve!(catmap_ssols_dict[model_name], template_file_path, params_iter_dict[model_name])
+	end
+end
+
+# ╔═╡ 0b1f339f-600f-4b70-a86c-9c83f75b952d
+function runtests_ssols(models, ssols_dict, catmap_ssols_dict; rtol=1.0e-5)
+	@testset "Stationary Solutions" begin
+		@testset "model=$model_name" for model_name in keys(models)
+			ssols_ps = ssols_dict[model_name]
+			catmap_ssols_ps = catmap_ssols_dict[model_name]
+			params_iter = params_iter_dict[model_name]
+			@testset "$(repr(params))" for params in params_iter
+				ssols = ssols_ps[params]
+				catmap_ssols = catmap_ssols_ps[params]
+				@testset "species=$(string(species))" for (species, cov) in catmap_ssols
+			        @test isapprox(ssols[species], cov; rtol)
+			    end 
+			end
+		end
+	end
+end
+
+# ╔═╡ 712e2012-5c78-4091-9a98-e00cfbea42c9
+runtests_ssols(models, ssols_dict, catmap_ssols_dict)
+
+# ╔═╡ 7600d14c-a0c8-457c-bd0b-244df065ac82
+ssols_dict
+
+# ╔═╡ fc87ebaf-1148-4516-92a6-518b1086a860
+catmap_ssols_dict
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -217,6 +312,7 @@ LessUnitful = "f29f6376-6e90-4d80-80c9-fb8ec61203d5"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
@@ -229,6 +325,7 @@ Format = "~1.3.6"
 LessUnitful = "~0.6.1"
 ModelingToolkit = "~8.75.0"
 PlutoUI = "~0.7.58"
+PyCall = "~1.96.4"
 Revise = "~3.5.14"
 """
 
@@ -238,7 +335,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "f64f946b2e153cbc66da774cfbcf0ad24eecd21a"
+project_hash = "adc9bc5bb56a8748bbd55349bfe53cb8ecb47899"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "016833eb52ba2d6bea9fcb50ca295980e728ee24"
@@ -2851,9 +2948,7 @@ version = "3.5.0+0"
 # ╔═╡ Cell order:
 # ╠═f5a97e3e-e116-11ee-210f-cfc211ee8cbc
 # ╠═af7335cb-f6c0-43bb-8f97-6543daf13768
-# ╠═a730c7ff-883d-4918-8156-cdf71901ddde
 # ╠═80528835-701e-4b9d-a15d-5f36433e39fa
-# ╠═ce979e00-c49f-4ca9-97eb-e990162bc4be
 # ╟─d8bc0043-3960-420f-8237-024cb6c0e2c4
 # ╠═3942627a-621d-4e3e-ab4d-6dee080557c9
 # ╟─9af57aec-4d83-4a15-bb5a-599705b06387
@@ -2867,6 +2962,13 @@ version = "3.5.0+0"
 # ╠═dccead6e-5773-4312-84b2-b88c88725bbb
 # ╠═fac037c8-bbaa-4e81-8658-6b35faa34c37
 # ╠═a640ab74-d76e-4d88-8e7e-16ad5383a335
-# ╠═d4525612-6e2f-4a75-994b-9a7e3536ebfb
+# ╠═0ad2f2b4-52d3-45fc-8331-0ee1fcfc1467
+# ╠═b2d7e8f4-6303-4941-953d-29783e478725
+# ╠═ecc18074-6d77-49f4-ac51-993fdb1cbf34
+# ╠═cc0557ba-d21f-4427-8196-1930aebd23fb
+# ╠═0b1f339f-600f-4b70-a86c-9c83f75b952d
+# ╠═712e2012-5c78-4091-9a98-e00cfbea42c9
+# ╠═7600d14c-a0c8-457c-bd0b-244df065ac82
+# ╠═fc87ebaf-1148-4516-92a6-518b1086a860
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

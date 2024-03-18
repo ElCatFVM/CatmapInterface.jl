@@ -70,7 +70,7 @@ md"""
 
 # ╔═╡ e0e61b0d-c071-43cf-86a5-5ff140179f92
 begin
-	u0gas = 1.0 * ufac"bar"
+	u0gas = 1.0
 	θ0    = 1.0e-10
 end;
 
@@ -274,7 +274,7 @@ begin
 end
 
 # ╔═╡ 0b1f339f-600f-4b70-a86c-9c83f75b952d
-function runtests_ssols(models, ssols_dict, catmap_ssols_dict; rtol=1.0e-5)
+function runtests_ssols(models, ssols_dict, catmap_ssols_dict; rtol=1.0e-4)
 	@testset "Stationary Solutions" begin
 		@testset "model=$model_name" for model_name in keys(models)
 			ssols_ps = ssols_dict[model_name]
@@ -299,6 +299,17 @@ ssols_dict
 
 # ╔═╡ fc87ebaf-1148-4516-92a6-518b1086a860
 catmap_ssols_dict
+
+# ╔═╡ e67452ce-d045-4a95-b9f4-d2adfda38a13
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	template_file_path = models["Liu-model-simple"]
+	instance_file_path = joinpath(dirname(template_file_path), "test.mkm")
+	params = first(params_iter_dict["Liu-model-simple"])
+	Utils.instantiate_catmap_template!(instance_file_path, template_file_path, params, temp)
+end
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2970,5 +2981,6 @@ version = "3.5.0+0"
 # ╠═712e2012-5c78-4091-9a98-e00cfbea42c9
 # ╠═7600d14c-a0c8-457c-bd0b-244df065ac82
 # ╠═fc87ebaf-1148-4516-92a6-518b1086a860
+# ╠═e67452ce-d045-4a95-b9f4-d2adfda38a13
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

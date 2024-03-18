@@ -39,7 +39,7 @@ function instantiate_catmap_template!(instance_file_path::String, template_file_
 
     for (sym, val) in u0
         s = string(sym)
-        push!(replacements, Regex("^species_definitions\\[['|\"]\\Q$s\\E['|\"]\\].?=.*?{(?<before>.*?)['|\"]pressure['|\"].*?:.*?[0-9\\.]*(?<after>.*?)}", "m") => SubstitutionString("species_definitions['$s'] = {\\g<before>'pressure':$(val/1.0e5)\\g<after>}"))
+        push!(replacements, Regex("^species_definitions\\[['|\"]\\Q$s\\E['|\"]\\].?=.*?{(?<before>.*?)['|\"]pressure['|\"].*?:.*?[0-9e\\-\\.]*(?<after>.*?)}", "m") => SubstitutionString("species_definitions['$s'] = {\\g<before>'pressure':$(val)\\g<after>}"))
     end
 
     instance_string = replace(instance_string, replacements...)

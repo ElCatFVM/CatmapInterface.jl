@@ -239,26 +239,7 @@ end
 
 ## CatmapInterface
 
-"""
-conserve_pressures!(rn::Catalyst.ReactionSystem, catmap_params::CatmapInterface.CatmapParams)
 
-Conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network `rn`.
-
-The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
-"""
-function conserve_pressures!(rn, catmap_params)
-	(; species_list) = catmap_params
-	stoichmat = netstoichmat(rn)
-	rr = reactionrates(rn)
-	nr = numreactions(rn)
-	for (is, s) in enumerate(species(rn))
-		sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-		if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
-			R = sum([stoichmat[is,i] * rr[i] for i in 1:nr])
-			addreaction!(rn, Reaction(R, [s], nothing; only_use_rate=true))
-		end
-	end
-end
 
 """
 ssolve!(ssols::Dict{String, Dict{Utils.SSParamsType, SciMLBase.NonlinearSolution}}, odesys::ModelingToolkit.ODESystem, params_iter)

@@ -18,34 +18,53 @@ end
 begin
     import Pkg as _Pkg
     haskey(ENV, "PLUTO_PROJECT") && _Pkg.activate(ENV["PLUTO_PROJECT"])
-	using Revise
+	#using Revise
     using Test
 	using PlutoUI
-	using Format
 	using CatmapInterface
 	using Catalyst
 	using ModelingToolkit
 	using DifferentialEquations
 	using LessUnitful
-	using PyCall
     using CairoMakie
     CairoMakie.activate!(; type = "svg", visible = false)
 end;
 
-# ╔═╡ af7335cb-f6c0-43bb-8f97-6543daf13768
-begin
-	include("Utils.jl")
-	import .Utils: listmodels, conserve_pressures!, ssolve!
-	import .Utils: SymmapType, SSParamsType
-end
+# ╔═╡ 11ab36a0-88b5-408a-8405-88c995254081
+md"""
+#### Models
+"""
 
-# ╔═╡ 80528835-701e-4b9d-a15d-5f36433e39fa
-const models = let
-	tmp_models = listmodels(joinpath("..", "data"))
-	delete!(tmp_models, "Liu-model-first-order")
-	#delete!(tmp_models, "Liu-model-simple")
-	tmp_models
-end
+# ╔═╡ e088298a-03b4-4678-a552-ca8b40cfc818
+begin
+	struct ModelInstance
+	    name::String
+	    path::String
+	    catmap_params::CatmapParams
+	    rn::Catalyst.ReactionSystem
+	end
+	function ModelInstance(; name, path)
+	    catmap_params = parse_catmap_input(path)
+	    rn            = create_reaction_network(catmap_params)
+		CatmapInterface.conserve_pressures!(rn, catmap_params)
+	    ModelInstance(name, path, catmap_params, rn)
+	end
+end;
+
+# ╔═╡ bc7f352d-a5e1-4a08-a473-e0abf38410e2
+const model_instances = Dict([
+	    "Au-model-hbond" => ModelInstance(; name="Au-model-hbond"   , path=joinpath("..", "data", "Au-model-hbond"  , "catmap_CO2R_template.mkm")),
+	    "Au-model-simple" => ModelInstance(; name="Au-model-simple"  , path=joinpath("..", "data", "Au-model-simple" , "catmap_CO2R_template.mkm")),
+	    #"Liu-model-simple" => ModelInstance(; name="Liu-model-simple" , path=joinpath("..", "data", "Liu-model-simple", "catmap_CO2R_template.mkm")),
+]);
+
+# ╔═╡ fcd74eb7-329a-4c80-9fd8-1d3ce1d2060c
+md"""
+Model: $(@bind model_name PlutoUI.Select(collect(keys(model_instances)), default="Au-model-hbond")) 
+"""
+
+# ╔═╡ ebbe29d4-c470-4fc4-8d20-127fbdb3d09a
+model_instance = model_instances[model_name];
 
 # ╔═╡ d8bc0043-3960-420f-8237-024cb6c0e2c4
 md"""
@@ -54,262 +73,128 @@ md"""
 
 # ╔═╡ 3942627a-621d-4e3e-ab4d-6dee080557c9
 begin
-	const ϕ_we_iter      = -1.0:0.5:0.0
-	const ϕ_iter         = -1.0:0.5:0.0
-	const local_pH_iter  = 6.0:2.0:8.0
+	const θinit          = 1.0e-10
 	const ϕ_pzc          = 0.16 * ufac"V"
 	const C_gap          = 0.2 * ufac"F"
 	const temp 	         = 298.0 * ufac"K"
+	const S              = 9.61e-5 / ph"N_A" * (1.0e10)^2 * ufac"mol/m^2"
 	surface_charge_relation(Δϕ) = round(C_gap * (Δϕ - ϕ_pzc); digits=6)
 end;
 
-# ╔═╡ 9af57aec-4d83-4a15-bb5a-599705b06387
-md"""
-#### Initial Data
-"""
-
-# ╔═╡ e0e61b0d-c071-43cf-86a5-5ff140179f92
-begin
-	u0gas = 1.0
-	θ0    = 1.0e-10
-end;
-
-# ╔═╡ bea2dbf3-c98a-4817-87f0-729156bbea4b
-md"""
-#### Model
-$(@bind model_name PlutoUI.Select(collect(keys(models)), default="Au-model-simple"))
-"""
-
-# ╔═╡ 447eb575-5e95-4d2a-a356-bc5a2ff84557
-const catmap_params_dict = Dict([
-	model_name => parse_catmap_input(model_template_path)
-	for (model_name, model_template_path) in models
-])
-
-# ╔═╡ 4cf13019-7a25-4f4f-90d7-6d20d871e9dd
-# ╠═╡ disabled = true
-#=╠═╡
-function conserve_pressures!(rn, catmap_params)
-	# make pressures constant
-	(; species_list) = catmap_params
-	stoichmat = netstoichmat(rn)
-	rr = reactionrates(rn)
-	nr = numreactions(rn)
-	for (is, s) in enumerate(species(rn))
-		sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-		if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
-			R = sum([stoichmat[is,i] * rr[i] for i in 1:nr])
-			addreaction!(rn, Reaction(R, [s], nothing; only_use_rate=true))
+# ╔═╡ f7088bbe-7553-48b4-8bca-6590222dc013
+@bind params_input PlutoUI.combine() do Child
+	input_params = [
+		(; name="ϕ_we", range=-1.5:0.1:0.0, default=-1.5, unit="V"),
+		(; name="local_pH", range=5.0:1.0:9.0, default=7.0, unit=""),
+		(; name="aH2O_g", range=0.9:0.05:1.0, default=1.0, unit="")
+	]
+	for (s, sp) in model_instance.catmap_params.species_list
+		if (isa(sp, GasSpecies) && s ≠ "H2O_g")
+			push!(input_params, (; name="γ$s", range=0.2:0.2:1.4, default=1.0, unit=""))
 		end
 	end
-end
-  ╠═╡ =#
-
-# ╔═╡ 37670a88-b591-4c0e-b5ac-24811a681be4
-begin
-	rn = create_reaction_network(catmap_params_dict[model_name])
-	conserve_pressures!(rn, catmap_params_dict[model_name])
-	odesys = convert(ODESystem, rn)
-end
-
-# ╔═╡ 888607af-2af0-4c1e-91c9-c785054a3e1e
-function add_params_iter!(params_iter_dict, model_name, catmap_params)
-	(; species_list, electrochemical_thermo_mode) = catmap_params
-	params_list = @NamedTuple{u0::SymmapType, ps::SymmapType}[]
-	for (ϕ_we, ϕ, local_pH) in Iterators.product(ϕ_we_iter, ϕ_iter, local_pH_iter)
-		ps = [
-			:ϕ_we     => ϕ_we,
-			:ϕ        => ϕ,
-			:local_pH => local_pH,
-			:aH2O_g => 1.0,
-		]
-		if electrochemical_thermo_mode == :hbond_surface_charge_density
-			push!(ps, :σ => surface_charge_relation(ϕ_we - ϕ))
-		end
-		u0 = SymmapType()
-		for (s, sp) in species_list
-			if isa(sp, GasSpecies) && s ≠ "H2O_g"
-				push!(ps, Symbol("γ$s") => 1.0)
-				push!(u0, Symbol(s) => u0gas)
-			elseif isa(sp, FictiousSpecies) && s ≠ "ele_g"
-				push!(u0, Symbol(s) => u0gas)
-			elseif isa(sp, AdsorbateSpecies)
-				push!(u0, Symbol(s) => θ0)
-			end
-		end
-		push!(params_list, (; u0=u0, ps=ps))
-	end
-	params_iter_dict[model_name] = params_list
-end
-
-# ╔═╡ 2977286d-df7a-48bf-9b6b-2a9c2fc63404
-begin
-	params_iter_dict = Dict{String, Vector{SSParamsType}}()
-	for (model_name, catmap_params) in catmap_params_dict
-		add_params_iter!(params_iter_dict, model_name, catmap_params)
-	end
-end
-
-# ╔═╡ dccead6e-5773-4312-84b2-b88c88725bbb
-# ╠═╡ disabled = true
-#=╠═╡
-function ssolve!(ssols, odesys, params_iter)
-	for params in params_iter
-		(; u0, ps) = params
-		ssprob = SteadyStateProblem(
-			odesys, 
-			symmap_to_varmap(odesys, u0), 
-			symmap_to_varmap(odesys, ps)
-		)
-		ssols[params] = solve(ssprob, DynamicSS(Rodas5P()); maxiters=1e6)
-	end
-end
-  ╠═╡ =#
-
-# ╔═╡ fac037c8-bbaa-4e81-8658-6b35faa34c37
-begin
-	ssols_dict = Dict{String, Dict{SSParamsType, SciMLBase.NonlinearSolution}}()
-	for model_name in keys(models)
-		rn = create_reaction_network(catmap_params_dict[model_name])
-		conserve_pressures!(rn, catmap_params_dict[model_name])
-		odesys = convert(ODESystem, rn)
-		ssols_dict[model_name] = Dict{SSParamsType, SciMLBase.NonlinearSolution}()
-		ssolve!(ssols_dict[model_name], odesys, params_iter_dict[model_name])
-	end
-end
-
-# ╔═╡ a640ab74-d76e-4d88-8e7e-16ad5383a335
-let
-	rn = create_reaction_network(catmap_params_dict[model_name])
-	params, ssol = first(ssols_dict[model_name])
-	(; ps) = params
-	substitute(
-		substitute(reactionrates(rn)[1], symmap_to_varmap(rn, ps)), 
-		Dict(sp => ssol[sp] for sp in species(rn))
-	)
-end
-
-# ╔═╡ 0ad2f2b4-52d3-45fc-8331-0ee1fcfc1467
-# ╠═╡ disabled = true
-#=╠═╡
-begin
-	py"""
-from catmap import ReactionModel
-
-def runcatmap(setup_file):
-	model = ReactionModel(setup_file=setup_file)
-	return model.run()
-	"""
 	
-	function runcatmap(instance_file_path)
-		currdir = pwd()
-		cd(dirname(instance_file_path))
-		try
-			py"runcatmap"(splitdir(instance_file_path)[end])
-		finally
-			cd(currdir)
+	params_input = [
+		md""" $(name) : $(Child(name, PlutoUI.Slider(range; default=default, show_value=true))) $unit
+		"""
+		for (; name, range, default, unit) in input_params
+	]
+	md"""
+	#### Input Parameters:
+	$(params_input)
+	"""
+end
+
+# ╔═╡ 1bdb40fa-e405-4264-9f0c-d1ddca4fd8c8
+@bind pressures_input PlutoUI.combine() do Child
+	input_params = @NamedTuple{name::String, range::StepRangeLen, default::Float64, unit::String}[]
+	for (s, sp) in model_instance.catmap_params.species_list
+		if (isa(sp, GasSpecies) && s ≠ "H2O_g") || (isa(sp, FictiousSpecies) && s ≠ "ele_g")
+			push!(input_params, (; name=s, range=0.0:1.0e-7:1.0e-5, default=1.0e-7, unit="bar"))
 		end
 	end
-end
-  ╠═╡ =#
 
-# ╔═╡ b2d7e8f4-6303-4941-953d-29783e478725
-# ╠═╡ disabled = true
-#=╠═╡
-function get_coverage_map(logfile)
-	currdir = pwd()
-	newdir = dirname(logfile)
-	cd(newdir)
-	local cmap
-	try
-		@pyinclude(splitdir(logfile)[end])
-		labels = Symbol.(py"output_labels"["coverage"])
-		coverages = py"coverage_map"[2]
-		coverages = py"float".(coverages)
-		cmap = Dict(zip(labels, coverages))
-	finally
-		cd(currdir)
+	pressures_input = [
+		md""" $(name) : $(Child(name, PlutoUI.Slider(range; default=default, show_value=true))) $unit
+		"""
+		for (; name, range, default, unit) in input_params
+	]
+	md"""
+	#### Input Pressures:
+	$(pressures_input)
+	"""
+end
+
+# ╔═╡ 66fbc742-4a5f-4c22-bb35-35acdcdb88a0
+md"""
+#### Current-Voltage Curve
+"""
+
+# ╔═╡ 6ff0e95b-ed42-4520-a29b-2fd419f1cc8e
+function electrontransfer(rn::Catalyst.ReactionSystem, ssol, params)
+	rxns = reactions(rn)
+	irOH_g = findfirst(rxns) do r
+		(; products, substrates) = r
+		isempty(products) && Symbolics.tosymbol.(substrates; escape=false) == [:OH_g]
 	end
-	cmap
-end
-  ╠═╡ =#
-
-# ╔═╡ ecc18074-6d77-49f4-ac51-993fdb1cbf34
-# ╠═╡ disabled = true
-#=╠═╡
-function catmap_ssolve!(ssols, template_file_path, params_iter)
-	for params in params_iter
-		instance_file_path = joinpath(dirname(template_file_path), "test.mkm")
-		Utils.instantiate_catmap_template!(
-			instance_file_path, 
-			template_file_path, 
-			params, 
-			temp
+	irH_g = findfirst(rxns) do r
+		(; products, substrates) = r
+		isempty(products) && Symbolics.tosymbol.(substrates; escape=false) == [:H_g]
+	end
+	curr = 0.0
+	if !isnothing(irOH_g)
+		curr += substitute(
+			substitute(rxns[irOH_g].rate, Dict(sp => ssol[sp] for sp in species(rn))), symmap_to_varmap(rn, params)
 		)
-		try
-			runcatmap(instance_file_path)
-			logfile = splitext(instance_file_path)[1] * ".log"
-			@pyinclude(instance_file_path)
-			datafile = joinpath(dirname(instance_file_path), py"data_file")
-			try
-				ssols[params] = get_coverage_map(logfile)
-			finally
-				rm(logfile)
-				rm(datafile)
-			end
-		finally
-			rm(instance_file_path)
+	end
+	if !isnothing(irH_g)
+		curr -= substitute(
+			substitute(rxns[irOH_g].rate, Dict(sp => ssol[sp] for sp in species(rn))), symmap_to_varmap(rn, params)
+		)
+	end
+	return curr * ph"N_A * e" * S
+end
+
+# ╔═╡ 84b7244f-dc0a-46d9-9f1b-947189d10111
+function currentvoltage(rn, catmap_params, pressures, θ0, params; solver=DynamicSS(Rodas5P()), maxiters=1e6)
+	nr = numreactions(rn)
+	stoichmat = netstoichmat(rn)
+	rrs_sym = reactionrates(rn)
+	rrs_num = zeros(nr)
+
+	Δϕs = 0.0:-0.1:params[:ϕ_we]
+	u0 = symmap_to_varmap(rn, merge(pressures, θ0)) 
+	currs = zeros(length(Δϕs))
+	for (iΔϕ, Δϕ) in enumerate(Δϕs)
+		params[:ϕ] = params[:ϕ_we] - Δϕ
+		if catmap_params.electrochemical_thermo_mode == :hbond_surface_charge_density
+			params[:σ] = surface_charge_relation(Δϕ)
 		end
+		ssprob = SteadyStateProblem(
+			rn, 
+			u0, 
+			symmap_to_varmap(rn, params)
+		)
+		ssol = solve(ssprob, solver; maxiters)
+		currs[iΔϕ] = electrontransfer(rn, ssol, params)
+		u0 = Dict(sp => ssol[sp] for sp in species(rn))
 	end
-end
-  ╠═╡ =#
-
-# ╔═╡ cc0557ba-d21f-4427-8196-1930aebd23fb
-begin
-	catmap_ssols_dict = Dict{String, Dict{SSParamsType, Dict{Symbol, Float64}}}()
-	for (model_name, template_file_path) in models
-		catmap_ssols_dict[model_name] = Dict{SSParamsType, Dict{Symbol, Float64}}()
-		ssolve!(catmap_ssols_dict[model_name], template_file_path, params_iter_dict[model_name])
-	end
-end
-
-# ╔═╡ 0b1f339f-600f-4b70-a86c-9c83f75b952d
-function runtests_ssols(models, ssols_dict, catmap_ssols_dict; rtol=1.0e-4)
-	@testset "Stationary Solutions" begin
-		@testset "model=$model_name" for model_name in keys(models)
-			ssols_ps = ssols_dict[model_name]
-			catmap_ssols_ps = catmap_ssols_dict[model_name]
-			params_iter = params_iter_dict[model_name]
-			@testset "$(repr(params))" for params in params_iter
-				ssols = ssols_ps[params]
-				catmap_ssols = catmap_ssols_ps[params]
-				@testset "species=$(string(species))" for (species, cov) in catmap_ssols
-			        @test isapprox(ssols[species], cov; rtol)
-			    end 
-			end
-		end
-	end
+	return collect(Δϕs), currs
 end
 
-# ╔═╡ 712e2012-5c78-4091-9a98-e00cfbea42c9
-runtests_ssols(models, ssols_dict, catmap_ssols_dict)
-
-# ╔═╡ 7600d14c-a0c8-457c-bd0b-244df065ac82
-ssols_dict
-
-# ╔═╡ fc87ebaf-1148-4516-92a6-518b1086a860
-catmap_ssols_dict
-
-# ╔═╡ e67452ce-d045-4a95-b9f4-d2adfda38a13
-# ╠═╡ disabled = true
-#=╠═╡
+# ╔═╡ e284e23f-c1ab-4022-b929-d11634e71fe6
 let
-	template_file_path = models["Liu-model-simple"]
-	instance_file_path = joinpath(dirname(template_file_path), "test.mkm")
-	params = first(params_iter_dict["Liu-model-simple"])
-	Utils.instantiate_catmap_template!(instance_file_path, template_file_path, params, temp)
+	(; rn, catmap_params) = model_instance
+	(; species_list)      = catmap_params
+	pressures = Dict(pairs(pressures_input))
+	θ0 = Dict(Symbol(s) => θinit for (s, sp) in species_list if isa(sp, AdsorbateSpecies))
+	params = Dict(pairs(params_input))
+	(Δϕs, currs) = currentvoltage(rn, catmap_params, pressures, θ0, params)
+	f = Figure()
+	ax = Axis(f[1, 1]; title="Current-Voltage Curve", xlabel="Δϕ [V]", ylabel="I [mA/cm^2]", yscale=log10, limits=(-1.5, -0.5, 1.0e-10, 1.0e4))
+	lines!(ax, Δϕs[currs .> 0.0], currs[currs .> 0.0] ./ (ufac"mA/cm^2"))
+	f
 end
-  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -318,13 +203,10 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
 CatmapInterface = "6b1bba67-9fa6-466a-8c93-71aaf28c16e6"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
-Format = "1fa38f19-a742-5d3f-a2b9-30dd87b9d5f8"
 LessUnitful = "f29f6376-6e90-4d80-80c9-fb8ec61203d5"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
@@ -332,12 +214,9 @@ CairoMakie = "~0.11.9"
 Catalyst = "~13.5.1"
 CatmapInterface = "~0.0.2"
 DifferentialEquations = "~7.13.0"
-Format = "~1.3.6"
 LessUnitful = "~0.6.1"
 ModelingToolkit = "~8.75.0"
 PlutoUI = "~0.7.58"
-PyCall = "~1.96.4"
-Revise = "~3.5.14"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -346,7 +225,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.2"
 manifest_format = "2.0"
-project_hash = "adc9bc5bb56a8748bbd55349bfe53cb8ecb47899"
+project_hash = "9a0f2b811fc085f1991654a2a2912822bc2c1a4e"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "016833eb52ba2d6bea9fcb50ca295980e728ee24"
@@ -617,12 +496,6 @@ deps = ["Static", "StaticArrayInterface"]
 git-tree-sha1 = "70232f82ffaab9dc52585e0dd043b5e0c6b714f1"
 uuid = "fb6a15b2-703c-40df-9091-08a04967cfa9"
 version = "0.1.12"
-
-[[deps.CodeTracking]]
-deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "c0216e792f518b39b22212127d4a84dc31e4e386"
-uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "1.3.5"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -1396,12 +1269,6 @@ git-tree-sha1 = "cb2a396ac30525079dfe56adf3fc9c301ea1a2bb"
 uuid = "98e50ef6-434e-11e9-1051-2b60c6c9e899"
 version = "1.0.53"
 
-[[deps.JuliaInterpreter]]
-deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "7b762d81887160169ddfc93a47e5fd7a6a3e78ef"
-uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.9.29"
-
 [[deps.JumpProcesses]]
 deps = ["ArrayInterface", "DataStructures", "DiffEqBase", "DocStringExtensions", "FunctionWrappers", "Graphs", "LinearAlgebra", "Markdown", "PoissonRandom", "Random", "RandomNumbers", "RecursiveArrayTools", "Reexport", "SciMLBase", "StaticArrays", "UnPack"]
 git-tree-sha1 = "c451feb97251965a9fe40bacd62551a72cc5902c"
@@ -1664,12 +1531,6 @@ weakdeps = ["ChainRulesCore", "ForwardDiff", "SpecialFunctions"]
     [deps.LoopVectorization.extensions]
     ForwardDiffExt = ["ChainRulesCore", "ForwardDiff"]
     SpecialFunctionsExt = "SpecialFunctions"
-
-[[deps.LoweredCodeUtils]]
-deps = ["JuliaInterpreter"]
-git-tree-sha1 = "31e27f0b0bf0df3e3e951bfcc43fe8c730a219f6"
-uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-version = "2.4.5"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -2262,12 +2123,6 @@ deps = ["StaticArrays"]
 git-tree-sha1 = "256eeeec186fa7f26f2801732774ccf277f05db9"
 uuid = "ae5879a3-cd67-5da8-be7f-38c6eb64a37b"
 version = "1.1.1"
-
-[[deps.Revise]]
-deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "12aa2d7593df490c407a3bbd8b86b8b515017f3e"
-uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.5.14"
 
 [[deps.RingLists]]
 deps = ["Random"]
@@ -2958,29 +2813,18 @@ version = "3.5.0+0"
 
 # ╔═╡ Cell order:
 # ╠═f5a97e3e-e116-11ee-210f-cfc211ee8cbc
-# ╠═af7335cb-f6c0-43bb-8f97-6543daf13768
-# ╠═80528835-701e-4b9d-a15d-5f36433e39fa
+# ╟─11ab36a0-88b5-408a-8405-88c995254081
+# ╠═e088298a-03b4-4678-a552-ca8b40cfc818
+# ╠═bc7f352d-a5e1-4a08-a473-e0abf38410e2
+# ╟─fcd74eb7-329a-4c80-9fd8-1d3ce1d2060c
+# ╠═ebbe29d4-c470-4fc4-8d20-127fbdb3d09a
 # ╟─d8bc0043-3960-420f-8237-024cb6c0e2c4
 # ╠═3942627a-621d-4e3e-ab4d-6dee080557c9
-# ╟─9af57aec-4d83-4a15-bb5a-599705b06387
-# ╠═e0e61b0d-c071-43cf-86a5-5ff140179f92
-# ╟─bea2dbf3-c98a-4817-87f0-729156bbea4b
-# ╟─447eb575-5e95-4d2a-a356-bc5a2ff84557
-# ╠═4cf13019-7a25-4f4f-90d7-6d20d871e9dd
-# ╠═37670a88-b591-4c0e-b5ac-24811a681be4
-# ╠═888607af-2af0-4c1e-91c9-c785054a3e1e
-# ╠═2977286d-df7a-48bf-9b6b-2a9c2fc63404
-# ╠═dccead6e-5773-4312-84b2-b88c88725bbb
-# ╠═fac037c8-bbaa-4e81-8658-6b35faa34c37
-# ╠═a640ab74-d76e-4d88-8e7e-16ad5383a335
-# ╠═0ad2f2b4-52d3-45fc-8331-0ee1fcfc1467
-# ╠═b2d7e8f4-6303-4941-953d-29783e478725
-# ╠═ecc18074-6d77-49f4-ac51-993fdb1cbf34
-# ╠═cc0557ba-d21f-4427-8196-1930aebd23fb
-# ╠═0b1f339f-600f-4b70-a86c-9c83f75b952d
-# ╠═712e2012-5c78-4091-9a98-e00cfbea42c9
-# ╠═7600d14c-a0c8-457c-bd0b-244df065ac82
-# ╠═fc87ebaf-1148-4516-92a6-518b1086a860
-# ╠═e67452ce-d045-4a95-b9f4-d2adfda38a13
+# ╟─f7088bbe-7553-48b4-8bca-6590222dc013
+# ╟─1bdb40fa-e405-4264-9f0c-d1ddca4fd8c8
+# ╟─66fbc742-4a5f-4c22-bb35-35acdcdb88a0
+# ╟─e284e23f-c1ab-4022-b929-d11634e71fe6
+# ╟─84b7244f-dc0a-46d9-9f1b-947189d10111
+# ╟─6ff0e95b-ed42-4520-a29b-2fd419f1cc8e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

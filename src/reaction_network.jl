@@ -154,7 +154,7 @@ function create_reaction_network(catmap_params::CatmapParams)
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s]
-            vars["_$(sp.site)"]-= vars[s]
+            vars["_$(sp.site)"]-= vars[s] * Num(sp.n_sites)
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
@@ -182,7 +182,7 @@ function create_reaction_network(catmap_params::CatmapParams)
             elseif isa(sp, AdsorbateSpecies) # activity coefficients are assumed to be 1
                 push!(rs, vars[reactant])
                 push!(γs, factor)
-                a *= (vars[reactant])^factor
+                a *= (vars[reactant] * Num(sp.n_sites))^factor
             elseif (isa(sp, GasSpecies) && reactant ≠ "H2O_g")
                 push!(rs, vars[reactant])
                 push!(γs, factor)

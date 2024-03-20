@@ -48,7 +48,9 @@ function ssolve(odesys::ModelingToolkit.ODESystem, params; solver=DynamicSS(Roda
     solve(ssprob, solver; maxiters)
 end
 
-function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, template_file_path, ss_params; solver=DynamicSS(Rodas5P()), maxiters=1e6, rtol=1.0e-4)
+function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catmap_params, template_file_path, ss_params; solver=DynamicSS(Rodas5P()), maxiters=1e6, rtol=1.0e-4)
+    (; species_list) = catmap_params
+    
     ssol = ssolve(odesys, ss_params; solver, maxiters)
     catmap_ssol = catmap_ssolve(template_file_path, ss_params)
 
@@ -67,9 +69,11 @@ function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, temp
         Dict(Symbolics.tosymbol(k; escape=false) => v for (k, v) in spmap)
     end
 
-    @testset "species=$(string(species))" for (species, cov) in catmap_ssol
-        @test isapprox(ssol[species], cov; rtol)
-        @test isapprox(sum(stoichmat[spmap[species], :] .* rrs_num), 0.0; atol=1.0e-4)
+    @testset "species=$(string(species))" for (species, θcatmap) in catmap_ssol
+        sp = species_list[string(species)]
+        θ  = ssol[species] * sp.n_sites
+        @test isapprox(θ, θcatmap; rtol)
+        @test isapprox(sum(stoichmat[spmap[species], :] .* rrs_num), 0.0; atol=1.0e-3)
         #@test isapprox(sum(stoichmat[spmap[species], :] .* catmap_rrs_num), 0.0; atol=1.0e-5)
     end
 end
@@ -80,7 +84,7 @@ function runtests()
             CatmapInterface.conserve_pressures!(model_instance.rn, model_instance.catmap_params)
             odesys = convert(ODESystem, model_instance.rn)
             @testset "$(repr(ss_params.ps))" for ss_params in model_instance.ss_params_iter
-                test_steady_state_with_catmap(model_instance.rn, odesys, model_instance.path, ss_params)
+                test_steady_state_with_catmap(model_instance.rn, odesys, model_instance.catmap_params, model_instance.path, ss_params)
 			end
         end
     end

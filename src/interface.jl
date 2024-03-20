@@ -532,8 +532,9 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
             coverage                            = 0.0
             (; site_names)                      = findspecies("", site, species_defs)
             site_name                           = site_names[1]
+            n_sites                             = get(species_def, :n_sites, 1)
             (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
-            species_list[s]                     = AdsorbateSpecies(; species_name, formation_energy, coverage, site, surface_name, frequencies, optional_params...)
+            species_list[s]                     = AdsorbateSpecies(; species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, optional_params...)
         # Electrode site (e.g. t)
         elseif !isnothing(match_site)
             site            = match_site[:site]

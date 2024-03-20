@@ -96,6 +96,10 @@ struct AdsorbateSpecies <: AbstractSpecies
     """
     site::String
     """
+    Number of needed sites for adsorption
+    """
+    n_sites::Int64
+    """
     Name of the surface the species adsorbs to
     """
     surface_name::String
@@ -115,14 +119,17 @@ struct AdsorbateSpecies <: AbstractSpecies
     Parameter used in [`CatmapInterface.first_order_adsorbate_interaction`](@ref) to specify the formation energy's dependence on the coverage of other adsorbates
     """
     cross_interaction_params::Dict{String, Float64}
-    function AdsorbateSpecies(; species_name, formation_energy, coverage, site, surface_name, frequencies, sigma_params=(;a=nothing, b=nothing), self_interaction_param=0.0, cross_interaction_params=Dict{String, Float64}())
+    function AdsorbateSpecies(; species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, sigma_params=(;a=nothing, b=nothing), self_interaction_param=0.0, cross_interaction_params=Dict{String, Float64}())
         if coverage < 0.0 || coverage > 1.0
             throw(DomainError("coverage must be between 0 and 1"))
         end
         if any(frequencies .<= 0.0)
             throw(DomainError("all frequencies must be positive"))
         end
-        new(species_name, formation_energy, coverage, site, surface_name, frequencies, sigma_params, self_interaction_param, cross_interaction_params)
+        if n_sites < 1
+            throw(DomainError("number of needed sites for adsorption must be positive"))
+        end
+        new(species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, sigma_params, self_interaction_param, cross_interaction_params)
     end
 end
 

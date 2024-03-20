@@ -137,7 +137,7 @@ function first_order_adsorbate_interaction(energies, catmap_params::CatmapParams
                         ϵ = _get_interaction_term(s, sp, os, osp, interaction_function, species_list)
                         sp.cross_interaction_params[os] = ϵ
                         osp.cross_interaction_params[s] = ϵ
-                        energies[s] += response_value * ϵ * ((θ[os] + 1.0e-15)/(θ_tot + 1.0e-15)) * eV
+                        energies[s] += response_value * ϵ * ((θ[os])/(θ_tot + 1.0e-50)) * eV
                     end
                 end
             end

@@ -244,3 +244,57 @@ function get_ideal_gas_params(name)
 
     return (; symmetrynumber = symmetrynumber, geometry = geometry, spin = spin)
 end
+
+"""
+    instantiate_catmap_template!(instance_file_path, template_file_path, params)
+
+Instantiate a template file by inserting the parameters in the `params`.
+"""
+function instantiate_catmap_template!(instance_file_path, template_file_path, params, T)
+    (; σ, ϕ_we, ϕ, local_pH) = params
+    instance_string = open(template_file_path, "r") do template_file
+        read(template_file, String)
+    end
+
+	replacements = [
+		r"descriptor_ranges.?=.*" =>"descriptor_ranges = [[$ϕ_we, $ϕ_we], [$T, $T]]",
+		r"voltage_diff_drop.?=.*" => "voltage_diff_drop = $ϕ",
+		r"pH.?=.*" => "pH = $local_pH",
+		r"\nsigma_input.?=.*" => "\nsigma_input = $σ/0.01", # in μF/cm^2
+	]
+    instance_string = replace(instance_string, replacements...)
+
+    open(instance_file_path, "w") do instance_file
+        write(instance_file, instance_string)
+    end
+
+    return instance_file_path
+end
+
+"""
+conserve_pressures!(rn::Catalyst.ReactionSystem, catmap_params::CatmapInterface.CatmapParams)
+
+Conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network `rn`.
+
+The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
+"""
+function conserve_pressures!(rn, catmap_params)
+	(; species_list) = catmap_params
+	stoichmat = netstoichmat(rn)
+	rr = reactionrates(rn)
+	nr = numreactions(rn)
+	for (isp, s) in enumerate(species(rn))
+		sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+		if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
+			R = sum([stoichmat[isp ,i] * rr[i] for i in 1:nr])
+			addreaction!(rn, Reaction(R, [s], nothing; only_use_rate=true))
+		end
+	end
+    @assert all(map(enumerate(species(rn))) do (isp, s)
+        sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+        new_stoichmat = netstoichmat(rn)
+        new_rr = reactionrates(rn)
+        new_nr = numreactions(rn)
+        isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
+    end)
+end

@@ -209,3 +209,9 @@ $(TYPEDFIELDS)
     """
     interaction_response_params::InteractionResponseParams = InteractionResponseParams()
 end
+
+fictiousspecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, FictiousSpecies), species_list)
+gasspecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, GasSpecies), species_list)
+adsorbatespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, AdsorbateSpecies), species_list)
+tstatespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, TStateSpecies), species_list)
+sitespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, SiteSpecies), species_list)

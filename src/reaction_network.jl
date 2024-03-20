@@ -1,15 +1,32 @@
 """
-$(SIGNATURES)
+$(TYPEDEF)
 
-Computes the rate of an elementary reaction that passes through a transition state.
+Interface parameters in the free energy model
 
-The rate law is based on the Arrhenius relation.
-The change in Gibbs free energy between the initial and transition state is the needed activation energy.
-A `prefactor` and the product of the activities `activprod` complete the rate law.
+$(TYPEDFIELDS)
 """
-function ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, activprod)
-    @local_phconstants k_B
-    prefactor * exp(-(Gf_TS - Gf_IS) / (k_B * T)) * activprod
+
+@kwdef struct InterfaceParams{T <: Real}
+    """
+    Coverages of the adsorbates
+    """
+    θ::Dict{String, T}
+    """
+    Electric potential at the working electrode in V
+    """
+    ϕ_we::T
+    """
+    Electric potential at the reaction plane in V
+    """
+    ϕ::T
+    """
+    Surface charge density on the electrode in Cm⁻²
+    """
+    σ::T
+    """
+    pH-value at the reaction plane
+    """
+    local_pH::T
 end
 
 """
@@ -43,6 +60,63 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, θ, 
     nothing
 end
 
+"""
+$(SIGNATURES)
+
+Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
+"""
+function compute_free_energies!(free_energies::Dict{String, T}, catmap_params::CatmapParams, interface_params::InterfaceParams) where {T <: Real}
+    (; θ, σ, ϕ_we, ϕ, local_pH) = interface_params
+    (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
+    (; adsorbate_interaction_model) = adsorbate_interaction_params
+
+    for (s, (; formation_energy)) in catmap_params.species_list
+        free_energies[s] += formation_energy
+    end
+
+    adsorbate_interaction_correction!  = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
+    gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
+    adsorbate_thermo_correction!       = getfield(@__MODULE__, adsorbate_thermo_mode)
+    electrochemical_thermo_correction! = getfield(@__MODULE__, electrochemical_thermo_mode)
+
+    adsorbate_interaction_correction!(free_energies, catmap_params, θ)
+
+    thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
+    gas_thermo_correction!(thermo_corrections, catmap_params)
+    adsorbate_thermo_correction!(thermo_corrections, catmap_params)
+    # electrochemical corrections
+    electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH)
+    for (species, thermo_correction) in thermo_corrections
+        free_energies[species] += thermo_correction
+    end
+    nothing
+end
+
+"""
+$(SIGNATURES)
+
+Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
+"""
+function CatmapInterface.compute_free_energies!(free_energies::Dict{InterfaceParams, Dict{String, T}}, catmap_params, params) where {T <: Real}
+	for intparams in params
+		free_energies[intparams] = Dict([ sp => 0.0	for sp in keys(catmap_params.species_list)	])
+		CatmapInterface.compute_free_energies!(free_energies[intparams], catmap_params, intparams)
+	end
+end
+
+"""
+$(SIGNATURES)
+
+Computes the rate of an elementary reaction that passes through a transition state.
+
+The rate law is based on the Arrhenius relation.
+The change in Gibbs free energy between the initial and transition state is the needed activation energy.
+A `prefactor` and the product of the activities `activprod` complete the rate law.
+"""
+function ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, activprod)
+    @local_phconstants k_B
+    prefactor * exp(-(Gf_TS - Gf_IS) / (k_B * T)) * activprod
+end
 
 """
 $(SIGNATURES)

@@ -17,6 +17,7 @@ using LinearAlgebra
 using JSON
 RuntimeGeneratedFunctions.init(@__MODULE__)
 include("utils.jl")
+export conserve_pressures!
 include("ideal-gas-model.jl")
 include("harmonic-model.jl")
 include("species.jl")

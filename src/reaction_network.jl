@@ -203,7 +203,7 @@ function create_reaction_network(catmap_params::CatmapParams)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    ReactionSystem(rxs, t, name = :microkinetics)
+    ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
 end
 
 """

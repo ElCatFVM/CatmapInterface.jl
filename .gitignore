@@ -4,3 +4,5 @@ notebooks/*.gif
 playground.jl
 docs/build/
 docs/src/notebooks/
+src/kineticmodel.jl
+src/solver.jl

@@ -1,23 +1,7 @@
-# py"""
-# from ase.collections import g2
-
-# def moleculedata(formula):
-#     a = g2[formula]
-#     return a.numbers, a.get_masses(), a.get_positions()
-# """
-
-# function molecule_geometry(geo)
-#     if geo == monoatomic
-#         return "monoatomic"    
-#     elseif geo == linear
-#         return "linear"
-#     elseif geo == nonlinear
-#         return "nonlinear"
-#     end
-# end
-
-
 """
+$(TYPEDEF)
+
+Enuerate type for molecular geometries.
 """
 @enum MoleculeGeometry monoatomic linear nonlinear
 
@@ -82,7 +66,9 @@ function momentsofinertia(idealgas::IdealGas)
 end
 
 """
-Compute the entropy of an ideal gas
+$(SIGNATURES)
+
+Compute the entropy of an ideal gas based on ab-initio data.
 """
 function entropy(idealgas::IdealGas)
     @local_phconstants k_B h R ħ c_0
@@ -121,7 +107,9 @@ function entropy(idealgas::IdealGas)
 end
 
 """
-Compute the enthalpy of an ideal gas with 0 eV electronic ground-state energy
+$(SIGNATURES)
+
+Compute the enthalpy of an ideal gas with 0 eV electronic ground-state energy based on ab-initio data.
 """
 function enthalpy(idealgas::IdealGas)
     @local_phconstants k_B h R c_0

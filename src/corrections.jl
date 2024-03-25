@@ -1,4 +1,9 @@
 """
+$(SIGNATURES)
+
+Correct the relative Gibbs free energies of formation due to ideal adsorbate interactions.
+
+Model for the excess chemical potential that assumes ideal adsorbate interactions so that the corrections are zero.
 """
 function ideal_adsorbate_interaction(energies, catmap_params, coverages)
     nothing
@@ -114,7 +119,8 @@ $(SIGNATURES)
 
 Add correction terms to the adsorbation energies based on first order interactions between the adsorbates. 
 
-This adsorbation interaction model is expained in ![CatMAP's documentation](https://catmap.readthedocs.io/en/latest/topics/including_adsorbate_adsorbate_interactions.html#coverage-dependent-adsorption-eneriges) and in this ![issue](https://github.com/smaasz/CatmapInterface.jl/issues/10)
+Model for the excess chemical potential that correct the relative Gibbs free energies of formation due to first-order adsorbate interactions.
+This adsorbation interaction model is expained in ![CatMAP's documentation](https://catmap.readthedocs.io/en/latest/topics/including_adsorbate_adsorbate_interactions.html#coverage-dependent-adsorption-eneriges) and in this ![issue](https://github.com/smaasz/CatmapInterface.jl/issues/10).
 """
 function first_order_adsorbate_interaction(energies, catmap_params::CatmapParams, θ)
     @local_unitfactors eV
@@ -149,6 +155,8 @@ end
 $(SIGNATURES)
 
 Add thermodynamic correction terms for all gas species using the ideal gas approximation.
+
+An ab-initio statistical model to correct the DFT-energies in order to obtain relative Gibbs free energies of formation. A reference for the approach is given in the book 'Essentials of Computational Chemistry: Theories and Models', 2nd edition, by Cramer, C.J. and published by Wiley.
 """
 function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real
     
@@ -169,6 +177,8 @@ end
 $(SIGNATURES) 
 
 Add thermodynamic correction terms for all adsorbed species using the harmonic adsorbate approximation.
+
+An ab-initio statistical model to correct the DFT-energies of adsorbed species in order to obtain relative Gibbs free energies of formation.
 """
 function harmonic_adsorbate(energies, catmap_params::CatmapParams)
     (; species_list, T) = catmap_params
@@ -230,7 +240,9 @@ end
 """
 $(SIGNATURES) 
 
-Add electrochemical correction terms for all influenced species using ...
+Add electrochemical correction terms to the relative Gibbs free energies of formation of 'free' electrons and transition states including 'free' electrons.
+
+The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. In this model the corrections accomodate the Frumkin effects of proton-coupled electron transfers. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
 """
 function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH)
     @local_unitfactors eV
@@ -253,7 +265,9 @@ end
 """
 $(SIGNATURES) 
 
-Add electrochemical correction terms for all influenced species using ...
+Add electrochemical correction terms to the relative Gibbs free energies of formation of (polarized) adsorbed species.
+
+The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. The surface charge dependence is fitted to a quadratic model. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
 """
 function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH)
     @local_unitfactors eV

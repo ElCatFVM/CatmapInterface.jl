@@ -50,5 +50,4 @@ CatmapInterface.entropy
 CatmapInterface.get_molecule_spec
 CatmapInterface.get_ideal_gas_params
 CatmapInterface.instantiate_catmap_template!
-CatmapInterface.conserve_pressures!
 ```

@@ -9,17 +9,15 @@ end
 
 using Artifacts
 using Catalyst
-using ModelingToolkit
 using DelimitedFiles
 using LessUnitful
 using RuntimeGeneratedFunctions
 using DocStringExtensions
-using Symbolics
-using SymbolicUtils
 using LinearAlgebra
 using JSON
 RuntimeGeneratedFunctions.init(@__MODULE__)
 include("utils.jl")
+export conserve_pressures!
 include("ideal-gas-model.jl")
 include("harmonic-model.jl")
 include("species.jl")

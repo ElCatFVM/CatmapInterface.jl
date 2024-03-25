@@ -18,7 +18,11 @@ end
 
 
 """
-Compute the entropy of an harmonic phase
+$(SIGNATURES)
+
+Compute the entropy of an harmonic phase based on ab-initio data.
+
+In this (ab-initio) statiscal model all degrees of freedom are approximated harmonically.
 """
 function entropy(harmonicphase::HarmonicPhase)
     @local_phconstants k_B h c_0
@@ -32,7 +36,11 @@ function entropy(harmonicphase::HarmonicPhase)
 end
 
 """
+$(SIGNATURES)
+
 Compute the enthalpy of an ideal gas with 0 eV electronic ground-state energy
+
+In this (ab-initio) statiscal model all degrees of freedom are approximated harmonically.
 """
 function enthalpy(harmonicphase::HarmonicPhase)
     @local_phconstants k_B h R c_0

@@ -138,7 +138,7 @@ $(TYPEDEF)
 
 $(TYPEDFIELDS)
 """
-struct TStateSpecies <: AbstractSpecies
+mutable struct TStateSpecies <: AbstractSpecies
     """
     Name of the species
     """

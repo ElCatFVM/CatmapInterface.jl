@@ -470,7 +470,7 @@ function _parse_cross_interaction_params(species, cross_interaction_parameters, 
     cross_interaction_params
 end
 
-const re_fictious_gas   = r"^(?<species_name>ele|OH)_g$"
+const re_fictious_gas   = r"^(?<species_name>ele|OH|H)_g$"
 const re_gas            = r"^(?<species_name>[A-Za-z0-9]+)_g$"
 const re_adsorbate      = r"^(?<species_name>[A-Za-z0-9]+)_(?<site>[^g])$"
 const re_site           = r"^_(?<site>[^g])$"

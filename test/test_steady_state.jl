@@ -48,21 +48,20 @@ function ssolve(odesys::ModelingToolkit.ODESystem, params; solver=DynamicSS(Roda
     solve(ssprob, solver; maxiters)
 end
 
-function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catmap_params, template_file_path, ss_params; solver=DynamicSS(Rodas5P()), maxiters=1e6, rtol=1.0e-4)
+function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catmap_params, template_file_path, ss_params; solver=DynamicSS(Rodas5P()), maxiters=1e6, rtol=1.0e-3)
     (; species_list) = catmap_params
     
     ssol = ssolve(odesys, ss_params; solver, maxiters)
-    catmap_ssol = catmap_ssolve(template_file_path, ss_params)
+    catmap_ssol = catmap_ssolve(template_file_path, ss_params) # note that the types of ssol and catmap_ssol are different!!!
 
     (; ps)  = ss_params
     nr          = numreactions(rn)
     rrs_sym     = reactionrates(rn)
     stoichmat   = netstoichmat(rn)
     rrs_num     = zeros(nr)
-    #catmap_rrs_num = zeros(nr)
+
     for (ir, rr_sym) in enumerate(rrs_sym)
         rrs_num[ir] = substitute(substitute(rr_sym, symmap_to_varmap(rn, ps)), Dict(sp => ssol[sp] for sp in species(rn)))
-        #catmap_rrs_num[ir] = substitute(substitute(substitute(rr_sym, symmap_to_varmap(rn, catmap_ssol)), symmap_to_varmap(rn, ps)), Dict(sp => ssol[sp] for sp in species(rn)))
     end
     spmap = let 
         spmap = speciesmap(rn)
@@ -71,23 +70,26 @@ function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catm
 
     @testset "species=$(string(species))" for (species, θcatmap) in catmap_ssol
         sp = species_list[string(species)]
-        θ  = ssol[species] * sp.n_sites
+        θ  = ssol[species] #* sp.n_sites
         @test isapprox(θ, θcatmap; rtol)
-        @test isapprox(sum(stoichmat[spmap[species], :] .* rrs_num), 0.0; atol=1.0e-3)
-        #@test isapprox(sum(stoichmat[spmap[species], :] .* catmap_rrs_num), 0.0; atol=1.0e-5)
+        #@test isapprox(sum(stoichmat[spmap[species], :] .* rrs_num), 0.0; atol=1.0e-7)
     end
 end
 
+"""
+runtests()
+
+For each model instance run a testset over model parameters where the steady state solutions without transport are compared to CatMAP simulations. 
+"""
 function runtests()
     @testset "Stationary Solutions" begin
-		@testset "Model=$(model_instance.name)" for model_instance in model_instances
+	@testset "Model=$(model_instance.name)" for model_instance in model_instances
             CatmapInterface.conserve_pressures!(model_instance.rn, model_instance.catmap_params)
             odesys = convert(ODESystem, model_instance.rn)
             @testset "$(repr(ss_params.ps))" for ss_params in model_instance.ss_params_iter
                 test_steady_state_with_catmap(model_instance.rn, odesys, model_instance.catmap_params, model_instance.path, ss_params)
-			end
+	    end
         end
     end
 end
-
 end

@@ -1,9 +1,7 @@
 module Utils
 using PyCall
 using CatmapInterface
-using ModelingToolkit
 using Catalyst
-using DifferentialEquations
 using DelimitedFiles
 using Format
 

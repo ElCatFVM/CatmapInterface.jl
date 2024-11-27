@@ -2,10 +2,12 @@ module test_steady_state
 using CatmapInterface
 using Catalyst
 using ModelingToolkit
-using DifferentialEquations
+using SteadyStateDiffEq
+using OrdinaryDiffEqRosenbrock
 using PyCall
-using ..Utils
 using Test
+include("Utils.jl")
+using .Utils
 
 ## Models
 
@@ -26,9 +28,9 @@ end
 ## Model definitions
 
 const model_instances = [
-    ModelInstance(; name="Au-model-hbond"   , path=joinpath("..", "data", "Au-model-hbond"  , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Au-model-hbond", "test_params.csv")),
-    ModelInstance(; name="Au-model-simple"  , path=joinpath("..", "data", "Au-model-simple" , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Au-model-simple", "test_params.csv")),
-    #ModelInstance(; name="Liu-model-simple" , path=joinpath("..", "data", "Liu-model-simple", "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Liu-model-simple", "test_params.csv")),
+    ModelInstance(; name="Au-model-hbond"   , path=joinpath(@__DIR__, "..", "data", "Au-model-hbond"  , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Au-model-hbond", "test_params.csv")),
+    ModelInstance(; name="Au-model-simple"  , path=joinpath(@__DIR__, "..", "data", "Au-model-simple" , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Au-model-simple", "test_params.csv")),
+    #ModelInstance(; name="Liu-model-simple" , path=joinpath(@__DIR__, "..", "data", "Liu-model-simple", "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Liu-model-simple", "test_params.csv")),
 ]
 
 ## Steady Steate Solver

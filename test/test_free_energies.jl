@@ -1,7 +1,8 @@
 module test_free_energies
 using CatmapInterface
 using Test
-using ..Utils
+include("Utils.jl")
+using .Utils
 
 const eV = 1.602176634e-19
 
@@ -22,10 +23,10 @@ end
 ## Model definitions
 
 const model_instances = [
-    ModelInstance(; name="Au-model-hbond"           , path=joinpath("..", "data", "Au-model-hbond"          , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Au-model-hbond"         , "test_params.csv")),
-    ModelInstance(; name="Au-model-simple"          , path=joinpath("..", "data", "Au-model-simple"         , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Au-model-simple"        , "test_params.csv")),
-    ModelInstance(; name="Liu-model-simple"         , path=joinpath("..", "data", "Liu-model-simple"        , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Liu-model-simple"       , "test_params.csv")),
-    ModelInstance(; name="Liu-model-first-order"    , path=joinpath("..", "data", "Liu-model-first-order"   , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Liu-model-first-order"  , "test_params.csv")),
+    ModelInstance(; name="Au-model-hbond"           , path=joinpath(@__DIR__, "..", "data", "Au-model-hbond"          , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Au-model-hbond"         , "test_params.csv")),
+    ModelInstance(; name="Au-model-simple"          , path=joinpath(@__DIR__, "..", "data", "Au-model-simple"         , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Au-model-simple"        , "test_params.csv")),
+    ModelInstance(; name="Liu-model-simple"         , path=joinpath(@__DIR__, "..", "data", "Liu-model-simple"        , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Liu-model-simple"       , "test_params.csv")),
+    ModelInstance(; name="Liu-model-first-order"    , path=joinpath(@__DIR__, "..", "data", "Liu-model-first-order"   , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Liu-model-first-order"  , "test_params.csv")),
 ]
 
 function test_free_energies_with_catmap(catmap_params, template_file_path, interface_params; rtol=1.0e-5)

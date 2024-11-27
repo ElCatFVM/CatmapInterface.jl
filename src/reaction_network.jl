@@ -115,7 +115,7 @@ A `prefactor` and the product of the activities `activprod` complete the rate la
 """
 function ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, activprod)
     @local_phconstants k_B
-    prefactor * exp(-(Gf_TS - Gf_IS) / (k_B * T)) * activprod
+    prefactor * exp(- Gf_TS/ (k_B * T)) * exp(Gf_IS / (k_B * T)) * activprod
 end
 
 """
@@ -153,8 +153,8 @@ function create_reaction_network(catmap_params::CatmapParams)
         elseif isa(sp, AdsorbateSpecies)
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
-            θ[s]                = vars[s]
-            vars["_$(sp.site)"]-= vars[s] * Num(sp.n_sites)
+            θ[s]                = vars[s] #* Num(sp.n_sites)
+            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
@@ -182,7 +182,7 @@ function create_reaction_network(catmap_params::CatmapParams)
             elseif isa(sp, AdsorbateSpecies) # activity coefficients are assumed to be 1
                 push!(rs, vars[reactant])
                 push!(γs, factor)
-                a *= (vars[reactant] * Num(sp.n_sites))^factor
+                a *= (vars[reactant])^factor #  (vars[reactant] * Num(sp.n_sites))^factor
             elseif (isa(sp, GasSpecies) && reactant ≠ "H2O_g")
                 push!(rs, vars[reactant])
                 push!(γs, factor)
@@ -197,7 +197,7 @@ function create_reaction_network(catmap_params::CatmapParams)
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
-        Gf_TS = isnothing(tstate) ? max(Gf_IS, Gf_FS) : mapreduce(x->free_energies[first(x)]^last(x), +, tstate.components) #free_energies[tstate.name]
+        Gf_TS = isnothing(tstate) ? max(Gf_IS, Gf_FS) : max(Gf_IS, Gf_FS, mapreduce(x->free_energies[first(x)]^last(x), +, tstate.components)) #free_energies[tstate.name]
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)

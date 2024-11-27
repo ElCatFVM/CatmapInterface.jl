@@ -1,9 +1,7 @@
 module Utils
 using PyCall
 using CatmapInterface
-using ModelingToolkit
 using Catalyst
-using DifferentialEquations
 using DelimitedFiles
 using Format
 
@@ -196,7 +194,10 @@ def runcatmap(setup_file):
             cd(newdir)
             local cmap
             try
-                @pyinclude(splitdir(logfile_path)[end])
+		py"""
+		import numpy as np
+		$$(read(splitdir(logfile_path)[end], String))
+		"""
                 labels = Symbol.(py"output_labels"["coverage"])
                 coverages = py"coverage_map"[2]
                 coverages = py"float".(coverages)

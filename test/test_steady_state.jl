@@ -1,11 +1,19 @@
 module test_steady_state
+using Catalyst: Catalyst, netstoichmat, numreactions, reactionrates, species,
+speciesmap, symmap_to_varmap
+using CatmapInterface: CatmapInterface, CatmapParams, create_reaction_network,
+parse_catmap_input
+using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute
+using OrdinaryDiffEqRosenbrock: OrdinaryDiffEqRosenbrock, Rodas5P,
+SteadyStateProblem, solve
+using PyCall: PyCall
+using SteadyStateDiffEq: SteadyStateDiffEq, DynamicSS
+using Test: Test, @test, @testset
+
 using CatmapInterface
-using Catalyst
-using ModelingToolkit
-using DifferentialEquations
-using PyCall
-using ..Utils
-using Test
+
+include("Utils.jl")
+using .Utils
 
 ## Models
 
@@ -26,9 +34,9 @@ end
 ## Model definitions
 
 const model_instances = [
-    ModelInstance(; name="Au-model-hbond"   , path=joinpath("..", "data", "Au-model-hbond"  , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Au-model-hbond", "test_params.csv")),
-    ModelInstance(; name="Au-model-simple"  , path=joinpath("..", "data", "Au-model-simple" , "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Au-model-simple", "test_params.csv")),
-    #ModelInstance(; name="Liu-model-simple" , path=joinpath("..", "data", "Liu-model-simple", "catmap_CO2R_template.mkm"), test_params_path=joinpath("..", "data", "Liu-model-simple", "test_params.csv")),
+    ModelInstance(; name="Au-model-hbond"   , path=joinpath(@__DIR__, "..", "data", "Au-model-hbond"  , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Au-model-hbond", "test_params.csv")),
+    ModelInstance(; name="Au-model-simple"  , path=joinpath(@__DIR__, "..", "data", "Au-model-simple" , "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Au-model-simple", "test_params.csv")),
+    #ModelInstance(; name="Liu-model-simple" , path=joinpath(@__DIR__, "..", "data", "Liu-model-simple", "catmap_CO2R_template.mkm"), test_params_path=joinpath(@__DIR__, "..", "data", "Liu-model-simple", "test_params.csv")),
 ]
 
 ## Steady Steate Solver

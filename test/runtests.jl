@@ -1,7 +1,6 @@
 using Test
 import ExampleJuggler
 using ExampleJuggler: cleanexamples, @testmodules, @testscripts
-include("Utils.jl")
 
 ExampleJuggler.verbose!(true)
 

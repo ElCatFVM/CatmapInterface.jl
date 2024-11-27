@@ -1,4 +1,3 @@
-push!(LOAD_PATH, joinpath(@__DIR__,"../src/"))
 using Documenter
 using CatmapInterface
 using Catalyst
@@ -59,7 +58,7 @@ function mkdocs()
         doctest     = true,
         draft       = false,
         authors     = "S. Maaß",
-        repo        = "https://github.com/smaasz/CatmapInterface.jl",
+        repo        = "https://github.com/ElCatFVM/CatmapInterface.jl",
         pages       = [
             "Home"      => "index.md",
             "Guide"     => "guide.md",
@@ -73,5 +72,5 @@ end
 mkdocs()
 
 if !isinteractive()
-    deploydocs(repo = "github.com/smaasz/CatmapInterface.jl", devbranch = "main")
+    deploydocs(repo = "github.com/ElCatFVM/CatmapInterface.jl.git", devbranch = "main")
 end

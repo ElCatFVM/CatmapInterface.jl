@@ -1,6 +1,7 @@
 module test_free_energies
-using CatmapInterface
-using Test
+using CatmapInterface: CatmapInterface, CatmapParams, parse_catmap_input
+using Test: Test, @test, @testset
+
 include("Utils.jl")
 using .Utils
 

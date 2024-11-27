@@ -1,11 +1,17 @@
 module test_steady_state
+using Catalyst: Catalyst, netstoichmat, numreactions, reactionrates, species,
+speciesmap, symmap_to_varmap
+using CatmapInterface: CatmapInterface, CatmapParams, create_reaction_network,
+parse_catmap_input
+using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute
+using OrdinaryDiffEqRosenbrock: OrdinaryDiffEqRosenbrock, Rodas5P,
+SteadyStateProblem, solve
+using PyCall: PyCall
+using SteadyStateDiffEq: SteadyStateDiffEq, DynamicSS
+using Test: Test, @test, @testset
+
 using CatmapInterface
-using Catalyst
-using ModelingToolkit
-using SteadyStateDiffEq
-using OrdinaryDiffEqRosenbrock
-using PyCall
-using Test
+
 include("Utils.jl")
 using .Utils
 

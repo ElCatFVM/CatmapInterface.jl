@@ -1,9 +1,8 @@
 module Utils
-using PyCall
-using CatmapInterface
-using Catalyst
-using DelimitedFiles
-using Format
+using CatmapInterface: CatmapInterface, AdsorbateSpecies, FictiousSpecies, GasSpecies
+using DelimitedFiles: DelimitedFiles, readdlm, writedlm
+using Format: Format, cfmt
+using PyCall: PyCall, @py_str, @pyinclude, keys, pyimport
 
 const Symmap    = Vector{Pair{Symbol, Float64}}
 const SSParams  = @NamedTuple{u0::Symmap, ps::Symmap}

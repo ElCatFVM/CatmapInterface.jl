@@ -139,7 +139,7 @@ function create_reaction_network(catmap_params::CatmapParams)
     vars        = Dict{String, Num}() # converages and concentrations
     θ           = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
-    β           = Dict{String, Num}()
+    β           = Dict{String, Num}() # transition state beta 
     for (s, sp) in species_list
         if isa(sp, SiteSpecies) # the coverage of the free sites of site type is 1 - sum(coverages of adsorbates on site)
             vars[s] = Num(1)
@@ -164,7 +164,7 @@ function create_reaction_network(catmap_params::CatmapParams)
             activ_coefs[s]  = first(@parameters $gs)
         elseif isa(sp, TStateSpecies)
             βs   = Symbol("β$s")
-            β[s] = first(@parameters $βs = sp.β)
+            β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
     

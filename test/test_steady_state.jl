@@ -3,7 +3,7 @@ using Catalyst: Catalyst, netstoichmat, numreactions, reactionrates, species,
 speciesmap, symmap_to_varmap
 using CatmapInterface: CatmapInterface, CatmapParams, create_reaction_network,
 parse_catmap_input
-using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute
+using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute, get_defaults
 using OrdinaryDiffEqRosenbrock: OrdinaryDiffEqRosenbrock, Rodas5P,
 SteadyStateProblem, solve
 using PyCall: PyCall
@@ -69,7 +69,7 @@ function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catm
     rrs_num     = zeros(nr)
 
     for (ir, rr_sym) in enumerate(rrs_sym)
-        rrs_num[ir] = substitute(substitute(rr_sym, symmap_to_varmap(rn, ps)), Dict(sp => ssol[sp] for sp in species(rn)))
+        rrs_num[ir] = substitute(substitute(rr_sym, merge(get_defaults(rn), Dict(symmap_to_varmap(rn, ps)))), Dict(sp => ssol[sp] for sp in species(rn)))
     end
     spmap = let 
         spmap = speciesmap(rn)

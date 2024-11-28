@@ -1,8 +1,10 @@
 .vscode/
-Manifest.toml
+Manifest*.toml
 notebooks/*.gif
 playground.jl
 docs/build/
 docs/src/notebooks/
 src/kineticmodel.jl
 src/solver.jl
+QUARRY
+quarry

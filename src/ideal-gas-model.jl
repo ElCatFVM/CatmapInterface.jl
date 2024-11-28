@@ -62,7 +62,7 @@ function momentsofinertia(idealgas::IdealGas)
     for i in 1:length(m)
         IM += m[i] * ((x[i, :])' * x[i, :] * I - x[i, :] * (x[i, :])') 
     end
-    eigvals(IM)
+    eigvals(Symmetric(IM))
 end
 
 """

@@ -141,7 +141,7 @@ def catmap_kinetic_model(setup_file, theta):
                 if length(k) == 1 && k != "g"
                     free_energies["_$k"] = convert(Float64, v)
                 else
-                    free_energies[k] = convert(Float64, v)
+                    free_energies[CatmapInterface.rename_tstate(k)] = convert(Float64, v)
                 end
             end
             nothing

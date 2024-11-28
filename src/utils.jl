@@ -298,3 +298,19 @@ function conserve_pressures!(rn, catmap_params)
         isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
     end)
 end
+
+
+function rename_tstate(text::AbstractString; without_site=false)
+    if without_site
+        re = r"(?<before>(([A-Z]+[1-9]?)+|ele))-(?<after>(([A-Z]+[1-9]?)+|ele|\w|$))"
+    else
+        re = r"(?<before>(([A-Z]+[1-9]?)+|ele))-(?<after>(([A-Z]+[1-9]?)+|ele|\*?_[a-z]))"
+    end
+    old_text = text
+    text = replace(text, re => s"\g<before>Δ\g<after>") 
+    while old_text ≠ text
+        old_text = text
+        text = replace(text, re => s"\g<before>Δ\g<after>") 
+    end
+    return text
+end

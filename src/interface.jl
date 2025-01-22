@@ -175,7 +175,7 @@ end
 
 
 const re_reactant_sum  = r"^(?:[^+]+)(?:\+[^+]+)*$"
-const re_reactant      = r"^(?<factor>[1-9][0-9]*)?(?<species>[A-Za-z0-9\-]*)\*?_(?<site>[a-z])$"
+const re_reactant      = r"^(?<factor>[1-9][0-9]*)?(?<species>[A-Za-z0-9Δ]*)\*?_(?<site>[a-z])$"
 """
 $(SIGNATURES) 
 
@@ -215,8 +215,8 @@ Parse a specification of a chemical reaction into a [`CatmapInterface.ParsedReac
 julia> CatmapInterface.parse_reaction("CO*_t <-> CO_g + *_t")
 CatmapInterface.ParsedReaction(["CO_t" => 1], ["CO_g" => 1, "_t" => 1], nothing)
 
-julia> CatmapInterface.parse_reaction("COOH*_t + H2O_g + ele_g <-> COOH-H2O-ele_t <-> CO*_t + H2O_g + OH_g + *_t; beta=0.5")
-CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOH-H2O-ele_t" => 1], 0.5))
+julia> CatmapInterface.parse_reaction("COOH*_t + H2O_g + ele_g <-> COOHΔH2OΔele_t <-> CO*_t + H2O_g + OH_g + *_t; beta=0.5")
+CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5))
 ```
 """
 function parse_reaction(r::AbstractString; beta=nothing)
@@ -322,7 +322,9 @@ function parse_energy_table(input_file_path)
         row = []
         for ((entry_header, entry_type), entry) in zip(entry_types, row_strings)
             try
-                if entry_type == String
+                if entry_header == :species_name
+                    push!(row, entry_header => rename_tstate(entry; without_site=true))
+                elseif entry_type == String
                     push!(row, entry_header => entry)
                 elseif entry_header == :formation_energy
                     push!(row, entry_header => parse(entry_type, entry) * eV)
@@ -395,7 +397,11 @@ See [CatMAP documentation](https://catmap.readthedocs.io/en/latest/index.html) f
 """
 function parse_catmap_input(input_file_path::AbstractString)
     @assert isfile(input_file_path)
-    @pyinclude(input_file_path)
+    input = read(input_file_path, String)
+    input = rename_tstate(input)
+    py"
+$$input
+"
     
     beta = 
     try
@@ -474,7 +480,7 @@ const re_fictious_gas   = r"^(?<species_name>ele|OH)_g$"
 const re_gas            = r"^(?<species_name>[A-Za-z0-9]+)_g$"
 const re_adsorbate      = r"^(?<species_name>[A-Za-z0-9]+)_(?<site>[^g])$"
 const re_site           = r"^_(?<site>[^g])$"
-const re_tstate         = r"^(?<species_name>[A-Za-z0-9\-]+)_(?<site>[^g])$"
+const re_tstate         = r"^(?<species_name>[A-Za-z0-9Δ]+)_(?<site>[^g])$"
 
 """
 $(SIGNATURES) 

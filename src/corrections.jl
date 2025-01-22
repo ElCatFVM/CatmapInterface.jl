@@ -215,7 +215,7 @@ $(SIGNATURES)
 
 Add electrochemical pH-correction terms for all influenced species.
 """
-function _get_echem_corrections(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH)
+function _get_echem_corrections(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
     (; species_list, potential_reference_scale, T) = catmap_params
     if haskey(species_list, "H_g") || haskey(species_list, "OH_g")
@@ -244,7 +244,7 @@ Add electrochemical correction terms to the relative Gibbs free energies of form
 
 The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. In this model the corrections accomodate the Frumkin effects of proton-coupled electron transfers. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
 """
-function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH)
+function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
     (; species_list, Uref) = catmap_params
     # simple_electrochem_corrections
@@ -253,12 +253,11 @@ function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we
     end
     for (s, sp) in species_list
         if isa(sp, TStateSpecies) && occursin("ele", sp.species_name)
-            (; β) = sp
-            energies[s] += (-(ϕ_we - ϕ) + β * (ϕ_we - ϕ - Uref)) * eV
+            energies[s] += (-(ϕ_we - ϕ) + β[s] * (ϕ_we - ϕ - Uref)) * eV
         end
     end
     # pH_correction
-    _get_echem_corrections(energies, catmap_params, σ, ϕ_we, ϕ, local_pH)
+    _get_echem_corrections(energies, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     nothing
 end
 
@@ -269,10 +268,10 @@ Add electrochemical correction terms to the relative Gibbs free energies of form
 
 The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. The surface charge dependence is fitted to a quadratic model. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
 """
-function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH)
+function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
     # simple_electrochem
-    simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH)
+    simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH, β)
     hbond_dict = py"hbond_dict"
     (; species_list) = catmap_params
     # hbond_electrochemical

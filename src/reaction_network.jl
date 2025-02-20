@@ -34,11 +34,11 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function compute_free_energies!(free_energies, catmap_params::CatmapParams, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
+function compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
-    for (s, (; formation_energy)) in catmap_params.species_list
+    for (s, formation_energy) in formation_energies
         free_energies[s] += formation_energy
     end
 
@@ -139,19 +139,23 @@ function create_reaction_network(catmap_params::CatmapParams)
     vars        = Dict{String, Num}() # converages and concentrations
     θ           = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
-    β           = Dict{String, Num}() # transition state beta 
+    β           = Dict{String, Num}() # transition state beta
+    formation_energies = Dict{String, Num}()
     for (s, sp) in species_list
         if isa(sp, SiteSpecies) # the coverage of the free sites of site type is 1 - sum(coverages of adsorbates on site)
             vars[s] = Num(1)
         end
     end
     for (s, sp) in species_list
+        Es = Symbol("E$s")
+        formation_energies[s] = first(@parameters $Es = sp.formation_energy)
         if s =="H2O_g" # the solvent is assumed to have constant activity
             as      = Symbol("a$s")
             vars[s] = first(@parameters $as)
         elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
             ss          = Symbol(s)
             vars[s]     = first(@species $ss(t))
+            
         elseif isa(sp, AdsorbateSpecies)
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
@@ -169,7 +173,7 @@ function create_reaction_network(catmap_params::CatmapParams)
     end
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
-    compute_free_energies!(free_energies, catmap_params::CatmapParams, θ, σ, ϕ_we, ϕ, local_pH, β)
+    compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm

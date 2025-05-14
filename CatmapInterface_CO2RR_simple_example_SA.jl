@@ -34,10 +34,9 @@ begin
     using Catalyst
     using Printf
     using LinearAlgebra
-    using DifferentialEquations ## 추가
-	using GlobalSensitivity
-	using QuasiMonteCarlo
-	using Statistics
+    using Plots
+    using DifferentialEquations
+	using GlobalSensitivity## 추가
     if isdefined(Main, :PlutoRunner)
         using CairoMakie
         default_plotter!(CairoMakie)
@@ -458,124 +457,44 @@ interaction_log_CO=[
 0.783214
 ]
 
-# ╔═╡ 2a22ec17-9bfa-49f2-ac63-bde821706f63
-md"""
-### Classify parameters
-"""
-
-# ╔═╡ 66879921-440c-4df2-96bb-2054b0d19484
-function parameters_to_string(parameters)
-	params_name=[]
-	for p in parameters
-		params=string(p)
-		push!(params_name, params)
-	end
-	return params_name
-end					
-
-# ╔═╡ 6522d4cc-0644-4e4f-9bb3-e304a5c42eff
-function pcet_name(name)
-    pcet_barrier = []
-    chem_barrier = []
-    pcet_beta = []
-    for i in name
-        i_replaced = replace(i, "E" => "G") ## replace E to G
-        if contains(i_replaced, "ele") && contains(i_replaced, "G") && contains(i_replaced, "Δ")
-            push!(pcet_barrier, i_replaced)
-        elseif contains(i_replaced, "G") && contains(i_replaced, "Δ")
-            push!(chem_barrier, i_replaced)
-        elseif contains(i_replaced, "ele") && contains(i_replaced, "β") && contains(i_replaced, "Δ")
-            push!(pcet_beta, i_replaced)
-        end
-    end
-    return pcet_barrier, chem_barrier, pcet_beta
-end
-
+# ╔═╡ fed77c8a-d35c-4e67-b112-903c159a8221
+const energy=model_instance.catmap_params.species_list
 
 # ╔═╡ 1bde0c68-15c0-4f44-a33d-4bca9c39e66f
 U_eq=Dict()
 
-# ╔═╡ 1a25c56d-cde5-40ca-a102-4becd2a54d10
-energy= model_instance.catmap_params.species_list
-
 # ╔═╡ f552af14-3a76-4a1c-9e7f-16fa0d34cd3c
-function get_U_eq(reactions)
-	for i in reactions
-		if isnothing(i.tstate)
+for i in model_instance.catmap_params.reactions
+	if isnothing(i.tstate)
 		nothing
-		else
+	else
 	    j=[pair.first for pair in  i.educts] ## name 
 	    k=[pair.second for pair in i.educts] ## coeff
 	    l=[pair.first for pair in i.products]
 	    m=[pair.second for pair in i.products]
-	    	U_eq["$(i.tstate.components[1][1])"]= 				(sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))-sum(energy["$(l)"].formation_energy*m for (l,m) in zip(l,m)))/e
+	    U_eq["$(i.tstate.components[1][1])"]= 	(sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))-sum(energy["$(l)"].formation_energy*m for (l,m) in zip(l,m)))/e
 		 
-    	end
-	end
+    end
 end
 
-# ╔═╡ d2236c4b-5c72-4b9b-9533-22c767c44b84
-get_U_eq(model_instance.catmap_params.reactions)
-
-# ╔═╡ 38a056ce-fbff-4b17-98b6-3f67cd71692a
-model_instance.catmap_params.reactions[1].tstate.components[1]
-
-# ╔═╡ c9d38446-019f-4f40-afda-544f40ff19f0
-md"""
-### loss function
-"""
-
-# ╔═╡ 312fa03e-a913-4a97-a3db-0cf436150a41
-function loss_function(; kwargs...)
-    loss_function(NamedTuple(kwargs))
-end
-
-
-# ╔═╡ 7ec99492-254e-4bcf-ad07-075eb4b6f2eb
-parameters = (
-    GH2OΔCOΔele_t=0.0, GCHΔOHΔele_t=1.0, GOCCOΔH2OΔele_t=1.0, GCOOHΔH2OΔele_t=0.79, GCOΔ_t=1.0,  GOCΔCO_t= 1.0, GCO2Δ_t=1.0, 
-    βH2OΔCOΔele_t=0.0, βCHΔOHΔele_t=0.0, βOCCOΔH2OΔele_t=0.2, βCOOHΔH2OΔele_t=0.0
-) # -0.167291
-
-# ╔═╡ a2692d58-37df-4e2e-8e88-22240caf555f
-md"""
-### Sensitivity Analysis
-"""
-
-# ╔═╡ 78ea7115-6d0d-4336-9cff-7b83c20675eb
-bounds= [(0.01, 1.5), (0.01, 1.5), (0.01, 1.5), (0.01, 1.5), (0.01, 1.0), (0.01, 1.0), (0.01, 1.0),(0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9)] 
-
-# ╔═╡ 8fb9de64-0286-41db-9094-403f59e1b00f
+# ╔═╡ d82b8194-4c18-4bd4-92c4-03fa3c7a0f1d
+# ╠═╡ disabled = true
+#=╠═╡
 begin
-	samples = 3000
-	lb = first.(bounds)
-	ub = last.(bounds)
+	BayesianOpt= bayopt.BayesianOptimization
+	domain_red= bayopt.SequentialDomainReductionTransformer ##https://bayesian-optimization.github.io/BayesianOptimization/2.0.3/domain_reduction.html
 end
+  ╠═╡ =#
 
-# ╔═╡ bb527498-120a-4c77-9116-e1cff829bf0c
-begin
-	sampler = SobolSample()
-	A, B = QuasiMonteCarlo.generate_design_matrices(samples, lb, ub, sampler)
-end
+# ╔═╡ 511aed8f-95a1-4b01-ae19-b85fb16ea888
+#=╠═╡
+bounds_transformer = domain_red(minimum_window=0.5)
 
-# ╔═╡ 3b6ca314-cbff-4fbf-998f-5f0d5a7846f1
-@show var(filter(!isnan, Y_A)), var(filter(!isnan, Y_B))
+  ╠═╡ =#
 
-# ╔═╡ 0f9aa6b7-744d-475a-a998-da03d7b4a2e7
-set_theme!(Theme(
-    fontsize = 16,             # sets base font size
-    Axis = (
-        titlesize = 20,
-        xlabelsize = 10,
-        ylabelsize = 30,
-        xticklabelsize = 15,
-        yticklabelsize = 25,
-    )
-))
-
-# ╔═╡ 29640068-cfdc-4bc9-a359-7fd331c4af81
-"""md
-### Input
+# ╔═╡ fd7bf3d1-0fe4-46ce-8024-e75a6c63dde8
+md"""
+#### Debugging
 """
 
 # ╔═╡ fc23f850-cd11-45cf-a769-ad4347b2b6cd
@@ -595,40 +514,15 @@ set_theme!(Theme(
         end
     end
 
-	for (s ,sp) in model_instance.catmap_params.species_list
-		if s in  ["H2OΔele_t", "HΔH2OΔele_t", "HΔH_t"]
-			continue
-		end
-		if (isa(sp, TStateSpecies)) && occursin("Δele", s)
-			push!(
-				input_params,
-				(; name = "β$s", range = 0.0:0.01:1.0, default = sp.β, unit = ""),
-			)
-		end
-	end
-
-	for (s, sp) in model_instance.catmap_params.species_list
-		if s in  ["H2OΔele_t", "HΔH2OΔele_t", "HΔH_t"]
-			continue
-		end
-		if (isa(sp, TStateSpecies))
-			push!(
-				input_params,
-				(; name = "E$s", range = -1e10:1e5:1e10, default = energy[s].formation_energy , unit = "J"),
-			)
-		end
-	end
-
-	 pressures_input = [
+    params_input = [
         md""" $(name) : $(Child(name, PlutoUI.Slider(range; default=default, show_value=true))) $unit
         """ for (; name, range, default, unit) in input_params
-    ] 
+    ]
     md"""
-    #### Input Prameters:
-    $(pressures_input)
+    #### Input Parameters:
+    $(params_input)
     """
 end
-
 
 # ╔═╡ 038e4bfb-c117-44ee-8ac3-b6c19d4696a7
 @bind pressures_input PlutoUI.combine() do Child
@@ -663,8 +557,8 @@ begin
 	const pressures = Dict(pairs(pressures_input))
 	const (; rn, catmap_params) = model_instance
 	const species_list = catmap_params.species_list
- 	const	params = Dict(pairs(params_input))
-	const θ0 = Dict(Symbol(s) => θinit for (s, sp) in species_list if isa(sp, AdsorbateSpecies))
+	const params = Dict(pairs(params_input))
+	const θ0 = Dict(Symbol(s) => θinit for (s, sp) in species_list if isa(sp, 		          AdsorbateSpecies))
 	const rxns=reactions(rn)
 	init_points =10
 	n_iter =70
@@ -678,14 +572,125 @@ begin
 	CH3CH2OH= best_result[][4]
 end
 
-# ╔═╡ 37a2514d-b546-492b-90cb-38d316d91972
-params_name = parameters_to_string(Catalyst.parameters(rn))
+# ╔═╡ 97266262-a38c-4a8f-ad47-709f04ea4a4d
+begin
+function loss_function(; E1, E2, E3, E6, β1, β2, β3, β6)
+	result = nothing
+	t = @elapsed begin
+	rn.:ECHΔOHΔele_t= E1*e + energy["CHOH_t"].formation_energy-β1*e*U_eq["CHΔOHΔele_t"]# 0.85
+	rn.:ECOOHΔH2OΔele_t= E2*e +energy["COOH_t"].formation_energy+energy["H2O_g"].formation_energy-β2*e*U_eq["COOHΔH2OΔele_t"] # -0.09
+	rn.:EH2OΔCOΔele_t= E3*e + energy["CO_t"].formation_energy+energy["H2O_g"].formation_energy-β3*e*U_eq["H2OΔCOΔele_t"]#0.409
+	rn.:EOCCOΔH2OΔele_t= E6*e+energy["OCCO_t"].formation_energy+energy["H2O_g"].formation_energy-β6*e*U_eq["OCCOΔH2OΔele_t"] #-0.65
+	rn.:βCHΔOHΔele_t=β1 # 0.5
+	rn.:βCOOHΔH2OΔele_t=β2 # 0.5
+	rn.:βH2OΔCOΔele_t= β3  #0.5
+	rn.:βOCCOΔH2OΔele_t = β6 #0.6	
+ (Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH) = currentvoltage(rn, catmap_params, pressures, θ0, params)
+	result= -(norm(interaction_log_CH4-currs_CH4)+norm(interaction_log_C2-currs_CH3CH2OH)+norm(interaction_log_CO-currs_CO))
+	 if result > best_result[][1]
+        best_result[] = (result, currs_CH4, currs_CO, currs_CH3CH2OH)
+    end
+	end
+		open("opt_inter_domain_reduction_with_iter=$(n_iter)_init=$(init_points).txt", "a") do io
+        println(io, "elapsed: $(round(t, digits=4))s, E1: $(E1), E2: $(E2), E3: $(E3), E6: $(E6), β1: $(β1), β2: $(β2), β3: $(β3), β6: $(β6)")
+    end
+	return result
+	end
+	   pbounds= Dict("E1" => (0.0,2.0), "E2" => (0.0,2.0), "E3" => (0.0,2.0), "E6" => (0.0,2.0), "β1" => (0.1,0.9), "β2" => (0.1,0.9), "β3" => (0.1,0.9), "β6" => (0.1,0.9))
+end
 
-# ╔═╡ d5fa068a-0713-4292-b62b-eca37f10706a
-pcet_barrier, chem_barrier, pcet_beta = pcet_name(params_name)
+# ╔═╡ 23c7a8cb-3734-413c-8216-5dc6a12c645b
+#=╠═╡
+begin
+	optimizer = BayesianOpt(
+	    f=loss_function,
+	    pbounds=pbounds, 
+	    random_state=random_state,
+		#bounds_transformer=bounds_transformer
+	)
+end
+  ╠═╡ =#
 
-# ╔═╡ 5eb78291-1fad-41bd-af32-2d89e9ceb98b
-Catalyst.parameters(rn)
+# ╔═╡ d00de1d2-72c3-48fd-b1e1-6ebb41b73e4c
+#=╠═╡
+begin
+	new_optimizer = BayesianOpt(
+	    f=loss_function,
+	    pbounds=pbounds, 
+	    random_state=random_state,
+		bounds_transformer=bounds_transformer
+	)
+end
+  ╠═╡ =#
+
+# ╔═╡ 65b2abd0-4365-45b9-b47d-9f3070384cc2
+#=╠═╡
+load.load_logs(new_optimizer, logs=["log/opt_inter_no_domain_reduction_with_iter=700_init=100_original.log.json"])
+  ╠═╡ =#
+
+# ╔═╡ d83489ca-587d-466e-a95c-579240771eb2
+#=╠═╡
+print(new_optimizer.max)
+  ╠═╡ =#
+
+# ╔═╡ 3725f3e0-4a7d-47c0-8130-f940a6b1ee7c
+#=╠═╡
+optimized=new_optimizer.max["params"]
+  ╠═╡ =#
+
+# ╔═╡ 751ce0f4-ff2b-4fea-a9a3-84a7d8b6f4ff
+#=╠═╡
+loss_function(; β1=optimized["β1"], β2=optimized["β2"], β3=optimized["β3"], β6=optimized["β6"], E1=optimized["E1"], E2=optimized["E2"], E3=optimized["E3"], E6=optimized["E6"]) 
+  ╠═╡ =#
+
+# ╔═╡ 12323fda-3cc3-4015-9d1e-4b7747650b28
+#=╠═╡
+best_params=new_optimizer.max
+  ╠═╡ =#
+
+# ╔═╡ 427af424-c026-4a30-95a6-37be0a59514b
+#=╠═╡
+begin
+	logger = Logger.JSONLogger(path="log/opt_inter_domain_reduction_with_iter=$(n_iter)_init=$(init_points).log")
+	new_optimizer.subscribe(Eve.Events.OPTIMIZATION_STEP, logger)
+end
+  ╠═╡ =#
+
+# ╔═╡ 798eec1c-1383-45bb-ae55-b2620ce185fb
+#=╠═╡
+new_optimizer[:maximize](
+		init_points=0,
+		n_iter= n_iter
+	)
+  ╠═╡ =#
+
+# ╔═╡ f816dd6d-2fb7-4c1c-8a73-1fb20ecc1359
+#=╠═╡
+optimizer[:maximize](
+		init_points=init_points,
+		n_iter= n_iter
+	)
+  ╠═╡ =#
+
+# ╔═╡ ee158f3b-ae5d-4129-a1b9-4665c0215084
+#=╠═╡
+open("opt_inter_domain_reduction_with_iter=$(n_iter)_init=$(init_points).txt", "a") do io
+        println(io, "reltol: $(reltol), abstol:$(abstol)")
+		println(io, "iter:$(n_iter), init:$(init_points)")
+		println(io, "random_state:$(random_state)")
+		println(io, "best_result:$(best_params)" )
+end
+  ╠═╡ =#
+
+# ╔═╡ a43e66b7-28d9-462b-9983-03a72623f3e7
+#=╠═╡
+open("log/opt_inter_domain_reduction_with_iter=$(n_iter)_init=$(init_points).log.json", "a") do io
+        println(io, "reltol: $(reltol), abstol:$(abstol)")
+		println(io, "iter:$(n_iter), init:$(init_points)")
+		println(io, "random_state:$(random_state)")
+		println(io, "best_result:$(best_params)" )
+end
+  ╠═╡ =#
 
 # ╔═╡ ae47cd84-fff5-485e-8aba-81f8cd13a469
 voltage = [
@@ -709,11 +714,6 @@ voltage = [
     -1.85,
 ]
 
-# ╔═╡ 0e8788fb-4835-4b21-adc5-65a90b9426cc
-md"""
-### Plots(from Makie)
-"""
-
 # ╔═╡ 548a2d56-77ff-4d75-981b-6d9cc81ea32d
 let
     f1 = Figure(resolution = (1200, 400))
@@ -727,7 +727,7 @@ let
         limits = (-1.85, -1.0, -5, 5),
     )
     lines!(ax4, voltage,  best_result[][2], color=:red, linewidth =5)
-	lines!(ax4, voltage, standard_log_methane, color=:blue, linewidth=3 )
+	lines!(ax4, voltage, interaction_log_CH4, color=:blue, linewidth=3 )
 	
 	ax5 = Axis(
         f1[1, 2],
@@ -736,10 +736,10 @@ let
         ylabel = "I #[mA/cm^2]",
 		titlesize = 15,
 		
-        limits = (-1.85, -1.0, -5, 7),  # Adjust limits as needed
+        limits = (-1.85, -1.0, -5, 5),  # Adjust limits as needed
     )
     lines!(ax5, voltage,  best_result[][3], color = :red, linewidth =5 )
-	lines!(ax5, voltage, standard_log_CO , color = :blue, linewidth =3)
+	lines!(ax5, voltage, interaction_log_CO , color = :blue, linewidth =3)
 
 	ax6 = Axis(
         f1[1, 3],
@@ -751,18 +751,12 @@ let
         limits = (-1.85, -1.0, -10, 5),  # Adjust limits as needed
     )
     lines!(ax6, voltage,  best_result[][4], color = :red, linewidth =5 )
-	lines!(ax6, voltage, standard_log_C2 , color = :blue, linewidth =3)
+	lines!(ax6, voltage, interaction_log_C2 , color = :blue, linewidth =3)
 	
 	
 	f1
 	
 end
-
-# ╔═╡ 63f51709-cf79-4a53-ac28-00a1207ce0cc
-best_result[][4]
-
-# ╔═╡ 7a00e089-c6dd-47f2-9860-a5c030a1add8
-best_result[][3]
 
 # ╔═╡ bfec4e58-d8a9-40f9-a3e2-43b29b94fecb
 begin
@@ -779,13 +773,13 @@ end
 
 # ╔═╡ 8bc53188-6ba4-4c0d-b2be-544d29904822
 #=╠═╡
-key_params=collect(get_name(optimizer[:res])) ## vector of key
+key_params=collect(get_name(new_optimizer[:res])) ## vector of key
   ╠═╡ =#
 
 # ╔═╡ 49a36f61-2036-4ea9-b508-612df810794b
 #=╠═╡
 begin
-	for (i,res) in enumerate(optimizer[:res])
+	for (i,res) in enumerate(new_optimizer[:res])
 		b=i
 		a=res["target"]
 		x_value=push!(x_value,b)
@@ -809,7 +803,7 @@ dict_of_params
 
 # ╔═╡ 32c79f65-5042-4a74-ac54-ee87223d87e3
 #=╠═╡
-for (j, res) in enumerate(optimizer[:res])
+for (j, res) in enumerate(new_optimizer[:res])
 	for i in key_params
 dict_of_params[i]=push!(dict_of_params[i],res["params"][i])
 	end
@@ -843,7 +837,7 @@ let
         limits = (0, length(x_value), -1000, 0),
     )
     lines!(ax, x_value, y_value, color=:red)
-for (k,i) in enumerate(sort(key_params)[1:7])
+for (k,i) in enumerate(sort(key_params)[1:4])
 	ax = Axis(
 		f_1[k+1,1];
        title = "$(i)",
@@ -862,7 +856,7 @@ end
 #=╠═╡
 let 
 	  f_2 = Figure(resolution = (1000, 2000))
-	for (k,i) in enumerate(sort(key_params)[8:end])
+	for (k,i) in enumerate(sort(key_params)[5:end])
 	ax = Axis(
 		f_2[k,1];
        title = "$(i)",
@@ -876,11 +870,6 @@ end
 	f_2
 end
   ╠═╡ =#
-
-# ╔═╡ 6a678f79-f194-4353-8148-12c7f5d7a4e2
-md"""
-### Functions for kinetic
-"""
 
 # ╔═╡ bdec29c2-d876-4545-9e17-7d8e9c40d61b
 function electrontransfer_CO(rn::Catalyst.ReactionSystem, ssol, params)
@@ -1012,162 +1001,57 @@ begin
             currs_CH4 = [electrontransfer_CH4(rn, ssol[i], params) for i in 1:length(Δϕs)]
 			currs_CO =  [electrontransfer_CO(rn, ssol[i], params) for i in 1:length(Δϕs)]
 			currs_CH3CH2OH =  [electrontransfer_CH3CH2OH(rn, ssol[i], params) for i in 1:length(Δϕs)]
+		
+            #push!(coverage_from_interface, ssol[11])  ## 5 
+        #println(collect(Δϕs))
         return collect(Δϕs), currs_CH4, currs_CO, currs_CH3CH2OH
       end## log랑 abs 붙임
 end
 
-# ╔═╡ 1f43f628-7c35-4f11-9b12-27e73214a35b
-# ╠═╡ disabled = true
-#=╠═╡
+# ╔═╡ 1393048e-4a39-44a4-92e9-27de6add2632
 begin
-	function loss_function(parameters::NamedTuple)
-		result = nothing
-		β_names= pcet_beta[3:end] ## to exclude HER
-		E_pcet_names= pcet_barrier[3:end] ## to exclude HER
-		E_chem_names= chem_barrier[2:end] ## to exclude HER
-		β_values = Dict(name => parameters[Symbol(name)] for name in β_names)
-	    barrier_pcet_values = Dict(name => parameters[Symbol(name)] for name in E_pcet_names)
-		barrier_chem_values = Dict(name => parameters[Symbol(name)] for name in E_chem_names)
-		local_params=copy(params)
-		for (i,rxn) in enumerate(model_instance.catmap_params.reactions)
-			if isnothing(rxn.tstate)
-				continue
-			end
-			tstate_name = rxn.tstate.components[1][1]
-			if tstate_name in  ["H2OΔele_t", "HΔH2OΔele_t", "HΔH_t"] ## remove HER
-				continue
-			end
-			
-			if "ele_g" in  [pair.first for pair in  rxn.educts] ## pcet_step
-				j=[pair.first for pair in  rxn.educts] ## name 
-		    	k=[pair.second for pair in rxn.educts] ## coeff
-				val = barrier_pcet_values["G"*tstate_name]*e +sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))-β_values["β"*tstate_name]*e*U_eq[tstate_name]
-		    local_params[Symbol("E"*tstate_name)] = val
-			else ## chem_step
-				j=[pair.first for pair in  rxn.educts] ## name 
-		    	k=[pair.second for pair in rxn.educts] ## coeff
-				val = barrier_chem_values["G"*tstate_name]*e +sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))
-			local_params[Symbol("E"*tstate_name)] = val
-			end
-		end
-		for (i,j) in β_values
-	  		local_params[Symbol(i)]= j
-	    end 	
-	 (Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH) = currentvoltage(rn, catmap_params, pressures, θ0, local_params)
-		result= -(norm(standard_log_methane-currs_CH4)+norm(standard_log_C2-currs_CH3CH2OH)+norm(standard_log_CO-currs_CO))
-		 if result > best_result[][1]
-	        best_result[] = (result, currs_CH4, currs_CO, currs_CH3CH2OH)
-	    end
-		return result
+function peak_cases(p)
+	result = nothing
+	#ps = [E1 => p[1], E2 => p[2], :E3 => p[3], :E6 => p[4], :β1 => p[5], :β2 => p[6], :β3 => p[7], :β6 => p[8]]
+	#ps=[:E1, :E2, :E3, :E6, :β1, :β2, :β3, :β6]
+	rn.:ECHΔOHΔele_t= p[1]*e + energy["CHOH_t"].formation_energy-p[5]*e*U_eq["CHΔOHΔele_t"]# 0.85
+	rn.:ECOOHΔH2OΔele_t= p[2]*e +energy["COOH_t"].formation_energy+energy["H2O_g"].formation_energy-p[6]*e*U_eq["COOHΔH2OΔele_t"] # -0.09
+	rn.:EH2OΔCOΔele_t= p[3]*e + energy["CO_t"].formation_energy+energy["H2O_g"].formation_energy-p[7]*e*U_eq["H2OΔCOΔele_t"]#0.409
+	rn.:EOCCOΔH2OΔele_t= p[4]*e+energy["OCCO_t"].formation_energy+energy["H2O_g"].formation_energy-p[8]*e*U_eq["OCCOΔH2OΔele_t"] #-0.65
+	rn.:ECOΔ_t= p[9]*e+ energy["CO_g"].formation_energy+energy["_t"].formation_energy
+	rn.:EOCΔCO_t = p[10]*e + energy["CO_t"].formation_energy*2
+	rn.:ECO2Δ_t = p[11]*e +energy["CO_g"].formation_energy + 2* energy["_t"].formation_energy
+	rn.:βCHΔOHΔele_t=p[5] # 0.5
+	rn.:βCOOHΔH2OΔele_t=p[6] # 0.5
+	rn.:βH2OΔCOΔele_t= p[7] #0.5
+	rn.:βOCCOΔH2OΔele_t = p[8] #0.6	
+ (Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH) = currentvoltage(rn, catmap_params, pressures, θ0, params)
+	result= -(norm(interaction_log_CH4-currs_CH4)+norm(interaction_log_C2-currs_CH3CH2OH)+norm(interaction_log_CO-currs_CO))
+	return result
 	end
-	   pbounds= Dict("GH2OΔCOΔele_t" => (0.01,2.0), "GCHΔOHΔele_t" => (0.01,2.0), "GOCCOΔH2OΔele_t" => (0.01,2.0), "GCOOHΔH2OΔele_t" => (0.01,2.0), "GCOΔ_t" => (-0.5,1.5), "GOCΔCO_t" => (-0.5,1.5), "GCO2Δ_t" => (-0.5,1.5), "βH2OΔCOΔele_t" => (0.1,0.9), "βCHΔOHΔele_t" => (0.1,0.9), "βOCCOΔH2OΔele_t" => (0.1,0.9), "βCOOHΔH2OΔele_t" => (0.1,0.9))
-end
-  ╠═╡ =#
-
-# ╔═╡ f76bc64f-244b-4658-87db-238274ca8093
-#=╠═╡
-loss_function(parameters)
-  ╠═╡ =#
-
-# ╔═╡ 73d7d8a2-e044-4caa-ad8c-3de4e557bd04
-begin
-	function peak_cases(p)
-			result = nothing
-		    parameters = (
-    GH2OΔCOΔele_t = p[1], GCHΔOHΔele_t = p[2], GOCCOΔH2OΔele_t = p[3], GCOOHΔH2OΔele_t = p[4],
-    GCOΔ_t = p[5], GOCΔCO_t= p[6], GCO2Δ_t = p[7],
-    βH2OΔCOΔele_t = p[8], βCHΔOHΔele_t = p[9], βOCCOΔH2OΔele_t = p[10], βCOOHΔH2OΔele_t = p[11]
-)
-			β_names= pcet_beta[3:end] ## to exclude HER
-			E_pcet_names= pcet_barrier[3:end] ## to exclude HER
-			E_chem_names= chem_barrier[2:end] ## to exclude HER
-			β_values = Dict(name => parameters[Symbol(name)] for name in β_names)
-		    barrier_pcet_values = Dict(name => parameters[Symbol(name)] for name in E_pcet_names)
-			barrier_chem_values = Dict(name => parameters[Symbol(name)] for name in E_chem_names)
-			local_params=copy(params)
-			for (i,rxn) in enumerate(model_instance.catmap_params.reactions)
-				if isnothing(rxn.tstate)
-					continue
-				end
-				tstate_name = rxn.tstate.components[1][1]
-				if tstate_name in  ["H2OΔele_t", "HΔH2OΔele_t", "HΔH_t"] ## remove HER
-					continue
-				end
-				
-				if "ele_g" in  [pair.first for pair in  rxn.educts] ## pcet_step
-					j=[pair.first for pair in  rxn.educts] ## name 
-			    	k=[pair.second for pair in rxn.educts] ## coeff
-					val = barrier_pcet_values["G"*tstate_name]*e +sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))-β_values["β"*tstate_name]*e*U_eq[tstate_name]
-			    local_params[Symbol("E"*tstate_name)] = val
-				else ## chem_step
-					j=[pair.first for pair in  rxn.educts] ## name 
-			    	k=[pair.second for pair in rxn.educts] ## coeff
-					val = barrier_chem_values["G"*tstate_name]*e +sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))
-				local_params[Symbol("E"*tstate_name)] = val
-				end
-			end
-			for (i,j) in β_values
-		  		local_params[Symbol(i)]= j
-		    end 	
-			 (Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH)= currentvoltage(rn, catmap_params, pressures, θ0, local_params)  # adapt as needed
-
-			result= -(norm(standard_log_methane-currs_CH4)+norm(standard_log_C2-currs_CH3CH2OH)+norm(standard_log_CO-currs_CO))
-
-			return (isfinite(result) && result ≠ -Inf) ? result : NaN
-    		end
 end
 
-# ╔═╡ c1ce4aaa-1612-43b4-9f17-1cd83272d1e4
-function peak_cases_batch(X::AbstractMatrix)
-    return [peak_cases(vec(col)) for col in eachcol(X)]
-end
+# ╔═╡ 764462d4-dd65-43e1-ad9f-bb7b79efbdc2
+global_sens = gsa(peak_cases, Sobol(), [(0.0,2.0), (0.0,2.0), (0.0,2.0), (0.0,2.0), (0.0, 1.0), (0.0, 1.0), (0.0, 1.0), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9)]; samples = 100)
 
-
-# ╔═╡ f90f10b9-0f03-4e01-9671-996b2be34be8
-begin
-		Y_A = peak_cases_batch(A)
-		Y_B = peak_cases_batch(B)
-		
-		# 2. Keep only valid indices (where both A and B results are good)
-		valid_idx = findall(i -> isfinite(Y_A[i]) && isfinite(Y_B[i]), 1:length(Y_A))
-		
-		# 3. Filter inputs and outputs
-		A_valid = A[:, valid_idx]
-		B_valid = B[:, valid_idx]
-	res = gsa(peak_cases_batch, Sobol(), A_valid, B_valid, batch=true, Ei_estimator = :Sobol2007)
-end
-
-# ╔═╡ 12bb428d-aa5c-4119-a9ff-b29672f8e57c
-Y_A
-
-# ╔═╡ 3c45b026-8a34-41ce-8e53-b051025d7fb9
-res
-
-# ╔═╡ 73d62abe-fa84-4fc6-a8f1-7f14749b1920
-length(valid_idx)
-
-# ╔═╡ c3c91dd2-d01d-44f8-ab5e-597b6bf32e72
+# ╔═╡ 7f7e6146-85f4-48c8-b4a5-f0e7d2acf077
 begin
 	tbl = (cat = [1,2,3,4,5,6,7,8,9,10,11],
-	       height= res.ST)
+	       height= global_sens.ST)
 	
 	barplot(tbl.cat, tbl.height,
-	        axis = (xticks = (1:11, ["G1", "G2", "G3", "G4",
-             "G5", "G6", "G7",
-             "β1", "β2", "β3", "β4"]),
+	        axis = (xticks = (1:11, ["E1", "E2", "E3", "E6", "Beta1" , "Beta2", "Beta3", "Beta6", "E4", "E5", "E7"]),
 	                title = "Total Order Indices"),
 	        )
 end
 
-# ╔═╡ f06d046f-ab0a-4949-8c7b-864b42e736b7
+# ╔═╡ 6dc5664c-4a72-4584-a64c-47a1cb3b7517
 begin
-	tbl1 = (cat = [1,2,3,4,5,6,7,8,9,10,11],
-	       height= res.S1)
+	tbl2 = (cat = [1,2,3,4,5,6,7,8],
+	       height= global_sens.S1)
 	
-	barplot(tbl1.cat, tbl1.height,
-	        axis = (xticks = (1:11, ["G1", "G2", "G3", "G4",
-             "G5", "G6", "G7",
-             "β1", "β2", "β3", "β4"]),
+	barplot(tbl2.cat, tbl2.height,
+	        axis = (xticks = (1:8, ["E1", "E2", "E3", "E6", "Beta1" , "Beta2", "Beta3", "Beta6"]),
 	                title = "First Order Indices"),
 	        )
 end
@@ -1183,9 +1067,9 @@ end
 # ╠═1e188adb-f2fa-4de5-998f-6b8319b37d8f
 # ╠═893faaec-7039-40ce-ac74-ab833726ac14
 # ╠═080a139a-bafc-4cac-ab16-a202905f179f
-# ╠═92017c84-03a2-4fbb-bc70-4b43031d7f44
+# ╟─92017c84-03a2-4fbb-bc70-4b43031d7f44
 # ╟─1a4651c5-f895-4d77-a332-eca09cbb2a7e
-# ╟─7d1dc93a-71a4-4164-bcf9-6c25db235fa9
+# ╠═7d1dc93a-71a4-4164-bcf9-6c25db235fa9
 # ╠═d4986ba9-295c-4170-bcda-a3db7d8eed06
 # ╠═ecea209d-addc-4059-9920-fb9b4709c8f1
 # ╠═986879c4-fe6b-4a5c-a19e-5dfcc1d1471a
@@ -1198,46 +1082,35 @@ end
 # ╠═026598b5-48bd-47f6-8cac-342a7ac5a11a
 # ╠═413d05d8-4529-4ac0-9416-d7da01a15446
 # ╠═c5397573-cb3c-4ad3-baa1-64cc8a41df0a
-# ╠═2a22ec17-9bfa-49f2-ac63-bde821706f63
-# ╠═66879921-440c-4df2-96bb-2054b0d19484
-# ╠═37a2514d-b546-492b-90cb-38d316d91972
-# ╠═5eb78291-1fad-41bd-af32-2d89e9ceb98b
-# ╠═6522d4cc-0644-4e4f-9bb3-e304a5c42eff
-# ╠═d5fa068a-0713-4292-b62b-eca37f10706a
+# ╠═fed77c8a-d35c-4e67-b112-903c159a8221
 # ╠═1bde0c68-15c0-4f44-a33d-4bca9c39e66f
-# ╠═1a25c56d-cde5-40ca-a102-4becd2a54d10
 # ╠═f552af14-3a76-4a1c-9e7f-16fa0d34cd3c
-# ╠═d2236c4b-5c72-4b9b-9533-22c767c44b84
-# ╠═38a056ce-fbff-4b17-98b6-3f67cd71692a
-# ╟─c9d38446-019f-4f40-afda-544f40ff19f0
 # ╠═355b8c18-c6f0-4b68-beb8-5c0698dd1204
-# ╠═1f43f628-7c35-4f11-9b12-27e73214a35b
-# ╠═312fa03e-a913-4a97-a3db-0cf436150a41
-# ╠═7ec99492-254e-4bcf-ad07-075eb4b6f2eb
-# ╠═f76bc64f-244b-4658-87db-238274ca8093
-# ╠═a2692d58-37df-4e2e-8e88-22240caf555f
-# ╠═73d7d8a2-e044-4caa-ad8c-3de4e557bd04
-# ╠═78ea7115-6d0d-4336-9cff-7b83c20675eb
-# ╠═8fb9de64-0286-41db-9094-403f59e1b00f
-# ╠═bb527498-120a-4c77-9116-e1cff829bf0c
-# ╠═c1ce4aaa-1612-43b4-9f17-1cd83272d1e4
-# ╠═f90f10b9-0f03-4e01-9671-996b2be34be8
-# ╠═3b6ca314-cbff-4fbf-998f-5f0d5a7846f1
-# ╠═12bb428d-aa5c-4119-a9ff-b29672f8e57c
-# ╠═3c45b026-8a34-41ce-8e53-b051025d7fb9
-# ╠═73d62abe-fa84-4fc6-a8f1-7f14749b1920
-# ╠═0f9aa6b7-744d-475a-a998-da03d7b4a2e7
-# ╠═c3c91dd2-d01d-44f8-ab5e-597b6bf32e72
-# ╠═f06d046f-ab0a-4949-8c7b-864b42e736b7
-# ╠═29640068-cfdc-4bc9-a359-7fd331c4af81
+# ╠═97266262-a38c-4a8f-ad47-709f04ea4a4d
+# ╠═1393048e-4a39-44a4-92e9-27de6add2632
+# ╠═764462d4-dd65-43e1-ad9f-bb7b79efbdc2
+# ╠═7f7e6146-85f4-48c8-b4a5-f0e7d2acf077
+# ╠═6dc5664c-4a72-4584-a64c-47a1cb3b7517
+# ╠═d82b8194-4c18-4bd4-92c4-03fa3c7a0f1d
+# ╠═511aed8f-95a1-4b01-ae19-b85fb16ea888
+# ╠═23c7a8cb-3734-413c-8216-5dc6a12c645b
+# ╠═d00de1d2-72c3-48fd-b1e1-6ebb41b73e4c
+# ╠═65b2abd0-4365-45b9-b47d-9f3070384cc2
+# ╠═427af424-c026-4a30-95a6-37be0a59514b
+# ╠═798eec1c-1383-45bb-ae55-b2620ce185fb
+# ╠═f816dd6d-2fb7-4c1c-8a73-1fb20ecc1359
+# ╠═d83489ca-587d-466e-a95c-579240771eb2
+# ╠═3725f3e0-4a7d-47c0-8130-f940a6b1ee7c
+# ╠═12323fda-3cc3-4015-9d1e-4b7747650b28
+# ╠═751ce0f4-ff2b-4fea-a9a3-84a7d8b6f4ff
+# ╠═ee158f3b-ae5d-4129-a1b9-4665c0215084
+# ╠═a43e66b7-28d9-462b-9983-03a72623f3e7
+# ╠═fd7bf3d1-0fe4-46ce-8024-e75a6c63dde8
 # ╠═fc23f850-cd11-45cf-a769-ad4347b2b6cd
 # ╠═038e4bfb-c117-44ee-8ac3-b6c19d4696a7
 # ╠═11432324-db74-443f-a027-f9d89a5da45f
 # ╠═ae47cd84-fff5-485e-8aba-81f8cd13a469
-# ╟─0e8788fb-4835-4b21-adc5-65a90b9426cc
 # ╠═548a2d56-77ff-4d75-981b-6d9cc81ea32d
-# ╠═63f51709-cf79-4a53-ac28-00a1207ce0cc
-# ╠═7a00e089-c6dd-47f2-9860-a5c030a1add8
 # ╠═bfec4e58-d8a9-40f9-a3e2-43b29b94fecb
 # ╠═36ab1db5-edea-4d28-8251-bbd47654acfd
 # ╠═8bc53188-6ba4-4c0d-b2be-544d29904822
@@ -1250,7 +1123,6 @@ end
 # ╠═4865c4aa-2db8-46f4-803c-edc51aa9d2be
 # ╠═33a3b669-475f-48a8-aae5-168df8436bf5
 # ╠═724eba9d-23ea-4681-a6e0-9a6eac94d5b6
-# ╟─6a678f79-f194-4353-8148-12c7f5d7a4e2
 # ╠═bdec29c2-d876-4545-9e17-7d8e9c40d61b
 # ╠═e37d77b4-37d6-46cf-bfde-42a673c83cbd
 # ╠═d96a98d6-208d-42b1-bc06-5ed71e3f0a8e

@@ -1,6 +1,13 @@
 using Test
 import ExampleJuggler
 using ExampleJuggler: cleanexamples, @testmodules, @testscripts
+import ExplicitImports
+import CatmapInterface
+
+@testset "ExplicitImports" begin
+    @test ExplicitImports.check_no_implicit_imports(CatmapInterface) === nothing
+    @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface, ignore=(:setmetadata,)) === nothing
+end
 
 ExampleJuggler.verbose!(true)
 

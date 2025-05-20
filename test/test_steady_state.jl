@@ -3,7 +3,7 @@ using Catalyst: Catalyst, netstoichmat, numreactions, reactionrates, species,
 speciesmap, symmap_to_varmap
 using CatmapInterface: CatmapInterface, CatmapParams, create_reaction_network,
 parse_catmap_input
-using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute, get_defaults
+using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute, get_defaults, complete
 using OrdinaryDiffEqRosenbrock: OrdinaryDiffEqRosenbrock, Rodas5P,
 SteadyStateProblem, solve
 using PyCall: PyCall
@@ -26,7 +26,7 @@ struct ModelInstance
 end
 function ModelInstance(; name, path, test_params_path)
     catmap_params   = parse_catmap_input(path)
-    rn              = create_reaction_network(catmap_params)
+    rn              = create_reaction_network(catmap_params; conserve_pressures=true)
     ss_params_iter  = load_test_params(test_params_path, catmap_params)
     ModelInstance(name, path, catmap_params, rn, ss_params_iter)
 end
@@ -92,8 +92,7 @@ For each model instance run a testset over model parameters where the steady sta
 function runtests()
     @testset "Stationary Solutions" begin
 	@testset "Model=$(model_instance.name)" for model_instance in model_instances
-            CatmapInterface.conserve_pressures!(model_instance.rn, model_instance.catmap_params)
-            odesys = convert(ODESystem, model_instance.rn)
+            odesys = complete(convert(ODESystem, model_instance.rn))
             @testset "$(repr(ss_params.ps))" for ss_params in model_instance.ss_params_iter
                 test_steady_state_with_catmap(model_instance.rn, odesys, model_instance.catmap_params, model_instance.path, ss_params)
 	    end

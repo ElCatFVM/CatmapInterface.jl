@@ -271,35 +271,6 @@ function instantiate_catmap_template!(instance_file_path, template_file_path, pa
     return instance_file_path
 end
 
-"""
-conserve_pressures!(rn::Catalyst.ReactionSystem, catmap_params::CatmapInterface.CatmapParams)
-
-Conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network `rn`.
-
-The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
-"""
-function conserve_pressures!(rn, catmap_params)
-	(; species_list) = catmap_params
-	stoichmat = netstoichmat(rn)
-	rr = reactionrates(rn)
-	nr = numreactions(rn)
-	for (isp, s) in enumerate(species(rn))
-		sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-		if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
-			R = sum([stoichmat[isp ,i] * rr[i] for i in 1:nr])
-			addreaction!(rn, Reaction(R, [s], nothing; only_use_rate=true))
-		end
-	end
-    @assert all(map(enumerate(species(rn))) do (isp, s)
-        sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-        new_stoichmat = netstoichmat(rn)
-        new_rr = reactionrates(rn)
-        new_nr = numreactions(rn)
-        isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
-    end)
-end
-
-
 function rename_tstate(text::AbstractString; without_site=false)
     if without_site
         re = r"(?<before>(([A-Z]+[1-9]?)+|ele))-(?<after>(([A-Z]+[1-9]?)+|ele|\w|$))"

@@ -6,7 +6,7 @@ module CatmapInterface
 using Artifacts: Artifacts, @artifact_str
 using Catalyst: Catalyst, @parameters, @species, @variables, Equation,
 ModelingToolkit, Num, ODESystem, Reaction, ReactionSystem,
-SymbolicUtils, Symbolics, addreaction!, build_function,
+SymbolicUtils, Symbolics,  build_function, complete,
 equations, expand_derivatives, netstoichmat, numreactions,
 parameters, reactionrates, species, speciesmap, states,
 structural_simplify, substitute

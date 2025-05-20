@@ -130,8 +130,11 @@ For ficitious gases (OH⁻ and H⁺) and adsorbates the activity coefficients ar
 The activity coefficients of the gaseous species can specified as parameters.
 The thermodynamical corrections to the DFT-data of the formation energies are applied according to the specified modes.
 New modes can be added by the user by adding a function with the same name to the module. 
+
+if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
+The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams)
+function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH
@@ -208,7 +211,33 @@ function create_reaction_network(catmap_params::CatmapParams)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
+
+    rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
+
+    if conserve_pressures
+	stoichmat = netstoichmat(rn)
+	rr = reactionrates(rn)
+	nr = numreactions(rn)
+ 	for (isp, s) in enumerate(species(rn))
+ 	    sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+            if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
+		R = sum([stoichmat[isp ,i] * rr[i] for i in 1:nr])
+	        r = Reaction(R, [s], nothing; only_use_rate=true)
+                push!(rxs, r)
+	    end
+        end
+        rn1=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
+        @assert all(map(enumerate(species(rn1))) do (isp, s)
+                    sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+                    new_stoichmat = netstoichmat(rn1)
+                    new_rr = reactionrates(rn1)
+                    new_nr = numreactions(rn1)
+                    isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
+                    end)
+        return complete(rn1)
+    else
+        return complete(rn)
+    end
 end
 
 """

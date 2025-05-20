@@ -249,7 +249,7 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     @local_unitfactors bar
     (; species_list) = catmap_params
 
-    sts     = states(odesys)
+    sts     = unknowns(odesys)
     ps      = parameters(odesys)
 
     usubs = Pair{SymbolicUtils.BasicSymbolic{Real}, SymbolicUtils.BasicSymbolic{Real}}[]
@@ -311,13 +311,13 @@ $(SIGNATURES)
 
 Generate a mutating function from a `ODESystem` that computes the concentration fluxes due to the reaction.
 """
-function generate_function(sys::ODESystem; dvs=states(sys), ps=parameters(sys))
-    @assert Set(dvs) == Set(states(sys))
+function generate_function(sys::ODESystem; dvs=unknowns(sys), ps=parameters(sys))
+    @assert Set(dvs) == Set(unknowns(sys))
     @assert Set(ps)  == Set(parameters(sys))
 
 
-    #state_map = Dict(zip(states(sys), length(states(sys))))
-    state_map = Dict([st => i for (i, st) in enumerate(states(sys))])
+    #state_map = Dict(zip(unknowns(sys), length(unknowns(sys))))
+    state_map = Dict([st => i for (i, st) in enumerate(unknowns(sys))])
     eqs = equations(sys)
     rhss = [-1 * eqs[state_map[dv]].rhs for dv in dvs] # multiply by -1 because the orientation assumed in VoronoiFVM physics functions
 

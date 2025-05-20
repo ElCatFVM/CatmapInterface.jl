@@ -6,7 +6,8 @@ import CatmapInterface
 
 @testset "ExplicitImports" begin
     @test ExplicitImports.check_no_implicit_imports(CatmapInterface) === nothing
-    @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface, ignore=(:setmetadata,)
+    @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface, ignore=(:setmetadata,)) === nothing
+end
 ExampleJuggler.verbose!(true)
 
 function run_tests_from_directory(testdir, prefix)

@@ -7,17 +7,21 @@
 ## Installation
 
 The package can be installed with the Julia package manager.
-From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
+For the time being, it is registered in the julia package registry `https://github.com/j-fu/PackageNursery`
+To add the registry (needed only once), and to install the package, 
+from the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 
 ```
+pkg> registry add https://github.com/j-fu/PackageNursery
 pkg> add https://github.com/smaasz/CatmapInterface.jl
 ```
 
-Or, equivalently, via the `Pkg` API:
+Please be aware that adding a registry to your Julia installation requires to
+trust the registry maintainer for handling things in a correct way. In particular,
+the registry should not register higher versions of packages which are already
+registered in the Julia General Registry. One can check this by visiting the above mentionend
+github repository URL and inspecting the contents.
 
-```julia
-julia> import Pkg; Pkg.add("https://github.com/smaasz/CatmapInterface.jl")
-```
 
 ## Documentation
 

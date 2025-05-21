@@ -7,7 +7,7 @@
 ## Installation
 
 The package can be installed with the Julia package manager.
-For the time being, it is registered in the julia package registry `https://github.com/j-fu/PackageNursery`
+For the time being, it is registered in the julia package registry [https://github.com/j-fu/PackageNursery](https://github.com/j-fu/PackageNursery)
 To add the registry (needed only once), and to install the package, 
 from the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 

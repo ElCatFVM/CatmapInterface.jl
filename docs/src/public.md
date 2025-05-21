@@ -21,7 +21,7 @@ SiteSpecies
 ## Reaction Network
 ```@docs
 create_reaction_network
+paramsidx
 CatmapInterface.generate_function
 liquidize
-conserve_pressures!
 ```

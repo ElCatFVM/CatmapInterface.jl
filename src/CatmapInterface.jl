@@ -9,7 +9,7 @@ ModelingToolkit, Num, ODESystem, Reaction, ReactionSystem,
 SymbolicUtils, Symbolics,  build_function, complete,
 equations, expand_derivatives, netstoichmat, numreactions,
 parameters, reactionrates, species, speciesmap,
-structural_simplify, substitute, unknowns
+substitute, unknowns
 using DelimitedFiles: DelimitedFiles, readdlm
 using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
 using JSON: JSON

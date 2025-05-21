@@ -53,7 +53,7 @@ function ssolve(odesys::ModelingToolkit.ODESystem, params; solver=DynamicSS(Roda
         symmap_to_varmap(odesys, u0), 
         symmap_to_varmap(odesys, ps)
     )
-    solve(ssprob, solver; maxiters)
+    solve(ssprob, solver; maxiters, reltol=1.0e-10)
 end
 
 function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catmap_params, template_file_path, ss_params; solver=DynamicSS(Rodas5P()), maxiters=1e6, rtol=1.0e-3)

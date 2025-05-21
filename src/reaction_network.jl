@@ -130,8 +130,11 @@ For ficitious gases (OH⁻ and H⁺) and adsorbates the activity coefficients ar
 The activity coefficients of the gaseous species can specified as parameters.
 The thermodynamical corrections to the DFT-data of the formation energies are applied according to the specified modes.
 New modes can be added by the user by adding a function with the same name to the module. 
+
+if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
+The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams)
+function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH
@@ -208,7 +211,33 @@ function create_reaction_network(catmap_params::CatmapParams)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
+
+    rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
+
+    if conserve_pressures
+	stoichmat = netstoichmat(rn)
+	rr = reactionrates(rn)
+	nr = numreactions(rn)
+ 	for (isp, s) in enumerate(species(rn))
+ 	    sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+            if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
+		R = sum([stoichmat[isp ,i] * rr[i] for i in 1:nr])
+	        r = Reaction(R, [s], nothing; only_use_rate=true)
+                push!(rxs, r)
+	    end
+        end
+        rn1=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
+        @assert all(map(enumerate(species(rn1))) do (isp, s)
+                    sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+                    new_stoichmat = netstoichmat(rn1)
+                    new_rr = reactionrates(rn1)
+                    new_nr = numreactions(rn1)
+                    isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
+                    end)
+        return complete(rn1)
+    else
+        return complete(rn)
+    end
 end
 
 """
@@ -220,7 +249,7 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     @local_unitfactors bar
     (; species_list) = catmap_params
 
-    sts     = states(odesys)
+    sts     = unknowns(odesys)
     ps      = parameters(odesys)
 
     usubs = Pair{SymbolicUtils.BasicSymbolic{Real}, SymbolicUtils.BasicSymbolic{Real}}[]
@@ -250,8 +279,29 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
         rhs = substitute(eq.rhs, Dict(csubs..., psubs...))
         push!(new_eqs, Equation(lhs, rhs))
     end
-    structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
+
+    # JF: this runs into the fact that the symbolic tools now require to work with `ifelse()` instead of
+    # `if ... then ... else ... end`. The later seems to be used deep down in some packages.
+    # structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
+    
+    ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name)
 end
+
+"""
+    $(SIGNATURES)
+
+Create index map of odesys parameters as a `Dict{Symbol,Int}`.
+E.g. with `pidx=paramsidx(odesys)`, the index of `odesys.σ` can be accessed via `pidx[:σ]`.
+"""
+function paramsidx(odesys)
+    pidx=Dict{Symbol, Int}()
+    px=Catalyst.parameters(odesys)
+    for i=1:length(px)
+	pidx[Catalyst.getname(px[i])]=i
+    end
+    return pidx
+end
+
 
 """
 $(SIGNATURES)
@@ -271,7 +321,7 @@ function generate_function(rn::ReactionSystem; dvs::Vector{Tval}=species(rn), ps
     p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
     t = ModelingToolkit.get_iv(sys)
 
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_states(sys, no_postprocess = false)
+    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
 
     f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
     drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
@@ -282,13 +332,13 @@ $(SIGNATURES)
 
 Generate a mutating function from a `ODESystem` that computes the concentration fluxes due to the reaction.
 """
-function generate_function(sys::ODESystem; dvs=states(sys), ps=parameters(sys))
-    @assert Set(dvs) == Set(states(sys))
+function generate_function(sys::ODESystem; dvs=unknowns(sys), ps=parameters(sys))
+    @assert Set(dvs) == Set(unknowns(sys))
     @assert Set(ps)  == Set(parameters(sys))
 
 
-    #state_map = Dict(zip(states(sys), length(states(sys))))
-    state_map = Dict([st => i for (i, st) in enumerate(states(sys))])
+    #state_map = Dict(zip(unknowns(sys), length(unknowns(sys))))
+    state_map = Dict([st => i for (i, st) in enumerate(unknowns(sys))])
     eqs = equations(sys)
     rhss = [-1 * eqs[state_map[dv]].rhs for dv in dvs] # multiply by -1 because the orientation assumed in VoronoiFVM physics functions
 
@@ -296,7 +346,7 @@ function generate_function(sys::ODESystem; dvs=states(sys), ps=parameters(sys))
     p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
     t = ModelingToolkit.get_iv(sys)
 
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_states(sys, no_postprocess = false)
+    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
 
     f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
     drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))

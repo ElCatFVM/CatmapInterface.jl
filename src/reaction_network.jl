@@ -279,8 +279,29 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
         rhs = substitute(eq.rhs, Dict(csubs..., psubs...))
         push!(new_eqs, Equation(lhs, rhs))
     end
-    structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
+
+    # JF: this runs into the fact that the symbolic tools now require to work with `ifelse()` instead of
+    # `if ... then ... else ... end`. The later seems to be used deep down in some packages.
+    # structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
+    
+    ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name)
 end
+
+"""
+    $(SIGNATURES)
+
+Create index map of odesys parameters as a `Dict{Symbol,Int}`.
+E.g. with `pidx=paramsidx(odesys)`, the index of `odesys.σ` can be accessed via `pidx[:σ]`.
+"""
+function paramsidx(odesys)
+    pidx=Dict{Symbol, Int}()
+    px=Catalyst.parameters(odesys)
+    for i=1:length(px)
+	pidx[Catalyst.getname(px[i])]=i
+    end
+    return pidx
+end
+
 
 """
 $(SIGNATURES)
@@ -300,7 +321,7 @@ function generate_function(rn::ReactionSystem; dvs::Vector{Tval}=species(rn), ps
     p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
     t = ModelingToolkit.get_iv(sys)
 
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_states(sys, no_postprocess = false)
+    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
 
     f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
     drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
@@ -325,7 +346,7 @@ function generate_function(sys::ODESystem; dvs=unknowns(sys), ps=parameters(sys)
     p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
     t = ModelingToolkit.get_iv(sys)
 
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_states(sys, no_postprocess = false)
+    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
 
     f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
     drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))

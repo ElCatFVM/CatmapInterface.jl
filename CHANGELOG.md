@@ -18,11 +18,6 @@ All notable changes to this project will be documented in this file.
 ### Features
 
 * Require explicit imports
-* Move test environment to package Project.toml
-  (according to C. Rackauckas, this is the more sustainable method,
-  and we also have TestEnv.jl to mange things in this case. 
-  Also, TestEnv.jl helps to work with this)
-
 
 ## [0.2.0] - 2024-11-28
 

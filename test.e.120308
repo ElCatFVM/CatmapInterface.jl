@@ -1,0 +1,13 @@
+  Activating project at `~/Sensitivity-analysis`
+ERROR: LoadError: UndefVarError: `energy` not defined in `Main`
+Suggestion: check for spelling errors or missing imports.
+Stacktrace:
+ [1] (::var"#15#18")(Child::PlutoUI.CombineNotebook.var"#Child#13"{Vector{PlutoUI.CombineNotebook.RenderCallback}, PlutoUI.CombineNotebook.var"#combined_child_element#12"{String}, Vector{Any}, Vector{Symbol}})
+   @ Main ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:395
+ [2] _combine(f::var"#15#18")
+   @ PlutoUI.CombineNotebook ~/.julia/packages/PlutoUI/Zql0S/src/Combine.jl:320
+ [3] combine(f::Function)
+   @ PlutoUI.CombineNotebook ~/.julia/packages/PlutoUI/Zql0S/src/Combine.jl:495
+ [4] top-level scope
+   @ ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:12
+in expression starting at /home/users/bmchun/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:368

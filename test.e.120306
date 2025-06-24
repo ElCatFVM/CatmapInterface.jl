@@ -1,0 +1,16 @@
+  Activating project at `~/Sensitivity-analysis`
+┌ Warning: The `generate_design_matrices(n, d, sampler, R = NoRand(), num_mats)` method does not produces true and independent QMC matrices, see [this doc warning](https://docs.sciml.ai/QuasiMonteCarlo/stable/design_matrix/) for more context. 
+│     Prefer using randomization methods such as `R = Shift()`, `R = MatousekScrambling()`, etc., see [documentation](https://docs.sciml.ai/QuasiMonteCarlo/stable/randomization/)
+└ @ QuasiMonteCarlo ~/.julia/packages/QuasiMonteCarlo/KvLfb/src/RandomizedQuasiMonteCarlo/iterators.jl:255
+ERROR: LoadError: UndefVarError: `currentvoltage` not defined in `Main`
+Suggestion: check for spelling errors or missing imports.
+Stacktrace:
+ [1] macro expansion
+   @ ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:643 [inlined]
+ [2] macro expansion
+   @ ./timing.jl:418 [inlined]
+ [3] loss_function(parameters::@NamedTuple{GH2OΔele_t::Float64, GHΔH2OΔele_t::Float64, GH2OΔCOΔele_t::Float64, GCHΔOHΔele_t::Float64, GOCCOΔH2OΔele_t::Float64, GCOOHΔH2OΔele_t::Float64, GHΔH_t::Float64, GCOΔ_t::Float64, GOCΔCO_t::Float64, GCO2Δ_t::Float64, βH2OΔele_t::Float64, βHΔH2OΔele_t::Float64, βH2OΔCOΔele_t::Float64, βCHΔOHΔele_t::Float64, βOCCOΔH2OΔele_t::Float64, βCOOHΔH2OΔele_t::Float64})
+   @ Main ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:610
+ [4] top-level scope
+   @ ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:664
+in expression starting at /home/users/bmchun/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:664

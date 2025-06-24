@@ -1,0 +1,8 @@
+Running on host anode5
+Time is Sat Jun 21 00:43:03 KST 2025
+Directory is /home/users/bmchun/Sensitivity-analysis
+This jobs runs on the following processors:
+anode5
+This job has allocated 1 cores
+-4.565320592595605e-5
+GlobalSensitivity.SobolResult{Vector{Float64}, Nothing, Nothing, Nothing}([NaN, NaN, NaN, -0.020398754517924104, NaN, 0.013962197424924867, 0.02449936311005486, NaN, 0.024262843608533036, 0.2074128384678124, NaN, NaN, NaN, NaN, NaN, 0.011703894065083847], nothing, nothing, nothing, [NaN, NaN, NaN, 0.12318915822058042, NaN, 0.08895873995920471, 0.06989340363812781, NaN, 0.08471133443189123, 0.3575248262773054, NaN, NaN, NaN, NaN, NaN, 0.02873817329307306], nothing)

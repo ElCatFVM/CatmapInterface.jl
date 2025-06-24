@@ -1,0 +1,30 @@
+#!/bin/bash
+#SBATCH -J test                       # Job name
+#SBATCH -N 1                        # Num of total nodes
+#SBATCH -n 1                         # Num of total processes
+#SBATCH -p long                       # Partition name(It is same with properties of Torque)
+#SBATCH -o %x.o.%j                    # %x : Job name, %j : JobId
+#SBATCH -e %x.e.%j
+
+cd $SLURM_SUBMIT_DIR
+
+hostfile=$(mktemp hostfile.XXXX)
+srun hostname | sort > $hostfile
+
+echo Running on host `hostname`
+echo Time is `date`
+echo Directory is `pwd`
+echo This jobs runs on the following processors:
+echo `cat $hostfile`
+
+NPROCS=`wc -l < $hostfile`
+echo This job has allocated $NPROCS cores
+
+source /etc/profile.d/modules.sh
+module load ompi/4.1.2-it
+
+julia CatmapInterface_CO2RR_SA_submit.jl
+
+[ -n "$hostfile" -a  -e $hostfile ] && rm -f $hostfile
+
+exit 0

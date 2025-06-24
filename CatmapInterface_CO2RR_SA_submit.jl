@@ -41,23 +41,7 @@ begin
 	using GlobalSensitivity
 	using QuasiMonteCarlo
 	using Statistics
-    if isdefined(Main, :PlutoRunner)
-        using CairoMakie
-        default_plotter!(CairoMakie)
-        CairoMakie.activate!(type = "svg")
-    end
-end;
-
-# ╔═╡ 0659b0a8-d1d2-4cd7-8abe-4b842a2e0a67
-begin
-	
-	using InteractiveUtils
-	
-	println("BLAS vendor: ", BLAS.vendor())
-	println("Threads: ", Threads.nthreads())
-	println("Julia version: ", VERSION)
-	println("Machine epsilon: ", eps(Float64))
-	
+    using CairoMakie
 end
 
 # ╔═╡ 83b85f0b-acf0-42a3-940b-f4a7f1978f57
@@ -303,7 +287,6 @@ standard_log_H2=[2.73001
 begin
     file_path = "./data_png/combined_data_ideal_mode.csv" ## interaction:  combined_products_interaction_mode.csv
     df1 = CSV.read(file_path, DataFrame)
-    println(df1)
 
 end
 
@@ -323,9 +306,6 @@ end
 for (i,j) in zip(products, elec_trans)
 	electron_transfer[i]= j
 end
-
-# ╔═╡ 6daa6e42-e868-4d3f-bc40-598796580068
-electron_transfer
 
 # ╔═╡ ece46b21-a7f9-4af5-be64-71c2ca3263f9
 begin
@@ -356,206 +336,38 @@ end
 # ╔═╡ 3d36eb3b-712a-4465-ba01-677ad93ffc3d
 TOF_to_current(products)
 
-# ╔═╡ 2a22ec17-9bfa-49f2-ac63-bde821706f63
-md"""
-### Classify parameters
-"""
-
-# ╔═╡ c600733a-5f3f-44ed-b6f5-876704103231
-function parameters_to_string(parameters)
-	params_name=[]
-	for p in parameters
-		params=string(p)
-		push!(params_name, params)
-	end
-	return params_name
-end				
-
-# ╔═╡ 6522d4cc-0644-4e4f-9bb3-e304a5c42eff
-function pcet_name(name)
-    pcet_barrier = []
-    chem_barrier = []
-    pcet_beta = []
-    for i in name
-        i_replaced = replace(i, "E" => "G") ## replace E to G
-        if contains(i_replaced, "ele") && contains(i_replaced, "G") && contains(i_replaced, "Δ")
-            push!(pcet_barrier, i_replaced)
-        elseif contains(i_replaced, "G") && contains(i_replaced, "Δ")
-            push!(chem_barrier, i_replaced)
-        elseif contains(i_replaced, "ele") && contains(i_replaced, "β") && contains(i_replaced, "Δ")
-            push!(pcet_beta, i_replaced)
-        end
-    end
-    return pcet_barrier, chem_barrier, pcet_beta
-end
-
-
-# ╔═╡ 1bde0c68-15c0-4f44-a33d-4bca9c39e66f
-U_eq=Dict()
-
-# ╔═╡ 1a25c56d-cde5-40ca-a102-4becd2a54d10
-energy= model_instance.catmap_params.species_list
-
-# ╔═╡ f552af14-3a76-4a1c-9e7f-16fa0d34cd3c
-function get_U_eq(reactions)
-	for i in reactions
-		if isnothing(i.tstate)
-		nothing
-		else
-	    j=[pair.first for pair in  i.educts] ## name 
-	    k=[pair.second for pair in i.educts] ## coeff
-	    l=[pair.first for pair in i.products]
-	    m=[pair.second for pair in i.products]
-	    	U_eq["$(i.tstate.components[1][1])"]= 				(sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))-sum(energy["$(l)"].formation_energy*m for (l,m) in zip(l,m)))/e
-		 
-    	end
-	end
-end
-
-# ╔═╡ d2236c4b-5c72-4b9b-9533-22c767c44b84
-get_U_eq(model_instance.catmap_params.reactions)
-
-# ╔═╡ c9d38446-019f-4f40-afda-544f40ff19f0
-md"""
-### loss function
-"""
-
-# ╔═╡ a127638f-1bd0-43d4-bf42-1074e967e064
-const θinit = 1.0e-10 ## 1.0e-10 
-
-# ╔═╡ 6b9cf7b2-6362-4b86-95f7-f056999e1c75
-function compute_thermo_corrections!(corrections, catmap_params::CatmapParams)
-    (; gas_thermo_mode, adsorbate_thermo_mode) = catmap_params
-    gas_thermo_correction!             = getfield(CatmapInterface, Symbol(gas_thermo_mode))
-    adsorbate_thermo_correction!       = getfield(CatmapInterface, Symbol(adsorbate_thermo_mode))
-    gas_thermo_correction!(corrections, catmap_params)
-    adsorbate_thermo_correction!(corrections, catmap_params)
-	return corrections
-end
-
-# ╔═╡ a123d077-2b8d-410a-a875-f8b5e0e850b0
-md"""
-### Checking the loss function
-"""
-
-# ╔═╡ 312fa03e-a913-4a97-a3db-0cf436150a41
-function loss_function(; kwargs...)
-    loss_function(NamedTuple(kwargs))
-end
-
-
-# ╔═╡ 7ec99492-254e-4bcf-ad07-075eb4b6f2eb
-begin
-	pbounds= Dict("GH2OΔele_t" => (0.0   ,1.8), "GHΔH2OΔele_t" => (0.0,1.8), "GH2OΔCOΔele_t" => (0.0,1.8), "GCHΔOHΔele_t" => (0.0,1.8), "GOCCOΔH2OΔele_t" => (0.0,1.8), "GCOOHΔH2OΔele_t" => (0.0,1.8), "GHΔH_t" => (0.0, 1.8), "GCOΔ_t" => (0.0,1.8), "GOCΔCO_t" => (0.0,1.8), "GCO2Δ_t" => (0.0,1.8), "βH2OΔele_t" => (0.1,0.9), "βHΔH2OΔele_t" => (0.1, 0.9), "βH2OΔCOΔele_t" => (0.1,0.9), "βCHΔOHΔele_t" => (0.1,0.9), "βOCCOΔH2OΔele_t" => (0.1,0.9), "βCOOHΔH2OΔele_t" => (0.1,0.9))
-end
-
-# ╔═╡ c1bf4c12-5292-4188-8839-d4fc27348f12
-parameters = (
-    GH2OΔele_t=1.351,
-GHΔH2OΔele_t=1.52281, GH2OΔCOΔele_t=0.966143, GCHΔOHΔele_t=0.803231, GOCCOΔH2OΔele_t=0.508165, GCOOHΔH2OΔele_t=0.699272, GHΔH_t= 0.786548, GCOΔ_t= 0.328544, GOCΔCO_t= 0.3998, GCO2Δ_t=0.103707, 
-   βH2OΔele_t=0.5,
-βHΔH2OΔele_t=0.89, βH2OΔCOΔele_t=0.5, βCHΔOHΔele_t=0.5, βOCCOΔH2OΔele_t=0.6, βCOOHΔH2OΔele_t=0.5
-) ## theortical value
-
-# ╔═╡ a2692d58-37df-4e2e-8e88-22240caf555f
-md"""
-### Sensitivity Analysis
-"""
-
-# ╔═╡ 78ea7115-6d0d-4336-9cff-7b83c20675eb
-bounds= [(0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9)] 
-
-# ╔═╡ 8fb9de64-0286-41db-9094-403f59e1b00f
-begin
-	samples = 3000
-	lb = first.(bounds)
-	ub = last.(bounds)
-end
-
-# ╔═╡ bb527498-120a-4c77-9116-e1cff829bf0c
-begin
-	sampler = SobolSample()
-	A, B = QuasiMonteCarlo.generate_design_matrices(samples, lb, ub, sampler)
-end
-
-# ╔═╡ f90f10b9-0f03-4e01-9671-996b2be34be8
-# ╠═╡ disabled = true
-#=╠═╡
-begin
-		Y_A = peak_cases_batch(A)
-		Y_B = peak_cases_batch(B)
-		
-		# 2. Keep only valid indices (where both A and B results are good)
-		valid_idx = findall(i -> isfinite(Y_A[i]) && isfinite(Y_B[i]), 1:length(Y_A))
-		
-		# 3. Filter inputs and outputs
-		A_valid = A[:, valid_idx]
-		B_valid = B[:, valid_idx]
-	res = gsa(peak_cases_batch, Sobol(), A_valid, B_valid, batch=true, Ei_estimator = :Sobol2007)
-end
-  ╠═╡ =#
-
-# ╔═╡ 76b9a619-c873-4b36-b9af-395d2926f8cb
-#=╠═╡
-println(res)
-  ╠═╡ =#
-
-# ╔═╡ 3b6ca314-cbff-4fbf-998f-5f0d5a7846f1
-#=╠═╡
-@show var(filter(!isnan, Y_A)), var(filter(!isnan, Y_B))
-  ╠═╡ =#
-
-# ╔═╡ 0f9aa6b7-744d-475a-a998-da03d7b4a2e7
-# ╠═╡ disabled = true
-#=╠═╡
-set_theme!(Theme(
-    fontsize = 16,             # sets base font size
-    Axis = (
-        titlesize = 20,
-        xlabelsize = 10,
-        ylabelsize = 30,
-        xticklabelsize = 15,
-        yticklabelsize = 25,
-    )
-))
-  ╠═╡ =#
-
-# ╔═╡ c3c91dd2-d01d-44f8-ab5e-597b6bf32e72
-#=╠═╡
-begin
-	tbl = (cat = [1,2,3,4,5,6,7,8,9,10,11],
-	       height= res.ST)
-	
-	barplot(tbl.cat, tbl.height,
-	        axis = (xticks = (1:11, ["G1", "G2", "G3", "G4",
-             "G5", "G6", "G7",
-             "β1", "β2", "β3", "β4"]),
-	                title = "Total Order Indices"),
-	        )
-end
-  ╠═╡ =#
-
-# ╔═╡ f06d046f-ab0a-4949-8c7b-864b42e736b7
-#=╠═╡
-begin
-	tbl1 = (cat = [1,2,3,4,5,6,7,8,9,10,11],
-	       height= res.S1)
-	
-	barplot(tbl1.cat, tbl1.height,
-	        axis = (xticks = (1:11, ["G1", "G2", "G3", "G4",
-             "G5", "G6", "G7",
-             "β1", "β2", "β3", "β4"]),
-	                title = "First Order Indices"),
-	        )
-end
-  ╠═╡ =#
-
-# ╔═╡ 29640068-cfdc-4bc9-a359-7fd331c4af81
+# ╔═╡ c60249a7-a4ba-4885-b53c-88fcff08c081
 md"""
 ### Input
 """
 
-# ╔═╡ fc23f850-cd11-45cf-a769-ad4347b2b6cd
+energy= model_instance.catmap_params.species_list
+
+
+# ╔═╡ 4433770f-45a5-4df5-bee5-cc47f9b9dd4f
+@bind pressures_input PlutoUI.combine() do Child
+    input_params =
+        @NamedTuple{name::String, range::StepRangeLen, default::Float64, unit::String}[]
+    for (s, sp) in model_instance.catmap_params.species_list
+		if (isa(sp, GasSpecies) && s == "CO2_g") 
+		    push!(input_params, (; name = s, range = 0.0:0.1:1, default=1.0, unit = "bar"))
+		else
+        if (isa(sp, GasSpecies) && s ≠ "H2O_g") || (isa(sp, FictiousSpecies) && s ≠ "ele_g")
+            push!(input_params, (; name = s, range = 0.0:1e-4:1, default = 0, unit = "bar"))
+        end
+    end
+	end
+
+    pressures_input = [
+        md""" $(name) : $(Child(name, PlutoUI.Slider(range; default=default, show_value=true))) $unit
+        """ for (; name, range, default, unit) in input_params
+    ] 
+    md"""
+    #### Input Pressures:
+    $(pressures_input)
+    """
+end
+
 @bind params_input PlutoUI.combine() do Child
     input_params = [
         (; name = "ϕ_we", range = -1.85:0.05:-1.0, default = -1.85, unit = "V"),
@@ -600,158 +412,12 @@ md"""
     """
 end
 
-
-# ╔═╡ 038e4bfb-c117-44ee-8ac3-b6c19d4696a7
-@bind pressures_input PlutoUI.combine() do Child
-    input_params =
-        @NamedTuple{name::String, range::StepRangeLen, default::Float64, unit::String}[]
-    for (s, sp) in model_instance.catmap_params.species_list
-		if (isa(sp, GasSpecies) && s == "CO2_g") 
-		    push!(input_params, (; name = s, range = 0.0:0.1:1, default=1.0, unit = "bar"))
-		else
-        if (isa(sp, GasSpecies) && s ≠ "H2O_g") || (isa(sp, FictiousSpecies) && s ≠ "ele_g")
-            push!(input_params, (; name = s, range = 0.0:1e-4:1, default = 0, unit = "bar"))
-        end
-    end
-	end
-
-    pressures_input = [
-        md""" $(name) : $(Child(name, PlutoUI.Slider(range; default=default, show_value=true))) $unit
-        """ for (; name, range, default, unit) in input_params
-    ] 
-    md"""
-    #### Input Pressures:
-    $(pressures_input)
-    """
-end
-
-
-# ╔═╡ 355b8c18-c6f0-4b68-beb8-5c0698dd1204
-begin 
-	const pressures = Dict(pairs(pressures_input))
-	const (; rn, catmap_params) = model_instance
-	const species_list = catmap_params.species_list
- 	const	params = Dict(pairs(params_input))
-	const θ0 = Dict(Symbol(s) => θinit for (s, sp) in species_list if isa(sp, AdsorbateSpecies))
-	const rxns=reactions(rn)
-	maxiters=1e6  
-	abstol=1e-8 #1e-8 default, for making prior use 1e-6
-	reltol=1e-6 #1e-6 default  for making prior use 1e-4
-	best_result = Ref{Tuple{Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}}((-Inf, [], [], [], []))
-	CH4= best_result[][2]
-	CO= best_result[][3]
-	CH3CH2OH= best_result[][4]
-	H2= best_result[][5] ## 1.0e-10 
-	const warning_count = Ref(0)
-	const warning_params = Ref(Vector{NamedTuple}())
-end
-
-# ╔═╡ 37a2514d-b546-492b-90cb-38d316d91972
-params_name = parameters_to_string(Catalyst.parameters(rn))
-
-# ╔═╡ d5fa068a-0713-4292-b62b-eca37f10706a
-pcet_barrier, chem_barrier, pcet_beta = pcet_name(params_name)
-
-# ╔═╡ 5eb78291-1fad-41bd-af32-2d89e9ceb98b
-Catalyst.parameters(rn)
-
-# ╔═╡ 8bd2dc6f-57fb-40fe-8efd-b59eb4b7bce9
-corrections = Dict(zip(keys(catmap_params.species_list), zeros(Float64, length(catmap_params.species_list))))
-
-# ╔═╡ 9fdf0ea0-d488-4996-92b8-181160f03a54
-thermo_corrections = compute_thermo_corrections!(corrections, catmap_params::CatmapParams)
-
-# ╔═╡ ae47cd84-fff5-485e-8aba-81f8cd13a469
-voltage = [
-  -1.85
--1.8
--1.75
--1.7
--1.65
--1.6
--1.55
--1.5
--1.45
--1.4
--1.35
--1.3
--1.25
--1.2
--1.15
--1.1
--1.05
--1.0
-]
-
-# ╔═╡ 0e8788fb-4835-4b21-adc5-65a90b9426cc
-md"""
-### Plots(from Makie)
-"""
-
-# ╔═╡ 548a2d56-77ff-4d75-981b-6d9cc81ea32d
-let
-    f1 = Figure(resolution = (1200, 1200))
-    ax4 = Axis(
-        f1[1, 1];
-        title = "Current-Voltage Curve_catmapInterface_CH4",
-        xlabel = "Δϕ [V]",
-        ylabel = "I #[mA/cm^2]",
-		titlesize = 20,
-       
-        limits = (-1.85, -1.0, -5, 5),
-    )
-    lines!(ax4, voltage,  best_result[][2], color=:red, linewidth =5)
-	lines!(ax4, kinetic_TOF["H2_g"][:,1], current_density["CH4_g"][:,1] , color=:blue, linewidth=3 )
-	
-	ax5 = Axis(
-        f1[1, 2],
-        title = "Current-Voltage Curve_catmapInterface_CO",
-        xlabel = "Δϕ [V]",
-        ylabel = "I #[mA/cm^2]",
-		titlesize = 20,
-		
-        limits = (-1.85, -1.0, -5, 7),  # Adjust limits as needed
-    )
-    lines!(ax5, voltage,   best_result[][3], color = :red, linewidth =5 )
-	lines!(ax5, kinetic_TOF["H2_g"][:,1] ,  current_density["CO_g"][:,1] , color = :blue, linewidth =3)
-
-	ax6 = Axis(
-        f1[2, 1],
-        title = "Current-Voltage Curve_catmapInterface_C2",
-        xlabel = "Δϕ [V]",
-        ylabel = "I #[mA/cm^2]",
-		titlesize = 20,
-		
-        limits = (-1.85, -1.0, -10, 5),  # Adjust limits as needed
-    )
-    lines!(ax6, voltage,   best_result[][4], color = :red, linewidth =5 )
-	lines!(ax6, kinetic_TOF["H2_g"][:,1] , current_density["CH3CH2OH_g"][:,1]  , color = :blue, linewidth =3)
-	
-	ax7 = Axis(
-        f1[2, 2],
-        title = "Current-Voltage Curve_catmapInterface_H2",
-        xlabel = "Δϕ [V]",
-        ylabel = "I #[mA/cm^2]",
-		titlesize = 20,
-		
-        limits = (-1.85, -1.0, -20, 6),  # Adjust limits as needed
-    )
-    lines!(ax7, voltage,  best_result[][5], color = :red, linewidth =5 )
-	lines!(ax7, kinetic_TOF["H2_g"][:,1]  , current_density["H2_g"] , color = :blue, linewidth =3)
-	
-	f1
-	
-end
-
-# ╔═╡ 4bc1093a-950a-4ca2-8294-105b4b31bedd
-best_result[][5]
-
-# ╔═╡ 6a678f79-f194-4353-8148-12c7f5d7a4e2
+# ╔═╡ 9e765a39-95ab-497b-8443-22714db21cb5
 md"""
 ### Functions for kinetic
 """
 
-# ╔═╡ bdec29c2-d876-4545-9e17-7d8e9c40d61b
+# ╔═╡ b1c1a32b-686b-4cc7-ab36-3b063edced77
 function electrontransfer_CO(rn::Catalyst.ReactionSystem, ssol, params)
     rxns = reactions(rn)
     ir_forward = findfirst(rxns) do r
@@ -783,7 +449,7 @@ function electrontransfer_CO(rn::Catalyst.ReactionSystem, ssol, params)
     return log10(abs(curr * ph"e" * S * 2)) ## 10is for A/m^2 to mA/cm^2 but we don't have to there is ufac in the plotting
 end
 
-# ╔═╡ e37d77b4-37d6-46cf-bfde-42a673c83cbd
+# ╔═╡ 65a43473-fd54-4dd7-a02e-11ed66824d76
 function electrontransfer_CH3CH2OH(rn::Catalyst.ReactionSystem, ssol, params)
     rxns = reactions(rn)
     ir_forward = findfirst(rxns) do r
@@ -815,7 +481,7 @@ function electrontransfer_CH3CH2OH(rn::Catalyst.ReactionSystem, ssol, params)
     return log10(abs(curr * ph"e" * S * 12)) ## 10is for A/m^2 to mA/cm^2 but we don't have to there is ufac in the plotting ## log10(abs("")) 
 end
 
-# ╔═╡ d96a98d6-208d-42b1-bc06-5ed71e3f0a8e
+# ╔═╡ cec44348-9032-4a96-ab5b-1e8373b1287f
 function electrontransfer_CH4(rn::Catalyst.ReactionSystem, ssol, params)
     rxns = reactions(rn)
     ir_forward = findfirst(rxns) do r
@@ -847,7 +513,7 @@ function electrontransfer_CH4(rn::Catalyst.ReactionSystem, ssol, params)
     return log10(abs(curr * ph"e" * S * 8)) ## 10is for A/m^2 to mA/cm^2 but we don't have to there is ufac in the plotting
 end
 
-# ╔═╡ 26696259-4127-4ebd-ab81-9da5484746d3
+# ╔═╡ 4bd582fd-fe32-4a2f-a71a-9dc74887d1d7
 function electrontransfer_H2(rn::Catalyst.ReactionSystem, ssol, params) ## look more
     rxns = reactions(rn)
 	 ir_forward_tafel = findfirst(rxns) do r
@@ -904,51 +570,166 @@ function electrontransfer_H2(rn::Catalyst.ReactionSystem, ssol, params) ## look 
     return log10(abs(curr_1 * ph"e" * S * 2+ curr * ph"e" * S * 2)) ## 10is for A/m^2 to mA/cm^2 but we don't have to there is ufac in the plotting
 end
 
-# ╔═╡ 720f8091-ca5d-42da-94e2-c9746757cada
+# ╔═╡ 1aeb6857-85a9-447c-9b9a-6fa880f97b39
 md"""
 ### Current_voltage function
 """
 
-# ╔═╡ fdf19724-1c98-404e-a8be-c458c55c82cd
+function currentvoltage(rn, catmap_params, pressures, θ0, params; solver=DynamicSS(Rodas5P()), maxiters=maxiters, abstol = abstol, reltol = reltol)
+	nr = numreactions(rn)
+	stoichmat = netstoichmat(rn)
+	rrs_sym = reactionrates(rn)
+	rrs_num = zeros(nr)
+
+	Δϕs = params[:ϕ_we]:0.05:-1.0
+	u0 = symmap_to_varmap(rn, merge(pressures, θ0)) 
+		currs_CH4 = zeros(length(Δϕs))
+		currs_CO = zeros(length(Δϕs))
+		currs_CH3CH2OH = zeros(length(Δϕs))
+		currs_H2 = zeros(length(Δϕs))
+	for (iΔϕ, Δϕ) in enumerate(Δϕs)
+		 params[:ϕ] = params[:ϕ_we] - Δϕ
+		if catmap_params.electrochemical_thermo_mode == :hbond_surface_charge_density
+			params[:σ] = surface_charge_relation(Δϕ)
+		end
+		ssprob = SteadyStateProblem(
+			rn, 
+			u0, 
+			symmap_to_varmap(rn, params)
+		)
+		ssol = solve(ssprob, solver; maxiters, abstol, reltol)
+		currs_CH4[iΔϕ] = electrontransfer_CH4(rn, ssol, params)
+		currs_CO[iΔϕ] =  electrontransfer_CO(rn, ssol, params) 
+		currs_CH3CH2OH[iΔϕ] =  electrontransfer_CH3CH2OH(rn, ssol, params) 
+		currs_H2[iΔϕ] =  electrontransfer_H2(rn, ssol, params) 
+		u0 = Dict(sp => ssol[sp] for sp in species(rn))
+	end
+        return collect(Δϕs), currs_CH4, currs_CO, currs_CH3CH2OH, currs_H2
+	end
+
+# ╔═╡ a405cf23-07fe-41df-83b0-2fbf6f46959b
 md"""
 #### chunk_parallel
 """
 
-# ╔═╡ c38ea5c4-b078-4e47-8cb4-9568239d383f
+# ╔═╡ 43217a9b-dd21-4dff-a55e-b15d71bc6864
 # ╠═╡ disabled = true
 #=╠═╡
-function currentvoltage(rn, catmap_params, pressures, θ0, params;)
-    Δϕs = params[:ϕ_we]:0.05:-1.0
-    N = Threads.nthreads()
-    
-    chunks = Iterators.partition(Δϕs, cld(length(Δϕs), N))
+function merge_currentvoltage_results(results)
+    Δϕs      = Float64[]
+    currs_CH4    = Float64[]
+    currs_CO     = Float64[]
+    currs_CH3CH2OH = Float64[]
+    currs_H2     = Float64[]
 
-    tasks = map(chunks) do chunk
-        Threads.@spawn begin
-            try
-             return currentvoltage_serial_chunk(rn, catmap_params, pressures, θ0, params, collect(chunk))
-            catch e
-				@warn "Thread crash: $e"
-                n = length(chunk)
-                return (collect(chunk), zeros(n), zeros(n), zeros(n), zeros(n))
-    		end
-			end
-	end
-
-	local results
-	
-    try
-        results = fetch.(tasks)
-    catch e
-        @warn "Outer fetch error in currentvoltage: $e"
-    	return (Δϕs, zeros(length(Δϕs)), zeros(length(Δϕs)), zeros(length(Δϕs)), zeros(length(Δϕs)))
-	else
-		return merge_currentvoltage_results(results)
+    for (ϕs, ch4, co, etoh, h2) in results
+        append!(Δϕs, ϕs)
+        append!(currs_CH4, ch4)
+        append!(currs_CO, co)
+        append!(currs_CH3CH2OH, etoh)
+        append!(currs_H2, h2)
     end
+
+    return Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH, currs_H2
 end
+
   ╠═╡ =#
 
-# ╔═╡ 7c41acab-4015-42e3-8ac4-03b2df33f0a6
+# ╔═╡ 04f74348-a536-4f11-ac47-cbf323344c8d
+md"""
+#### serial
+"""
+
+# ╔═╡ 2a22ec17-9bfa-49f2-ac63-bde821706f63
+md"""
+### Classify parameters
+"""
+
+# ╔═╡ c600733a-5f3f-44ed-b6f5-876704103231
+function parameters_to_string(parameters)
+	params_name=[]
+	for p in parameters
+		params=string(p)
+		push!(params_name, params)
+	end
+	return params_name
+end				
+
+# ╔═╡ 6522d4cc-0644-4e4f-9bb3-e304a5c42eff
+function pcet_name(name)
+    pcet_barrier = []
+    chem_barrier = []
+    pcet_beta = []
+    for i in name
+        i_replaced = replace(i, "E" => "G") ## replace E to G
+        if contains(i_replaced, "ele") && contains(i_replaced, "G") && contains(i_replaced, "Δ")
+            push!(pcet_barrier, i_replaced)
+        elseif contains(i_replaced, "G") && contains(i_replaced, "Δ")
+            push!(chem_barrier, i_replaced)
+        elseif contains(i_replaced, "ele") && contains(i_replaced, "β") && contains(i_replaced, "Δ")
+            push!(pcet_beta, i_replaced)
+        end
+    end
+    return pcet_barrier, chem_barrier, pcet_beta
+end
+
+
+# ╔═╡ 1bde0c68-15c0-4f44-a33d-4bca9c39e66f
+U_eq=Dict()
+
+# ╔═╡ 1a25c56d-cde5-40ca-a102-4becd2a54d10
+
+
+
+
+# ╔═╡ f552af14-3a76-4a1c-9e7f-16fa0d34cd3c
+function get_U_eq(reactions)
+	for i in reactions
+		if isnothing(i.tstate)
+		nothing
+		else
+	    j=[pair.first for pair in  i.educts] ## name 
+	    k=[pair.second for pair in i.educts] ## coeff
+	    l=[pair.first for pair in i.products]
+	    m=[pair.second for pair in i.products]
+	    	U_eq["$(i.tstate.components[1][1])"]=(sum(energy["$(j)"].formation_energy*k for (j,k) in zip(j,k))-sum(energy["$(l)"].formation_energy*m for (l,m) in zip(l,m)))/e
+		 
+    	end
+	end
+end
+
+# ╔═╡ d2236c4b-5c72-4b9b-9533-22c767c44b84
+get_U_eq(model_instance.catmap_params.reactions)
+
+# ╔═╡ c9d38446-019f-4f40-afda-544f40ff19f0
+md"""
+### loss function
+"""
+
+# ╔═╡ a127638f-1bd0-43d4-bf42-1074e967e064
+const θinit = 1.0e-10 ## 1.0e-10 
+
+# ╔═╡ 355b8c18-c6f0-4b68-beb8-5c0698dd1204
+begin 
+	const pressures = Dict(pairs(pressures_input))
+	const (; rn, catmap_params) = model_instance
+	const species_list = catmap_params.species_list
+ 	const	params = Dict(pairs(params_input))
+	const θ0 = Dict(Symbol(s) => θinit for (s, sp) in species_list if isa(sp, AdsorbateSpecies))
+	const rxns=reactions(rn)
+	maxiters=1e6  
+	abstol=1e-6 #1e-8 default, for making prior use 1e-6
+	reltol=1e-4 #1e-6 default  for making prior use 1e-4
+	best_result = Ref{Tuple{Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}}((-Inf, [], [], [], []))
+	CH4= best_result[][2]
+	CO= best_result[][3]
+	CH3CH2OH= best_result[][4]
+	H2= best_result[][5] ## 1.0e-10 
+	const warning_count = Ref(0)
+	const warning_params = Ref(Vector{NamedTuple}())
+end
+
+# ╔═╡ 0eb97e69-b983-4abc-af7f-0551c6913fa6
 # ╠═╡ disabled = true
 #=╠═╡
 function currentvoltage_serial_chunk(
@@ -992,67 +773,35 @@ end
 
   ╠═╡ =#
 
-# ╔═╡ 07835ea1-e381-4366-a712-3e5d2563a18f
-# ╠═╡ disabled = true
-#=╠═╡
-function merge_currentvoltage_results(results)
-    Δϕs      = Float64[]
-    currs_CH4    = Float64[]
-    currs_CO     = Float64[]
-    currs_CH3CH2OH = Float64[]
-    currs_H2     = Float64[]
+# ╔═╡ 37a2514d-b546-492b-90cb-38d316d91972
+params_name = parameters_to_string(Catalyst.parameters(rn))
 
-    for (ϕs, ch4, co, etoh, h2) in results
-        append!(Δϕs, ϕs)
-        append!(currs_CH4, ch4)
-        append!(currs_CO, co)
-        append!(currs_CH3CH2OH, etoh)
-        append!(currs_H2, h2)
-    end
+# ╔═╡ d5fa068a-0713-4292-b62b-eca37f10706a
+pcet_barrier, chem_barrier, pcet_beta = pcet_name(params_name)
 
-    return Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH, currs_H2
+# ╔═╡ 5eb78291-1fad-41bd-af32-2d89e9ceb98b
+Catalyst.parameters(rn)
+
+# ╔═╡ 8bd2dc6f-57fb-40fe-8efd-b59eb4b7bce9
+corrections = Dict(zip(keys(catmap_params.species_list), zeros(Float64, length(catmap_params.species_list))))
+
+# ╔═╡ 6b9cf7b2-6362-4b86-95f7-f056999e1c75
+function compute_thermo_corrections!(corrections, catmap_params::CatmapParams)
+    (; gas_thermo_mode, adsorbate_thermo_mode) = catmap_params
+    gas_thermo_correction!             = getfield(CatmapInterface, Symbol(gas_thermo_mode))
+    adsorbate_thermo_correction!       = getfield(CatmapInterface, Symbol(adsorbate_thermo_mode))
+    gas_thermo_correction!(corrections, catmap_params)
+    adsorbate_thermo_correction!(corrections, catmap_params)
+	return corrections
 end
 
-  ╠═╡ =#
+# ╔═╡ 9fdf0ea0-d488-4996-92b8-181160f03a54
+thermo_corrections = compute_thermo_corrections!(corrections, catmap_params::CatmapParams)
 
-# ╔═╡ 5231fa99-39ed-43bd-9a3d-19a6999fd8b4
+# ╔═╡ a123d077-2b8d-410a-a875-f8b5e0e850b0
 md"""
-#### serial
+### Checking the loss function
 """
-
-# ╔═╡ 33422b69-00ae-412d-9eca-faf93ae00386
-function currentvoltage(rn, catmap_params, pressures, θ0, params; solver=DynamicSS(Rodas5P()), maxiters=maxiters, abstol = abstol, reltol = reltol)
-	nr = numreactions(rn)
-	stoichmat = netstoichmat(rn)
-	rrs_sym = reactionrates(rn)
-	rrs_num = zeros(nr)
-
-	Δϕs = params[:ϕ_we]:0.05:-1.0
-	u0 = symmap_to_varmap(rn, merge(pressures, θ0)) 
-		currs_CH4 = zeros(length(Δϕs))
-		currs_CO = zeros(length(Δϕs))
-		currs_CH3CH2OH = zeros(length(Δϕs))
-		currs_H2 = zeros(length(Δϕs))
-	for (iΔϕ, Δϕ) in enumerate(Δϕs)
-		 params[:ϕ] = params[:ϕ_we] - Δϕ
-		if catmap_params.electrochemical_thermo_mode == :hbond_surface_charge_density
-			params[:σ] = surface_charge_relation(Δϕ)
-		end
-		ssprob = SteadyStateProblem(
-			rn, 
-			u0, 
-			symmap_to_varmap(rn, params)
-		)
-		ssol = solve(ssprob, solver; maxiters, abstol, reltol)
-		currs_CH4[iΔϕ] = electrontransfer_CH4(rn, ssol, params)
-		currs_CO[iΔϕ] =  electrontransfer_CO(rn, ssol, params) 
-		currs_CH3CH2OH[iΔϕ] =  electrontransfer_CH3CH2OH(rn, ssol, params) 
-		currs_H2[iΔϕ] =  electrontransfer_H2(rn, ssol, params) 
-		u0 = Dict(sp => ssol[sp] for sp in species(rn))
-	end
-        return collect(Δϕs), currs_CH4, currs_CO, currs_CH3CH2OH, currs_H2
-	end
-
 
 # ╔═╡ 1f43f628-7c35-4f11-9b12-27e73214a35b
 begin
@@ -1111,10 +860,39 @@ begin
 end
 end
 
+# ╔═╡ 312fa03e-a913-4a97-a3db-0cf436150a41
+function loss_function(; kwargs...)
+    loss_function(NamedTuple(kwargs))
+end
+
+
+# ╔═╡ 7ec99492-254e-4bcf-ad07-075eb4b6f2eb
+begin
+	pbounds= Dict("GH2OΔele_t" => (0.0   ,1.8), "GHΔH2OΔele_t" => (0.0,1.8), "GH2OΔCOΔele_t" => (0.0,1.8), "GCHΔOHΔele_t" => (0.0,1.8), "GOCCOΔH2OΔele_t" => (0.0,1.8), "GCOOHΔH2OΔele_t" => (0.0,1.8), "GHΔH_t" => (0.0, 1.8), "GCOΔ_t" => (0.0,1.8), "GOCΔCO_t" => (0.0,1.8), "GCO2Δ_t" => (0.0,1.8), "βH2OΔele_t" => (0.1,0.9), "βHΔH2OΔele_t" => (0.1, 0.9), "βH2OΔCOΔele_t" => (0.1,0.9), "βCHΔOHΔele_t" => (0.1,0.9), "βOCCOΔH2OΔele_t" => (0.1,0.9), "βCOOHΔH2OΔele_t" => (0.1,0.9))
+end
+
+# ╔═╡ c1bf4c12-5292-4188-8839-d4fc27348f12
+parameters = (
+    GH2OΔele_t=1.351,
+GHΔH2OΔele_t=1.52281, GH2OΔCOΔele_t=0.966143, GCHΔOHΔele_t=0.803231, GOCCOΔH2OΔele_t=0.508165, GCOOHΔH2OΔele_t=0.699272, GHΔH_t= 0.786548, GCOΔ_t= 0.328544, GOCΔCO_t= 0.3998, GCO2Δ_t=0.103707, 
+   βH2OΔele_t=0.5,
+βHΔH2OΔele_t=0.89, βH2OΔCOΔele_t=0.5, βCHΔOHΔele_t=0.5, βOCCOΔH2OΔele_t=0.6, βCOOHΔH2OΔele_t=0.5
+) ## theortical value
+
 # ╔═╡ f76bc64f-244b-4658-87db-238274ca8093
-loss_function(parameters)
+begin
+	a= loss_function(parameters)
+	println(a)
+end
+
+# ╔═╡ a2692d58-37df-4e2e-8e88-22240caf555f
+md"""
+### Sensitivity Analysis
+"""
 
 # ╔═╡ 73d7d8a2-e044-4caa-ad8c-3de4e557bd04
+
+
 begin
 	function peak_cases(p)
 			result = nothing
@@ -1153,18 +931,229 @@ GHΔH2OΔele_t=p[2], GH2OΔCOΔele_t = p[3], GCHΔOHΔele_t = p[4], GOCCOΔH2OΔ
 			for (i,j) in β_values
 		  		local_params[Symbol(i)]= j
 		    end 	
-			 (Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH)= currentvoltage(rn, catmap_params, pressures, θ0, local_params)  # adapt as needed
+			 (Δϕs, currs_CH4, currs_CO, currs_CH3CH2OH, currs_H2)= currentvoltage(rn, catmap_params, pressures, θ0, local_params)  # adapt as needed
 
-			result= -(norm(standard_log_CH4-currs_CH4)+norm(standard_log_C2-currs_CH3CH2OH)+norm(standard_log_CO-currs_CO))
+             result= -(norm(standard_log_CH4-currs_CH4)+norm(standard_log_C2-currs_CH3CH2OH)+norm(standard_log_CO-currs_CO)+norm(standard_log_H2-currs_H2))
 
 			return (isfinite(result) && result ≠ -Inf) ? result : NaN
     		end
+end
+  ╠═╡ =#
+
+# ╔═╡ 78ea7115-6d0d-4336-9cff-7b83c20675eb
+bounds= [(0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.01, 1.8), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9), (0.1, 0.9)] 
+
+# ╔═╡ 8fb9de64-0286-41db-9094-403f59e1b00f
+begin
+	samples = 5000
+	lb = first.(bounds)
+	ub = last.(bounds)
+end
+
+# ╔═╡ bb527498-120a-4c77-9116-e1cff829bf0c
+begin
+	sampler = SobolSample()
+	A, B = QuasiMonteCarlo.generate_design_matrices(samples, lb, ub, sampler)
 end
 
 # ╔═╡ c1ce4aaa-1612-43b4-9f17-1cd83272d1e4
 function peak_cases_batch(X::AbstractMatrix)
     return [peak_cases(vec(col)) for col in eachcol(X)]
 end
+
+  ╠═╡ =#
+
+# ╔═╡ f90f10b9-0f03-4e01-9671-996b2be34be8
+
+begin
+		Y_A = peak_cases_batch(A)
+		Y_B = peak_cases_batch(B)
+		
+		# 2. Keep only valid indices (where both A and B results are good)
+		valid_idx = findall(i -> isfinite(Y_A[i]) && isfinite(Y_B[i]), 1:length(Y_A))
+		
+		# 3. Filter inputs and outputs
+		A_valid = A[:, valid_idx]
+		B_valid = B[:, valid_idx]
+	res = gsa(peak_cases_batch, Sobol(), A_valid, B_valid, batch=true, Ei_estimator = :Sobol2007)
+end
+  ╠═╡ =#
+
+# ╔═╡ 66d26e21-8762-4a4d-95b3-8e185a7cee45
+println(res)
+  ╠═╡ =#
+
+# ╔═╡ 3b6ca314-cbff-4fbf-998f-5f0d5a7846f1
+# ╠═╡ disabled = true
+#=╠═╡
+@show var(filter(!isnan, Y_A)), var(filter(!isnan, Y_B))
+  ╠═╡ =#
+
+# ╔═╡ 0f9aa6b7-744d-475a-a998-da03d7b4a2e7
+set_theme!(Theme(
+    fontsize = 16,             # sets base font size
+    Axis = (
+        titlesize = 20,
+        xlabelsize = 10,
+        ylabelsize = 30,
+        xticklabelsize = 15,
+        yticklabelsize = 25,
+    )
+))
+
+# ╔═╡ c3c91dd2-d01d-44f8-ab5e-597b6bf32e72
+
+begin
+f = Figure()
+	tbl = (cat = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
+	       height= res.ST)
+	
+    barplot(f[1,1], tbl.cat, tbl.height,
+	        axis = (xticks = (1:16, ["G1", "G2", "G3", "G4",
+             "G5", "G6", "G7", "G8", "G9", "G10",
+             "β1", "β2", "β3", "β4", "β5", "β6"]),
+	                title = "Total Order Indices"),
+	        )
+end
+  ╠═╡ =#
+
+# ╔═╡ f06d046f-ab0a-4949-8c7b-864b42e736b7
+begin
+	tbl1 = (cat = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
+	       height= res.S1)
+
+barplot(f[1,2], tbl1.cat, tbl1.height,
+	        axis = (xticks = (1:16, ["G1", "G2", "G3", "G4",
+             "G5", "G6", "G7", "G8", "G9", "G10",
+             "β1", "β2", "β3", "β4", "β5", "β6"]),
+	                title = "First Order Indices"),
+	        )
+save("SA_fig.svg", f)
+end
+  ╠═╡ =#
+
+# ╔═╡ ae47cd84-fff5-485e-8aba-81f8cd13a469
+voltage = [
+  -1.85
+-1.8
+-1.75
+-1.7
+-1.65
+-1.6
+-1.55
+-1.5
+-1.45
+-1.4
+-1.35
+-1.3
+-1.25
+-1.2
+-1.15
+-1.1
+-1.05
+-1.0
+]
+
+# ╔═╡ 0e8788fb-4835-4b21-adc5-65a90b9426cc
+md"""
+### Plots(from Makie)
+"""
+
+# ╔═╡ 548a2d56-77ff-4d75-981b-6d9cc81ea32d
+#let 
+#    f1 = Figure(resolution = (1200, 1200))
+#    ax4 = Axis(
+#        f1[1, 1];
+#        title = "Current-Voltage Curve_catmapInterface_CH4",
+#        xlabel = "Δϕ [V]",
+#        ylabel = "I #[mA/cm^2]",
+#		titlesize = 20,
+#       
+#        limits = (-1.85, -1.0, -5, 5),
+#    )
+#    lines!(ax4, voltage,  best_result[][2], color=:red, linewidth =5)
+#	lines!(ax4, kinetic_TOF["H2_g"][:,1], current_density["CH4_g"][:,1] , color=:blue, linewidth=3 )
+#	
+#	ax5 = Axis(
+#        f1[1, 2],
+#        title = "Current-Voltage Curve_catmapInterface_CO",
+#        xlabel = "Δϕ [V]",
+#        ylabel = "I #[mA/cm^2]",
+#		titlesize = 20,
+#		
+#        limits = (-1.85, -1.0, -5, 7),  # Adjust limits as needed
+#    )
+#    lines!(ax5, voltage,   best_result[][3], color = :red, linewidth =5 )
+#	lines!(ax5, kinetic_TOF["H2_g"][:,1] ,  current_density["CO_g"][:,1] , color = :blue, linewidth =3)
+#
+#	ax6 = Axis(
+#        f1[2, 1],
+#        title = "Current-Voltage Curve_catmapInterface_C2",
+#        xlabel = "Δϕ [V]",
+#        ylabel = "I #[mA/cm^2]",
+#		titlesize = 20,
+#		
+#        limits = (-1.85, -1.0, -10, 5),  # Adjust limits as needed
+#    )
+#    lines!(ax6, voltage,   best_result[][4], color = :red, linewidth =5 )
+#	lines!(ax6, kinetic_TOF["H2_g"][:,1] , current_density["CH3CH2OH_g"][:,1]  , color = :blue, linewidth =3)
+#	
+#	ax7 = Axis(
+#        f1[2, 2],
+#        title = "Current-Voltage Curve_catmapInterface_H2",
+#        xlabel = "Δϕ [V]",
+#        ylabel = "I #[mA/cm^2]",
+#		titlesize = 20,
+#		
+#        limits = (-1.85, -1.0, -20, 6),  # Adjust limits as needed
+#    )
+#    lines!(ax7, voltage,  best_result[][5], color = :red, linewidth =5 )
+#	lines!(ax7, kinetic_TOF["H2_g"][:,1]  , current_density["H2_g"] , color = :blue, linewidth =3)
+#	
+#	f1
+#	
+#end
+
+
+# ╔═╡ 4bc1093a-950a-4ca2-8294-105b4b31bedd
+#best_result[][5]
+
+# ╔═╡ 416ccdf0-eae1-41e0-b60a-aaa8cbcade12
+# ╠═╡ disabled = true
+#=╠═╡
+function currentvoltage(rn, catmap_params, pressures, θ0, params;)
+    Δϕs = params[:ϕ_we]:0.05:-1.0
+    N = Threads.nthreads()
+    
+    chunks = Iterators.partition(Δϕs, cld(length(Δϕs), N))
+
+    tasks = map(chunks) do chunk
+        Threads.@spawn begin
+            try
+             return currentvoltage_serial_chunk(rn, catmap_params, pressures, θ0, params, collect(chunk))
+            catch e
+				@warn "Thread crash: $e"
+                n = length(chunk)
+                return (collect(chunk), zeros(n), zeros(n), zeros(n), zeros(n))
+    		end
+			end
+	end
+
+	local results
+	
+    try
+        results = fetch.(tasks)
+    catch e
+        @warn "Outer fetch error in currentvoltage: $e"
+    	return (Δϕs, zeros(length(Δϕs)), zeros(length(Δϕs)), zeros(length(Δϕs)), zeros(length(Δϕs)))
+	else
+		return merge_currentvoltage_results(results)
+    end
+end
+  ╠═╡ =#
+
+# ╔═╡ b1d76daa-452e-46a5-96a8-b2cf335deaab
+
 
 
 # ╔═╡ Cell order:
@@ -1197,6 +1186,21 @@ end
 # ╠═771eb140-004d-4585-a8fa-85d452810185
 # ╠═cf2a7c0f-c6af-4cc7-929d-18b6063306e2
 # ╠═3d36eb3b-712a-4465-ba01-677ad93ffc3d
+# ╠═c60249a7-a4ba-4885-b53c-88fcff08c081
+# ╠═6ad2e68e-37a2-4155-9766-26478e7c07a2
+# ╠═4433770f-45a5-4df5-bee5-cc47f9b9dd4f
+# ╠═9e765a39-95ab-497b-8443-22714db21cb5
+# ╠═b1c1a32b-686b-4cc7-ab36-3b063edced77
+# ╠═65a43473-fd54-4dd7-a02e-11ed66824d76
+# ╠═cec44348-9032-4a96-ab5b-1e8373b1287f
+# ╠═4bd582fd-fe32-4a2f-a71a-9dc74887d1d7
+# ╠═1aeb6857-85a9-447c-9b9a-6fa880f97b39
+# ╠═a405cf23-07fe-41df-83b0-2fbf6f46959b
+# ╠═416ccdf0-eae1-41e0-b60a-aaa8cbcade12
+# ╠═0eb97e69-b983-4abc-af7f-0551c6913fa6
+# ╠═43217a9b-dd21-4dff-a55e-b15d71bc6864
+# ╠═04f74348-a536-4f11-ac47-cbf323344c8d
+# ╠═b1d76daa-452e-46a5-96a8-b2cf335deaab
 # ╠═2a22ec17-9bfa-49f2-ac63-bde821706f63
 # ╠═c600733a-5f3f-44ed-b6f5-876704103231
 # ╠═37a2514d-b546-492b-90cb-38d316d91972
@@ -1226,28 +1230,12 @@ end
 # ╠═bb527498-120a-4c77-9116-e1cff829bf0c
 # ╠═c1ce4aaa-1612-43b4-9f17-1cd83272d1e4
 # ╠═f90f10b9-0f03-4e01-9671-996b2be34be8
-# ╠═76b9a619-c873-4b36-b9af-395d2926f8cb
+# ╠═66d26e21-8762-4a4d-95b3-8e185a7cee45
 # ╠═3b6ca314-cbff-4fbf-998f-5f0d5a7846f1
 # ╠═0f9aa6b7-744d-475a-a998-da03d7b4a2e7
 # ╠═c3c91dd2-d01d-44f8-ab5e-597b6bf32e72
 # ╠═f06d046f-ab0a-4949-8c7b-864b42e736b7
-# ╟─29640068-cfdc-4bc9-a359-7fd331c4af81
-# ╠═fc23f850-cd11-45cf-a769-ad4347b2b6cd
-# ╠═038e4bfb-c117-44ee-8ac3-b6c19d4696a7
 # ╠═ae47cd84-fff5-485e-8aba-81f8cd13a469
-# ╠═0659b0a8-d1d2-4cd7-8abe-4b842a2e0a67
 # ╟─0e8788fb-4835-4b21-adc5-65a90b9426cc
 # ╠═548a2d56-77ff-4d75-981b-6d9cc81ea32d
 # ╠═4bc1093a-950a-4ca2-8294-105b4b31bedd
-# ╟─6a678f79-f194-4353-8148-12c7f5d7a4e2
-# ╠═bdec29c2-d876-4545-9e17-7d8e9c40d61b
-# ╠═e37d77b4-37d6-46cf-bfde-42a673c83cbd
-# ╠═d96a98d6-208d-42b1-bc06-5ed71e3f0a8e
-# ╠═26696259-4127-4ebd-ab81-9da5484746d3
-# ╟─720f8091-ca5d-42da-94e2-c9746757cada
-# ╟─fdf19724-1c98-404e-a8be-c458c55c82cd
-# ╠═c38ea5c4-b078-4e47-8cb4-9568239d383f
-# ╠═7c41acab-4015-42e3-8ac4-03b2df33f0a6
-# ╠═07835ea1-e381-4366-a712-3e5d2563a18f
-# ╟─5231fa99-39ed-43bd-9a3d-19a6999fd8b4
-# ╠═33422b69-00ae-412d-9eca-faf93ae00386

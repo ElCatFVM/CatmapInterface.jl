@@ -1,0 +1,24 @@
+  Activating project at `~/Sensitivity-analysis`
+┌ Warning: The `generate_design_matrices(n, d, sampler, R = NoRand(), num_mats)` method does not produces true and independent QMC matrices, see [this doc warning](https://docs.sciml.ai/QuasiMonteCarlo/stable/design_matrix/) for more context. 
+│     Prefer using randomization methods such as `R = Shift()`, `R = MatousekScrambling()`, etc., see [documentation](https://docs.sciml.ai/QuasiMonteCarlo/stable/randomization/)
+└ @ QuasiMonteCarlo ~/.julia/packages/QuasiMonteCarlo/KvLfb/src/RandomizedQuasiMonteCarlo/iterators.jl:255
+┌ Warning: At t=130598.06833169419, dt was forced below floating point epsilon 1.4551915228366852e-11, and step error estimate = 1.2737928634713618. Aborting. There is either an error in your model specification or the true solution is unstable (or the true solution can not be represented in the precision of Float64).
+└ @ SciMLBase ~/.julia/packages/SciMLBase/pypmI/src/integrator_interface.jl:623
+┌ Warning: At t=5.073885987579742e-9, dt was forced below floating point epsilon 8.271806125530277e-25, and step error estimate = 1.1182081277052518. Aborting. There is either an error in your model specification or the true solution is unstable (or the true solution can not be represented in the precision of Float64).
+└ @ SciMLBase ~/.julia/packages/SciMLBase/pypmI/src/integrator_interface.jl:623
+ERROR: LoadError: UndefVarError: `currs_H2` not defined in `Main`
+Suggestion: check for spelling errors or missing imports.
+Stacktrace:
+ [1] peak_cases(p::SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true})
+   @ Main ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:936
+ [2] #120
+   @ ./none:0 [inlined]
+ [3] iterate
+   @ ./generator.jl:48 [inlined]
+ [4] collect(itr::Base.Generator{ColumnSlices{Matrix{Float64}, Tuple{Base.OneTo{Int64}}, SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}}, var"#120#121"})
+   @ Base ./array.jl:780
+ [5] peak_cases_batch(X::Matrix{Float64})
+   @ Main ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:961
+ [6] top-level scope
+   @ ~/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:969
+in expression starting at /home/users/bmchun/Sensitivity-analysis/CatmapInterface_CO2RR_SA_submit.jl:964

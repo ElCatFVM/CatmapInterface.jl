@@ -1,3 +1,4 @@
+
 """
 $(TYPEDEF)
 
@@ -60,7 +61,59 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     nothing
 end
 
+"""
+$(SIGNATURES)
 
+Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes, but without ad-ad interaction
+"""
+function compute_free_energies_without_ad!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
+    (;gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
+
+    for (s,formation_energy) in formation_energies
+        free_energies[s] += formation_energy
+    end
+
+    gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
+    adsorbate_thermo_correction!       = getfield(@__MODULE__, adsorbate_thermo_mode)
+    electrochemical_thermo_correction! = getfield(@__MODULE__, electrochemical_thermo_mode)
+
+
+    thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
+    gas_thermo_correction!(thermo_corrections, catmap_params)
+    adsorbate_thermo_correction!(thermo_corrections, catmap_params)
+    # electrochemical corrections
+    electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
+    for (species, thermo_correction) in thermo_corrections
+        free_energies[species] += thermo_correction
+    end
+    nothing
+end
+
+"""
+$(SIGNATURES)
+
+Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes but without ad-ad interaction % electrochemcial_thermo_correction
+"""
+function compute_free_energies_only_thermo!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
+    (; gas_thermo_mode, adsorbate_thermo_mode) = catmap_params
+
+    for (s,formation_energy) in formation_energies
+        free_energies[s] += formation_energy
+    end
+
+    gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
+    adsorbate_thermo_correction!       = getfield(@__MODULE__, adsorbate_thermo_mode)
+
+
+    thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
+    gas_thermo_correction!(thermo_corrections, catmap_params)
+    adsorbate_thermo_correction!(thermo_corrections, catmap_params)
+    # electrochemical corrections
+    for (species, thermo_correction) in thermo_corrections
+        free_energies[species] += thermo_correction
+    end
+    nothing
+end
 
 
 """
@@ -179,25 +232,11 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     end
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
+    free_energies_without_ad= Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
+    free_energies_only_thermo=  Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
-
-
-
-
-
-    function reversible_kinetics_electrochemical(catmap::CatmapParams)
-        for i in catmap_params.reactions
-            if isnothing(i.tstate)
-                nothing
-            else
-            tstate_names
-        voltage= ϕ
-        thermo_dict = []
-        if hbond_dict
-        
-
-        end 
-    end
+    compute_free_energies_without_ad!(free_energies_without_ad, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
+    compute_free_energies_only_thermo!(free_energies_only_thermo, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
 
 
     function process_reaction_side(reactants)
@@ -226,12 +265,138 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         end
         Gf, rs, γs, a
     end
+
+    function process_reaction_side_without_Ad(reactants) # process_reaction without ad-ad interaciton
+        @local_unitfactors mol dm
+        Gf = Num(0.0)
+        rs = Num[]
+        γs = Int[]
+        a  = Num(1.0)
+        for (reactant, factor) in reactants
+            sp = species_list[reactant]
+            if (reactant =="H2O_g" || isa(sp, SiteSpecies))
+                a *= vars[reactant]^factor
+            elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
+                push!(rs, vars[reactant])
+                push!(γs, factor)
+            elseif isa(sp, AdsorbateSpecies) # activity coefficients are assumed to be 1
+                push!(rs, vars[reactant])
+                push!(γs, factor)
+                a *= (vars[reactant])^factor #  (vars[reactant] * Num(sp.n_sites))^factor
+            elseif (isa(sp, GasSpecies) && reactant ≠ "H2O_g")
+                push!(rs, vars[reactant])
+                push!(γs, factor)
+                a *= (activ_coefs[reactant] * vars[reactant])^factor
+            end
+            Gf += factor * free_energies_without_ad[reactant]
+        end
+        Gf, rs, γs, a
+    end
+
     
+    function process_reaction_side_for_only_thermo(reactants) # process_reaction without ad-ad interaction & electrochemical_thermo correction
+        @local_unitfactors mol dm
+        Gf = Num(0.0)
+        rs = Num[]
+        γs = Int[]
+        a  = Num(1.0)
+        for (reactant, factor) in reactants
+            sp = species_list[reactant]
+            if (reactant =="H2O_g" || isa(sp, SiteSpecies))
+                a *= vars[reactant]^factor
+            elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
+                push!(rs, vars[reactant])
+                push!(γs, factor)
+            elseif isa(sp, AdsorbateSpecies) # activity coefficients are assumed to be 1
+                push!(rs, vars[reactant])
+                push!(γs, factor)
+                a *= (vars[reactant])^factor #  (vars[reactant] * Num(sp.n_sites))^factor
+            elseif (isa(sp, GasSpecies) && reactant ≠ "H2O_g")
+                push!(rs, vars[reactant])
+                push!(γs, factor)
+                a *= (activ_coefs[reactant] * vars[reactant])^factor
+            end
+            Gf += factor * free_energies_only_thermo[reactant]
+        end
+        Gf, rs, γs, a
+    end
+
+    function compose_poly(p::Polynomial{T,X}, q::Polynomial{T,X}) where {T,X} ## to compose function for a*sigma+b*sigma^2
+        out = Polynomial{T,X}([zero(T)])       # start with 0
+        for (i, aᵢ) in enumerate(coeffs(p))     # i==1 → a₀, i==2 → a₁, …
+            out += aᵢ * (q^(i-1))               # aᵢ * (q(x)^(i-1))
+        end
+        return out
+    end
+
+
+    function generate_echem_TS_energies(catmap_params, Gf_IS_without_ad, Gf_IS_only_thermo, Gf_FS_without_ad, Gf_FS_only_thermo, echem_transition_state_names, ϕ_we, ϕ, educts, products, tstate) # argument need to be doubl checked
+       @phconstants e
+        echem_TS_names = # from parsing
+        voltage = ϕ_we - ϕ ## applied potential, maybe this is not needed
+        
+        if catmap_params.beta_mode== :simple ## double check with syntax % modifying catmap_params should be also considered.
+            dG = Gf_FS_without_ad - Gf_IS_without_ad
+            G_TS = G_IS_without_ad + barrier(should be modified) + beta*dG ## barrier should be parameter from parsing
+
+        elseif catmap_params.beta_mode== :effective_surface_charging ## should also consider about get_echem_correction for TS
+            if isnothing(tstate)
+                nothing
+            else
+                j=[pair.first for pair in educts] # name of educts
+                l=[pair.first for pair in products] # name of products
+                n= tstate.components[1][1]# name of tstates
+			    number_electron = get(Dict(educts), "ele_g", 0.0)
+			    dG = Gf_FS_only_thermo - Gf_IS_only_thermo
+			    oldrevpot= -dG/e ## how to define e?
+			
+				z_sum = [0.0, 0.0]
+				for ads in j
+					if hasproperty(catmap_params.species_list[ads], :sigma_params)
+							z = collect(values(catmap_params.species_list[ads].sigma_params))*Dict(educts)[ads] #sigma_params * coefficent
+					else
+						z= [0.0, 0.0]
+					end
+						z_sum -= z
+				end
+				for ads in l
+					if hasproperty(catmap_params.species_list[ads], :sigma_params)
+							z = collect(values(catmap_params.species_list[ads].sigma_params))*Dict(products)[ads] #sigma_params * coefficent
+					else
+						z= [0.0, 0.0]
+					end
+						z_sum += z
+				end
+				z_sum_1= [0; z_sum] # to make quadartic equation
+				p_sigma=Polynomial(z_sum_1)
+				sigma=Polynomial([-C_gap*ϕ_pzc, C_gap]) # C_gap & pzc need to be defined, it needs to be parsed from template file
+				p_compose=compose_poly(p_sigma,sigma)
+				println(p_compose)
+				p_full=e*p_compose + Polynomial([dG])+number_electron*Polynomial([0.0, e]) # actual function for solving
+				roots= Polynomials.roots(p_full)
+				value, idx =findmin([abs(oldrevpot-roots[1]), abs(oldrevpot-roots[2])])
+				revpot = roots[idx]
+
+                G_TS= G_IS + barrier + beta*e*(voltage-revpot)
+			end
+		end
+			return G_TS
+	end
+            
+            
+
+
+
+
     rxs = Reaction[]
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
+        (Gf_IS_without_ad, es, αs, af) = process_reaction_side_for_reversible_potential(educts) ## for calculating revpot
+        (Gf_IS_only_thermo, es, αs, af) = process_reaction_side_for_only_thermo(educts) 
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
-        Gf_TS = isnothing(tstate) ? max(Gf_IS, Gf_FS) : max(Gf_IS, Gf_FS, mapreduce(x->free_energies[first(x)]^last(x), +, tstate.components)) #free_energies[tstate.name]
+        (Gf_FS_without_ad, ps, βs, ar) = process_reaction_side_for_reversible_potential(products) ## for calculating revpot
+        (Gf_FS_only_thermo, ps, βs, ar) = process_reaction_side_for_only_thermo(products) #
+        Gf_TS = isnothing(tstate) ? max(Gf_IS, Gf_FS) : max(Gf_IS, Gf_FS, generate_echem_TS_energies(catmap_params, Gf_IS_without_ad, Gf_IS_only_thermo, Gf_FS_without_ad, Gf_FS_only_thermo, echem_transition_state_names, ϕ_we, ϕ, educts, products, tstate)) #free_energies[tstate.name] # argument should be checked
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)

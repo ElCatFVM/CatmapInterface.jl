@@ -18,6 +18,7 @@ using LinearAlgebra: LinearAlgebra, I, Symmetric, convert, eigvals
 using PyCall: PyCall, @py_str, @pyinclude, keys
 using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
 using Symbolics: setmetadata
+using Ploynomials
 
 function __init__()
     @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))
@@ -34,5 +35,5 @@ include("interface.jl")
 export CatmapParams, parse_catmap_input
 include("corrections.jl")
 include("reaction_network.jl")
-export create_reaction_network, reversible_kinetics_electrochemical, generate_function, liquidize, paramsidx
+export create_reaction_network, reversible_kinetics_electrochemical, generate_function, liquidize, paramsidx, compose_poly, generate_echem_TS_energies
 end

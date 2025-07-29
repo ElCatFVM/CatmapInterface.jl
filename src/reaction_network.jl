@@ -332,7 +332,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
     function generate_echem_TS_energies(catmap_params, Gf_IS_without_ad, Gf_IS_only_thermo, Gf_FS_without_ad, Gf_FS_only_thermo, echem_transition_state_names, ϕ_we, ϕ, educts, products, tstate) # argument need to be doubl checked
        @phconstants e
-        echem_TS_names = # from parsing
+        echem_TS_names = []  # TODO: Implement parsing logic to populate this variable
         voltage = ϕ_we - ϕ ## applied potential, maybe this is not needed
         
         if catmap_params.beta_mode== :simple ## double check with syntax % modifying catmap_params should be also considered.

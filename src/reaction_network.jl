@@ -266,7 +266,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         Gf, rs, γs, a
     end
 
-    function process_reaction_side_without_Ad(reactants) # process_reaction without ad-ad interaciton
+    function process_reaction_side_without_Ad(reactants) # process_reaction without ad-ad interaction
         @local_unitfactors mol dm
         Gf = Num(0.0)
         rs = Num[]

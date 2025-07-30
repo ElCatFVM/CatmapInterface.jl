@@ -34,6 +34,6 @@ include("interface.jl")
 export CatmapParams, parse_catmap_input
 include("corrections.jl")
 include("reaction_network.jl")
-export create_reaction_network, generate_function, liquidize, paramsidx
+export new_function, create_reaction_network, generate_function, liquidize, paramsidx
 
 end

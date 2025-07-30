@@ -105,6 +105,12 @@ function CatmapInterface.compute_free_energies!(free_energies::Dict{InterfacePar
 	end
 end
 
+
+
+function new_function(catmap_params)
+    println("it's working")
+end
+
 """
 $(SIGNATURES)
 

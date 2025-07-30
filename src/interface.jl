@@ -206,6 +206,13 @@ function parse_reactant_sum(rs::AbstractString)
 end
 
 const re_barrier_ts = r"^\^(?<barrier>[0-9.]+)eV_(?<site>[a-z])$"
+"""
+$(SIGNATURES) 
+
+Parse a string as a transition state. CatMAP allows for two different formulations of the transition state:
+- explicit sum of transition state components, and
+- implicit transition state with provided barrier at the reversible potential.
+"""
 function parse_transition_state(rs::AbstractString)
     @local_unitfactors eV
     @show rs

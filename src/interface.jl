@@ -14,6 +14,10 @@ $(TYPEDFIELDS)
     Transfer coefficient of the transition state
     """
     beta::Union{Nothing, Float64}
+    """
+    Reaction free energy barrier in J
+    """
+    barrier::Union{Nothing, Float64}
 end
 
 """
@@ -201,6 +205,25 @@ function parse_reactant_sum(rs::AbstractString)
     reactants
 end
 
+const re_barrier_ts = r"^\^(?<barrier>[0-9.]+)eV_(?<site>[a-z])$"
+function parse_transition_state(rs::AbstractString)
+    @local_unitfactors eV
+    @show rs
+    match_barrier_ts = match(re_barrier_ts, rs)
+    @show match_barrier_ts
+    if !isnothing(match_barrier_ts)
+        barrier =
+            try
+                parse(Float64, match_barrier_ts[:barrier])    
+            catch e
+                throw(ArgumentError("$(match_barrier_ts[:barrier]) is not a valid float"))
+            end
+        (nothing, barrier * eV, match_barrier_ts[:site])
+    else
+        tstate_components = parse_reactant_sum(rs)
+        (tstate_components, nothing, nothing)
+    end
+end
 
 const re_rxn            = r"^(?<educts>[^<>]+)<?->(?<products>[^<>]+)$"
 const re_rxn_with_TS    = r"^(?<educts>[^<>]+)<->(?<tstate>[^<>]+)<?->(?<products>[^<>;]+)(?:;beta=(?<beta>[0-9.]+))?$"
@@ -216,7 +239,10 @@ julia> CatmapInterface.parse_reaction("CO*_t <-> CO_g + *_t")
 CatmapInterface.ParsedReaction(["CO_t" => 1], ["CO_g" => 1, "_t" => 1], nothing)
 
 julia> CatmapInterface.parse_reaction("COOH*_t + H2O_g + ele_g <-> COOHΔH2OΔele_t <-> CO*_t + H2O_g + OH_g + *_t; beta=0.5")
-CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5))
+CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5, nothing))
+
+julia> CatmapInterface.parse_reaction("COOH*_t + H2O_g + ele_g <-> ^1.2eV_t <-> CO*_t + H2O_g + OH_g + *_t; beta=0.5")
+CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5, 1.9226119607999997e-19))
 ```
 """
 function parse_reaction(r::AbstractString; beta=nothing)
@@ -232,9 +258,9 @@ function parse_reaction(r::AbstractString; beta=nothing)
         educts      = parse_reactant_sum(match_rxn[:educts])
         products    = parse_reactant_sum(match_rxn[:products]) 
     elseif !isnothing(match_rxn_with_TS)
-        educts            = parse_reactant_sum(match_rxn_with_TS[:educts])
-        products          = parse_reactant_sum(match_rxn_with_TS[:products])
-        tstate_components = parse_reactant_sum(match_rxn_with_TS[:tstate])
+        educts                           = parse_reactant_sum(match_rxn_with_TS[:educts])
+        products                         = parse_reactant_sum(match_rxn_with_TS[:products])
+        tstate_components, barrier, site = parse_transition_state(match_rxn_with_TS[:tstate])
         if isnothing(match_rxn_with_TS[:beta])
             if isnothing(beta)
                 throw(ArgumentError("The option beta=... has to be specified because no default for beta is specified"))
@@ -245,8 +271,14 @@ function parse_reaction(r::AbstractString; beta=nothing)
             catch e
                 throw(ArgumentError("$(match_rxn_with_TS[:beta]) is not a valid float"))
             end
-        end   
-        tstate = TState(components=tstate_components, beta=beta)
+        end
+        tstate = if isnothing(barrier)
+            TState(components=tstate_components, beta=beta, barrier=nothing)
+        else
+            tstate_name = join(vcat([[chopsuffix(first(educt), r"_[a-z]") for i=1:last(educt)] for educt in educts]...), "Δ") * "_$site"
+            tstate_components = [tstate_name => 1]
+            TState(components=tstate_components, beta=beta, barrier=barrier)
+        end
     else
         throw(ArgumentError("$r is not a valid reaction equation"))
     end

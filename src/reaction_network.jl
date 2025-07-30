@@ -331,13 +331,13 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
 
     function generate_echem_TS_energies(catmap_params, Gf_IS_without_ad, Gf_IS_only_thermo, Gf_FS_without_ad, Gf_FS_only_thermo, echem_transition_state_names, ϕ_we, ϕ, educts, products, tstate) # argument need to be doubl checked
-       @phconstants e
+       @local_phconstants e
         echem_TS_names = []  # TODO: Implement parsing logic to populate this variable
         voltage = ϕ_we - ϕ ## applied potential, maybe this is not needed
         
         if catmap_params.beta_mode== :simple ## double check with syntax % modifying catmap_params should be also considered.
             dG = Gf_FS_without_ad - Gf_IS_without_ad
-            G_TS = G_IS_without_ad + barrier(should be modified) + beta*dG ## barrier should be parameter from parsing
+            G_TS = G_IS_without_ad + barrier + beta*dG ## barrier should be parameter from parsing
 
         elseif catmap_params.beta_mode== :effective_surface_charging ## should also consider about get_echem_correction for TS
             if isnothing(tstate)

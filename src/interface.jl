@@ -485,7 +485,7 @@ end
 function _push_sigma_params!(optional_params, species_def)
     @local_unitfactors μA cm
     if !haskey(species_def, :sigma_params)
-        throw(ArgumentError("To use the electrochemical_thermo_mode=hbond_surface_charge_density sigma_params need to be specified for the adsorbate $species_name"))
+        throw(ArgumentError("To use the electrochemical_thermo_mode=hbond_surface_charge_density sigma_params need to be specified for the adsorbate $species_def.species_name"))
     else
         (; sigma_params) = species_def
         push!(optional_params, :sigma_params => (; a = sigma_params[2] / (μA/cm^2), b = sigma_params[1] / (μA/cm^2)^2))
@@ -602,10 +602,16 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
             else
                 match_tstate = match(re_tstate, component)
                 if !isnothing(match_tstate)
-                    species_name                        = match_tstate[:species_name]
-                    site                                = match_tstate[:site]
-                    species_def                         = findspecies(species_name, site, species_defs)
-                    optional_params                     = []
+                    species_name  = match_tstate[:species_name]
+                    site          = match_tstate[:site]
+                    barrier       = tstate.barrier
+                    species_def = if isnothing(barrier)
+                        findspecies(species_name, site, species_defs)
+                    else
+                        sigma_params = (missing, missing)
+                        (; surface_name, site_name=site, species_name, formation_energy=nothing, frequencies=[], reference="", sigma_params)
+                    end
+                    optional_params = []
                     if electrochemical_thermo_mode == :hbond_surface_charge_density
                         _push_sigma_params!(optional_params, species_def)
                     end
@@ -617,8 +623,8 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
                     coverage                            = 0.0
                     (; site_names)                      = findspecies("", site, species_defs)
                     site_name                           = site_names[1]
-                    (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
-                    species_list[component]             = TStateSpecies(; species_name, formation_energy, coverage, site, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
+                    (; formation_energy, frequencies)   = species_def#findspecies(species_name, energy_table; surface_name, site_name)
+                    species_list[component]             = TStateSpecies(; species_name, formation_energy, barrier, coverage, site, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
                 else
                     throw(ArgumentError("$(component) is not a valid transition state"))
                 end

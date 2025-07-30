@@ -5,6 +5,7 @@ on:
       - main
     tags: ['*']
   pull_request:
+    if: github.event.pull_request.draft == false
 concurrency:
   # Skip intermediate builds: always.
   # Cancel intermediate builds: only if it is a pull request build.

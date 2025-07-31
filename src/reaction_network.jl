@@ -109,6 +109,7 @@ end
 
 function new_function(catmap_params)
     println("it's working")
+    return nothing
 end
 
 """

@@ -266,6 +266,7 @@ function parse_reaction(r::AbstractString; beta=nothing)
         products    = parse_reactant_sum(match_rxn[:products]) 
     elseif !isnothing(match_rxn_with_TS)
         educts                           = parse_reactant_sum(match_rxn_with_TS[:educts])
+        @show educts
         products                         = parse_reactant_sum(match_rxn_with_TS[:products])
         tstate_components, barrier, site = parse_transition_state(match_rxn_with_TS[:tstate])
         if isnothing(match_rxn_with_TS[:beta])
@@ -283,6 +284,7 @@ function parse_reaction(r::AbstractString; beta=nothing)
             TState(components=tstate_components, beta=beta, barrier=nothing)
         else
             tstate_name = join(vcat([[chopsuffix(first(educt), r"_[a-z]") for i=1:last(educt)] for educt in educts]...), "Δ") * "_$site"
+            @show tstate_name
             tstate_components = [tstate_name => 1]
             TState(components=tstate_components, beta=beta, barrier=barrier)
         end

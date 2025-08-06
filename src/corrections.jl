@@ -158,7 +158,7 @@ Add thermodynamic correction terms for all gas species using the ideal gas appro
 
 An ab-initio statistical model to correct the DFT-energies in order to obtain relative Gibbs free energies of formation. A reference for the approach is given in the book 'Essentials of Computational Chemistry: Theories and Models', 2nd edition, by Cramer, C.J. and published by Wiley.
 """
-function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real
+function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real 
     
     ideal_gas_params = py"ideal_gas_params"
     (; species_list, T) = catmap_params
@@ -249,8 +249,17 @@ function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we
     (; species_list, Uref) = catmap_params
     # simple_electrochem_corrections
     if haskey(energies, "ele_g")
-        energies["ele_g"] += -(ϕ_we - ϕ) * eV
+        energies["ele_g"] += -ϕ_we * eV
     end
+
+    if haskey(energies, "H_g")
+        energies["H_g"] -= ϕ * eV
+    end 
+
+    if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
+        energies["OH_g"] += ϕ * eV
+    end 
+
     for (s, sp) in species_list
         if isa(sp, TStateSpecies) && occursin("ele", sp.species_name)
             energies[s] += (-(ϕ_we - ϕ) + β[s] * (ϕ_we - ϕ - Uref)) * eV

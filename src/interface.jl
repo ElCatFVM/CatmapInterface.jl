@@ -205,7 +205,7 @@ function parse_reactant_sum(rs::AbstractString)
     reactants
 end
 
-const re_barrier_ts = r"^\^(?<barrier>[0-9.]+)eV_(?<site>[a-z])$"
+const re_barrier_name_ts = r"^(?<tstate_name>[^<>]+?)\^(?<barrier>[0-9.]+)eV_(?<site>[a-z])$"
 """
 $(SIGNATURES) 
 
@@ -216,16 +216,18 @@ Parse a string as a transition state. CatMAP allows for two different formulatio
 function parse_transition_state(rs::AbstractString)
     @local_unitfactors eV
     @show rs
-    match_barrier_ts = match(re_barrier_ts, rs)
+    match_barrier_ts = match(re_barrier_name_ts, rs)
     @show match_barrier_ts
     if !isnothing(match_barrier_ts)
+        name = strip(String(match_barrier_ts[:tstate_name]))
+        name_factor = parse_reactant_sum(name)
         barrier =
             try
                 parse(Float64, match_barrier_ts[:barrier])    
             catch e
                 throw(ArgumentError("$(match_barrier_ts[:barrier]) is not a valid float"))
             end
-        (nothing, barrier * eV, match_barrier_ts[:site])
+        (name_factor, barrier * eV, match_barrier_ts[:site])
     else
         tstate_components = parse_reactant_sum(rs)
         (tstate_components, nothing, nothing)
@@ -266,9 +268,9 @@ function parse_reaction(r::AbstractString; beta=nothing)
         products    = parse_reactant_sum(match_rxn[:products]) 
     elseif !isnothing(match_rxn_with_TS)
         educts                           = parse_reactant_sum(match_rxn_with_TS[:educts])
-        @show educts
         products                         = parse_reactant_sum(match_rxn_with_TS[:products])
         tstate_components, barrier, site = parse_transition_state(match_rxn_with_TS[:tstate])
+        @show tstate_components
         if isnothing(match_rxn_with_TS[:beta])
             if isnothing(beta)
                 throw(ArgumentError("The option beta=... has to be specified because no default for beta is specified"))
@@ -283,9 +285,6 @@ function parse_reaction(r::AbstractString; beta=nothing)
         tstate = if isnothing(barrier)
             TState(components=tstate_components, beta=beta, barrier=nothing)
         else
-            tstate_name = join(vcat([[chopsuffix(first(educt), r"_[a-z]") for i=1:last(educt)] for educt in educts]...), "Δ") * "_$site"
-            @show tstate_name
-            tstate_components = [tstate_name => 1]
             TState(components=tstate_components, beta=beta, barrier=barrier)
         end
     else

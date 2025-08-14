@@ -613,12 +613,7 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
                     species_name  = match_tstate[:species_name]
                     site          = match_tstate[:site]
                     barrier       = tstate.barrier
-                    species_def = if isnothing(barrier)
-                        findspecies(species_name, site, species_defs)
-                    else
-                        sigma_params = (missing, missing)
-                        (; surface_name, site_name=site, species_name, formation_energy=nothing, frequencies=[], reference="", sigma_params)
-                    end
+                    species_def   = findspecies(species_name, site, species_defs)
                     optional_params = []
                     if electrochemical_thermo_mode == :hbond_surface_charge_density
                         _push_sigma_params!(optional_params, species_def)
@@ -628,11 +623,16 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
                         cross_interaction_params = _parse_cross_interaction_params(component, cross_interaction_parameters, species_list)
                         push!(optional_params, :cross_interaction_params => cross_interaction_params)
                     end
+                    if haskey(species_def, :self_interaction_parameter)
+                        (; self_interaction_parameter) = species_def
+                        push!(optional_params, :self_interaction_param => self_interaction_parameter[1])
+                    end
                     coverage                            = 0.0
                     (; site_names)                      = findspecies("", site, species_defs)
                     site_name                           = site_names[1]
-                    (; formation_energy, frequencies)   = species_def#findspecies(species_name, energy_table; surface_name, site_name)
-                    species_list[component]             = TStateSpecies(; species_name, formation_energy, barrier, coverage, site, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
+                    n_sites                             = get(species_def, :n_sites, 1)
+                    (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
+                    species_list[component]             = TStateSpecies(; species_name, formation_energy, barrier, coverage, site, n_sites, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
                 else
                     throw(ArgumentError("$(component) is not a valid transition state"))
                 end

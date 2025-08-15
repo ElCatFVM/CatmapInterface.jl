@@ -35,5 +35,5 @@ include("interface.jl")
 export CatmapParams, parse_catmap_input
 include("corrections.jl")
 include("reaction_network.jl")
-export create_reaction_network, reversible_kinetics_electrochemical, generate_function, liquidize, paramsidx, compose_poly, generate_echem_TS_energies
+export create_reaction_network,generate_function, liquidize, paramsidx
 end

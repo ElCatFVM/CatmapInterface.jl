@@ -118,6 +118,10 @@ struct CatmapParams
     """
     electrochemical_thermo_mode::Symbol
     """
+    Mode for BEP scaling for TStateSpecies
+    """
+    beta_mode::Symbol
+    """
     pH value in the bulk of the electrolyte
     """
     bulk_pH::Float64
@@ -137,7 +141,7 @@ struct CatmapParams
     Parameter specifying the adsorbate interaction model
     """
     adsorbate_interaction_params::AdsorbateInteractionParams
-    function CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)       
+    function CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)       
         if !(length(prefactors) == length(reactions))
             throw(ArgumentError("The number of prefactors must match the number of reactions"))
         end
@@ -161,6 +165,10 @@ struct CatmapParams
                 throw(ArgumentError("$(String(:mode))=$mode is not implemented"))
             end
         end
+        # check that beta mode are defined
+        if !(beta_mode == :simple || beta_mode == :effective_surface_charging)
+            throw(ArgumentError("$beta_mode is not a valid beta-mode"))
+        end
         # check that reference scale is either RHE or SHE
         if !(potential_reference_scale == "RHE" || potential_reference_scale == "SHE")
             throw(ArgumentError("$potential_reference_scale must be either SHE or RHE"))
@@ -168,7 +176,7 @@ struct CatmapParams
         if T < 0.0
             throw(ArgumentError("temperature T=$T must be positive"))
         end
-        new(reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+        new(reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
     end
 end
 
@@ -480,13 +488,13 @@ $$input
     gas_thermo_mode             = Symbol(py"gas_thermo_mode")
     adsorbate_thermo_mode       = Symbol(py"adsorbate_thermo_mode")
     electrochemical_thermo_mode = Symbol(py"electrochemical_thermo_mode")
-
+    beta_mode = Symbol(py"beta_mode")
     adsorbate_interaction_params = _get_adsorbate_interaction_params()
     
     species_list = specieslist(reactions, species_definitions, energy_table, surface_name; electrochemical_thermo_mode)
     
     T = 298
-    CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+    CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
 end
 
 

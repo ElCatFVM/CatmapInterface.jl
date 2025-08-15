@@ -34,15 +34,12 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, Ga, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
+function compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
-    for (s,formation_energy) in formation_energies ## species except tstate
+    for (s,formation_energy) in formation_energies
         free_energies[s] += formation_energy
-    end
-    for (s, barrier) in Ga
-        free_energies[s] += barrier
     end
 
     adsorbate_interaction_correction!  = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
@@ -62,6 +59,8 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     end
     nothing
 end
+
+
 
 
 """
@@ -141,14 +140,13 @@ The pressures of the gaseous and fictious species are conserved by adding an add
 function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false)
     (; species_list, T) = catmap_params
 
-    @parameters σ ϕ_we ϕ local_pH 
+    @parameters σ ϕ_we ϕ local_pH
     @variables t
     vars        = Dict{String, Num}() # converages and concentrations
     θ           = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
     β           = Dict{String, Num}() # transition state beta 
-    formation_energies= Dict{String, Num}()# I changed this 8/1
-    Ga = Dict{String, Num}() ## barrier
+    formation_energies= Dict{String, Num}()
     for (s, sp) in species_list
         if isa(sp, SiteSpecies) # the coverage of the free sites of site type is 1 - sum(coverages of adsorbates on site)
             vars[s] = Num(1)
@@ -168,22 +166,20 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s] #* Num(sp.n_sites)
-            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites):wq
+            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
             gs              = Symbol("γ$s")
             activ_coefs[s]  = first(@parameters $gs)
         elseif isa(sp, TStateSpecies)
-            Gas   = Symbol("Ga$s")
-            Ga[s] = first(@parameters $Gas = sp.barrier) # should be checked.
             βs   = Symbol("β$s")
             β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
-    compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, Ga, θ, σ, ϕ_we, ϕ, local_pH, β)
+    compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
 
 
     function process_reaction_side(reactants)
@@ -212,41 +208,12 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         end
         Gf, rs, γs, a
     end
-
-   # function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we, ϕ) ## While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
-    #    ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))  
-    #    symbolic_solve(ΔGf_r ~ 0, ϕ_we - ϕ)
-    #end
-
-
-            
-            
-
-
-
-
+    
     rxs = Reaction[]
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
-        (barrier_ad_corr, es, αs, af) = process_reaction_side(tstate.components) ## adding ad-ad correction for TS
-        @local_phconstants e 
-        Gf_TS= if isnothing(tstate)
-                   max(Gf_IS, Gf_FS)
-               elseif !isnothing(tstate.barrier)
-                       surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) # C_gap 
-                       ϕ_rev = 0.1 #compute_reversiblepotential(Gf_IS, Gf_FS, σ => C_gap * (ϕ_we - ϕ - ϕ_pzc), ϕ_we - ϕ)
-                    if catmap_params.beta_mode == :simple
-                       ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
-                       Gf_IS + barrier_ad_corr + tstate.beta*ΔGf_r
-                    elseif catmap_params.beta_mode == :effectie_surface_charging
-                       Gf_IS + barrier_ad_corr + tstate.beta*e*(ϕ_we - ϕ - ϕ_rev) ## e should be defined
-                    else
-                        throw(ArgumentError("$beta_mode is not a valid beta-mode"))
-                    end
-               elseif isnothing(tstate.barrier)
-                       max(Gf_IS, Gf_FS, mapreproduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
-               end
+        Gf_TS = isnothing(tstate) ? max(Gf_IS, Gf_FS) : max(Gf_IS, Gf_FS, mapreduce(x->free_energies[first(x)]^last(x), +, tstate.components)) #free_energies[tstate.name]
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)

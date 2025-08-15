@@ -245,7 +245,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     if catmap_params.beta_mode == :simple
                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
                        Gf_IS + barrier_ad_corr + tstate.beta*ΔGf_r
-                    elseif catmap_params.beta_mode == :effectie_surface_charging
+                    elseif catmap_params.beta_mode == :effective_surface_charging
                        Gf_IS + barrier_ad_corr + number_electron*tstate.beta*e*(ϕ_we - ϕ - ϕ_rev) ## e should be defined
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))

@@ -214,10 +214,9 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         Gf, rs, γs, a
     end
 
-    function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, Δϕ, θ, local_pH) ## While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+    function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, Δϕ, θ) ## While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
-        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0))
         ΔGf_r = Symbolics.expand(ΔGf_r)
         @show ΔGf_r
         Symbolics.symbolic_solve(ΔGf_r ~ 0, Δϕ)
@@ -232,7 +231,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
     rxs = Reaction[]
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
-        number_electron = get(Dict(educts), "ele_g", 0.0)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e 
@@ -241,12 +239,12 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                elseif !isnothing(tstate.barrier)
                     (barrier_ad_corr, es, αs, af) = process_reaction_side(tstate.components) ## adding ad-ad correction for TS
                     surface_charge_relation = σ => C_gap*(Δϕ - ϕ_pzc) # C_gap 
-                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, Δϕ, θ, local_pH)
+                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, Δϕ, θ)
                     if catmap_params.beta_mode == :simple
                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
                        Gf_IS + barrier_ad_corr + tstate.beta*ΔGf_r
                     elseif catmap_params.beta_mode == :effectie_surface_charging
-                       Gf_IS + barrier_ad_corr + number_electron*tstate.beta*e*(ϕ_we - ϕ - ϕ_rev) ## e should be defined
+                       Gf_IS + barrier_ad_corr + tstate.beta*e*(ϕ_we - ϕ - ϕ_rev) ## e should be defined
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end

@@ -499,12 +499,12 @@ end
 
 
 function _push_sigma_params!(optional_params, species_def)
-    @local_unitfactors μA cm
+    @local_unitfactors μC cm
     if !haskey(species_def, :sigma_params)
         throw(ArgumentError("To use the electrochemical_thermo_mode=hbond_surface_charge_density sigma_params need to be specified for the adsorbate $species_def.species_name"))
     else
         (; sigma_params) = species_def
-        push!(optional_params, :sigma_params => (; a = sigma_params[2] / (μA/cm^2), b = sigma_params[1] / (μA/cm^2)^2))
+        push!(optional_params, :sigma_params => (; a = sigma_params[2] / (μC/cm^2), b = sigma_params[1] / (μC/cm^2)^2))
     end
 end
 

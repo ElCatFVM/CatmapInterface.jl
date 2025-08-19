@@ -284,19 +284,20 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
     hbond_dict = py"hbond_dict"
     (; species_list) = catmap_params
     # hbond_electrochemical
-    for (s, sp) in species_list
-        if isa(sp, AdsorbateSpecies)
-            (; species_name) = sp
-            if haskey(hbond_dict, species_name)
-                energies[s] += hbond_dict[species_name] * eV
-            end
-        end
-    end
+   # for (s, sp) in species_list
+   #     if isa(sp, AdsorbateSpecies)
+   #         (; species_name) = sp
+   #         if haskey(hbond_dict, species_name)
+    #            energies[s] += hbond_dict[species_name] * eV
+     #       end
+     #   end
+   # end
     # hbond_surface_charge_density
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
             (; a, b) = sp.sigma_params
-            energies[s] += (a * σ + b * σ^2) * eV
+            energies[s] += (a * σ) * eV # (a * σ + b * σ^2) * eV
+
         end
     end
     nothing

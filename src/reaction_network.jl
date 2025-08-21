@@ -176,6 +176,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
+            @show vars
             gs              = Symbol("γ$s")
             activ_coefs[s]  = first(@parameters $gs)
             formation_energies[s] = sp.formation_energy
@@ -217,6 +218,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             end
             Gf += factor * free_energies[reactant]
         end
+        @show rs
         Gf, rs, γs, a
     end
 
@@ -241,7 +243,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
 
     rxs = Reaction[]
-    revpot= Dict()
+    #revpot= Dict()
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
@@ -249,17 +251,15 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         Gf_TS= if isnothing(tstate)
                    max(Gf_IS, Gf_FS)
                elseif !isnothing(tstate.barrier)
-                    (barrier_ad_corr, es, αs, af) = process_reaction_side(tstate.components) ## adding ad-ad correction for TS
                     surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) # C_gap 
                     ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH)
-                    to_number(r) = (eval(build_function(r; expression=Val(false)))())
-                    vals = Float64.(to_number.(ϕ_rev))
-                    revpot[tstate.components] = vals
+                    tstate_name = first(tstate.components)[1]
+                    tstate_factor = first(tstate.components)[2]
                     if catmap_params.beta_mode == :simple
                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
-                       Gf_IS + barrier_ad_corr + tstate.beta*ΔGf_r
+                       Gf_IS + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r
                     elseif catmap_params.beta_mode == :effective_surface_charging
-                        Gf_IS + barrier_ad_corr + tstate.beta*e*(ϕ_we - ϕ - ϕ_rev[1]) ## e should be defined
+                       Gf_IS + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]) ## e should be defined
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end
@@ -271,9 +271,9 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    @show revpot
+    @show rxs
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
-
+    @show rn
     if conserve_pressures
 	stoichmat = netstoichmat(rn)
 	rr = reactionrates(rn)

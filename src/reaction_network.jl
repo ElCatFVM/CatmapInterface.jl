@@ -171,7 +171,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s] #* Num(sp.n_sites)
-            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites):wq
+            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
             formation_energies[s] = sp.formation_energy
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)

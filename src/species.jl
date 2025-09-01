@@ -198,7 +198,7 @@ struct TStateSpecies <: AbstractSpecies
         if any(frequencies .<= 0.0)
             throw(DomainError("all frequencies must be positive"))
         end
-        new(species_name, formation_energy, n_sites,barrier, coverage, site, surface_name, frequencies, β, between_species, sigma_params, self_interaction_param, cross_interaction_params)
+        new(species_name, formation_energy, n_sites, barrier, coverage, site, surface_name, frequencies, β, between_species, sigma_params, self_interaction_param, cross_interaction_params)
     end
 end
 #TStateSpecies(; formation_energy, coverage, site, surface_name, frequencies, sigma_params::Vector{Float64}) = TStateSpecies(; formation_energy, coverage, site, surface_name, frequencies, sigma_params=(; a=sigma_params[1], b=sigma_params[2]))

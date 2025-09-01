@@ -166,7 +166,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s] #* Num(sp.n_sites)
-            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites):wq
+            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
             formation_energies[s] = sp.formation_energy
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
@@ -274,7 +274,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end
                elseif isnothing(tstate.barrier)
-                       max(Gf_IS, Gf_FS, mapreproduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
+                       max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                end
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)

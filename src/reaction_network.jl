@@ -41,9 +41,6 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     for (s,formation_energy) in formation_energies ## species except tstate has value, when using beta_mode, formation_energy of Tstate in energy file is O.
         free_energies[s] += formation_energy
     end
-    for (s, barrier) in Ga
-        free_energies[s] += barrier
-    end
 
     adsorbate_interaction_correction!  = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
     gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
@@ -58,9 +55,7 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     for (species, thermo_correction) in thermo_corrections
-        if  !haskey(Ga, species)  ## add thermo_correction for non-TState species, which do not have barrier value
             free_energies[species] += thermo_correction
-        end
     end
     nothing
     @show free_energies
@@ -228,8 +223,8 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0)) # exclude ad-ad interaction
         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
-        ΔGf_r = substitute(ΔGf_r, Dict(C_gap => 20*μF/cm^2))
-        ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11))
+        #ΔGf_r = substitute(ΔGf_r, Dict(C_gap => 20*μF/cm^2))
+        #ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11))
         ΔGf_r = Symbolics.expand(ΔGf_r)
         @show ΔGf_r
         Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
@@ -245,9 +240,11 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     rxs = Reaction[]
     #revpot= Dict()
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
+        number_electron = get(Dict(educts), "ele_g",0.0)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e
+        @local_unitfactors eV cm μF
         Gf_TS= if isnothing(tstate)
                    max(Gf_IS, Gf_FS)
                elseif !isnothing(tstate.barrier)
@@ -255,11 +252,24 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH)
                     tstate_name = first(tstate.components)[1]
                     tstate_factor = first(tstate.components)[2]
+                    species = catmap_params.species_list
+                    educts_name = [pair.first for pair in educts]
+                    educts_factor = [pair.second for pair in educts]
+                    products_name = [pair.first for pair in products]
+                    products_factor = [pair.second for pair in products]
+                    is_adsorbate(name::AbstractString) = haskey(species, name) && species[name] isa CatmapInterface.AdsorbateSpecies
+                    Δa = (sum(species["$(l)"].sigma_params.a*m for (l,m) in zip(products_name, products_factor) if is_adsorbate(l); init =0.0)-sum(species["$(j)"].sigma_params.a*k for (j,k) in zip(educts_name, educts_factor) if is_adsorbate(j); init =0.0))*eV ## unit check
+
                     if catmap_params.beta_mode == :simple
                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
-                       Gf_IS + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r
+                       ΔGf_r = substitute(ΔGf_r, Dict(C_gap =>20*μF/cm^2 )) ## undefined error without this
+                       ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11)) ## undefined error without this
+                       ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
+
+                       max(Gf_IS, Gf_FS, Gf_IS + Ga[tstate_name]*tstate_factor + 1/(number_electron+1/e*Δa*0.2)*β[tstate_name]*ΔGf_r) ## beta eff to beta
+
                     elseif catmap_params.beta_mode == :effective_surface_charging
-                       Gf_IS + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]) ## e should be defined
+                        max(Gf_IS, Gf_FS, Gf_IS + Ga[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))## e should be defined
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end

@@ -450,6 +450,7 @@ function parse_catmap_input(input_file_path::AbstractString)
     py"
 $$input
 "
+    pyglobals = pybuiltin("globals")
     
     beta = 
     try
@@ -488,7 +489,13 @@ $$input
     gas_thermo_mode             = Symbol(py"gas_thermo_mode")
     adsorbate_thermo_mode       = Symbol(py"adsorbate_thermo_mode")
     electrochemical_thermo_mode = Symbol(py"electrochemical_thermo_mode")
-    beta_mode = Symbol(py"beta_mode")
+
+    if haskey(pyglobals, "beta_mode")
+        beta_mode = Symbol(py"beta_mode")
+    else
+        beta_mode = :simple
+        @warn "beta mode not specified. Defaulting to $(beta_mode)."
+    end
     adsorbate_interaction_params = _get_adsorbate_interaction_params()
     
     species_list = specieslist(reactions, species_definitions, energy_table, surface_name; electrochemical_thermo_mode)

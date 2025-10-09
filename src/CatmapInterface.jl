@@ -15,7 +15,7 @@ using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
 using JSON: JSON
 using LessUnitful: LessUnitful, @local_phconstants, @local_unitfactors, @ufac_str
 using LinearAlgebra: LinearAlgebra, I, Symmetric, convert, eigvals
-using PyCall: PyCall, @py_str, @pyinclude, keys
+using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin
 using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
 using Symbolics: setmetadata
 using Nemo

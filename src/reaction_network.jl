@@ -38,7 +38,7 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
-    for (s,formation_energy) in formation_energies ## species except tstate has value, when using beta_mode, formation_energy of Tstate in energy file is O.
+    for (s, formation_energy) in formation_energies
         free_energies[s] += formation_energy
     end
 
@@ -152,7 +152,8 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         end
     end
     for (s, sp) in species_list
-        #formation_energies[s] = sp.formation_energy
+        Es = Symbol("E$s")
+        formation_energies[s] = first(@parameters $Es = sp.formation_energy)
         if s =="H2O_g" # the solvent is assumed to have constant activity
             as      = Symbol("a$s")
             vars[s] = first(@parameters $as)
@@ -186,7 +187,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
-
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm

@@ -60,7 +60,6 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     nothing
 end
 
-
 """
 $(SIGNATURES)
 
@@ -267,7 +266,9 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     is_adsorbate(name::AbstractString) = haskey(species, name) && species[name] isa CatmapInterface.AdsorbateSpecies
                     Δa = (sum(species["$(l)"].sigma_params.a*m for (l,m) in zip(products_name, products_factor) if is_adsorbate(l); init =0.0)-sum(species["$(j)"].sigma_params.a*k for (j,k) in zip(educts_name, educts_factor) if is_adsorbate(j); init =0.0))*eV ## unit check
                     @show Δa
-                    if catmap_params.beta_mode == :simple
+                    if catmap_params.beta_mode == :none
+                       max(Gf_IS, Gf_FS, mapreduce(x->free_energies[first(x)]^last(x), +, tstate.components))
+                    elseif catmap_params.beta_mode == :simple
                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
                       # ΔGf_r = substitute(ΔGf_r, Dict(C_gap =>20*μF/cm^2 )) ## undefined error without this
                       # ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11)) ## undefined error without this
@@ -430,8 +431,3 @@ function generate_function(sys::ODESystem; dvs=unknowns(sys), ps=parameters(sys)
     f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
     drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
 end
-
-
-
-
-

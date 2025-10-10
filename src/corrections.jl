@@ -297,8 +297,7 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
             (; a, b) = sp.sigma_params
-            energies[s] += (a * σ) * eV # (a * σ + b * σ^2) * eV
-
+            energies[s] += (a * σ) * eV # (a * σ + b * σ^2) * eV JF: this does not influence current test results
         end
     end
     nothing

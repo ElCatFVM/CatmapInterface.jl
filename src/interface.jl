@@ -166,7 +166,7 @@ struct CatmapParams
             end
         end
         # check that beta mode are defined
-        if !(beta_mode == :simple || beta_mode == :effective_surface_charging)
+        if !(beta_mode == :none || beta_mode == :simple || beta_mode == :effective_surface_charging)
             throw(ArgumentError("$beta_mode is not a valid beta-mode"))
         end
         # check that reference scale is either RHE or SHE
@@ -493,7 +493,7 @@ $$input
     if haskey(pyglobals, "beta_mode")
         beta_mode = Symbol(py"beta_mode")
     else
-        beta_mode = :simple
+        beta_mode = :none
         @warn "beta mode not specified. Defaulting to $(beta_mode)."
     end
     adsorbate_interaction_params = _get_adsorbate_interaction_params()

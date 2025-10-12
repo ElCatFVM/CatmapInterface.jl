@@ -34,13 +34,22 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]))
+function compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]); symbolic_formation_energies::Bool=true)
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
     for (s, formation_energy) in formation_energies
         free_energies[s] += formation_energy
+    if symbolic_formation_energies
+        for (s, formation_energy) in formation_energies
+            free_energies[s] += formation_energy
+        end
+    else
+        for (s, (; formation_energy)) in catmap_params.species_list
+            free_energies[s] += formation_energy
+        end
     end
+
 
     adsorbate_interaction_correction!  = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
     gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
@@ -134,7 +143,7 @@ New modes can be added by the user by adding a function with the same name to th
 if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
 The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false)
+function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false,symbolic_formation_energies=true)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc 
@@ -185,7 +194,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     end
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
-    compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β)
+    compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm

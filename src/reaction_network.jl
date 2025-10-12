@@ -38,8 +38,6 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
-    for (s, formation_energy) in formation_energies
-        free_energies[s] += formation_energy
     if symbolic_formation_energies
         for (s, formation_energy) in formation_energies
             free_energies[s] += formation_energy

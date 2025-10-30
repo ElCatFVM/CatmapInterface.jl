@@ -639,7 +639,7 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
                     (; site_names)                      = findspecies("", site, species_defs)
                     site_name                           = site_names[1]
                     n_sites                             = get(species_def, :n_sites, 1)
-                    (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
+                    (; formation_energy, frequencies)   =  findspecies(species_name, energy_table; surface_name, site_name)
                     species_list[component]             = TStateSpecies(; species_name, formation_energy, barrier, coverage, site, n_sites, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
                 else
                     throw(ArgumentError("$(component) is not a valid transition state"))

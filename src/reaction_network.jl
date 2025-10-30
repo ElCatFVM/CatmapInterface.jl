@@ -34,14 +34,19 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]); symbolic_formation_energies::Bool=true)
-    (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode) = catmap_params
+function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]); symbolic_formation_energies::Bool=true)
+    (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
-    if symbolic_formation_energies
+    if symbolic_formation_energies && beta_mode== :none
         for (s, formation_energy) in formation_energies
             free_energies[s] += formation_energy
         end
+    elseif symbolic_formation_energies && (beta_mode== :effective_surface_charging || beta_mode== :simple)
+        for (s, formation_energy) in formation_energies
+            free_energies[s] += formation_energy
+        end
+        merge!(free_energies, Ga)
     else
         for (s, (; formation_energy)) in catmap_params.species_list
             free_energies[s] += formation_energy
@@ -61,8 +66,16 @@ function compute_free_energies!(free_energies, catmap_params::CatmapParams, form
     adsorbate_thermo_correction!(thermo_corrections, catmap_params)
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
-    for (species, thermo_correction) in thermo_corrections
+    if  symbolic_formation_energies && (beta_mode==:effective_surface_charging || beta_mode==:simple)
+        for (species, thermo_correction) in thermo_corrections
+            if !haskey(Ga,species)
+                free_energies[species] += thermo_correction
+            end
+        end
+    else 
+        for (species, thermo_correction) in thermo_corrections
             free_energies[species] += thermo_correction
+        end
     end
     nothing
 end
@@ -160,9 +173,10 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     for (s, sp) in species_list
         Es = Symbol("E$s")
         formation_energies[s] = first(@parameters $Es = sp.formation_energy)
-        if s =="H2O_g" # the solvent is assumed to have constant activity
+        if s == "H2O_g" # the solvent is assumed to have constant activity
             as      = Symbol("a$s")
             vars[s] = first(@parameters $as)
+            @show vars
             formation_energies[s] = sp.formation_energy
         elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
             ss          = Symbol(s)
@@ -192,7 +206,8 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     end
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
-    compute_free_energies!(free_energies, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
+    compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
+    @show free_energies
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm
@@ -218,7 +233,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             end
             Gf += factor * free_energies[reactant]
         end
-        @show rs
         Gf, rs, γs, a
     end
 
@@ -228,10 +242,16 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0)) # exclude ad-ad interaction
         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
-        #ΔGf_r = substitute(ΔGf_r, Dict(C_gap => 20*μF/cm^2))
-        #ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11))
+        #Gf_r = substitute(ΔGf_r, Dict(C_gap => 20*μF/cm^2))
+        #Gf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11))
         ΔGf_r = Symbolics.expand(ΔGf_r)
-        Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
+        variable = Symbolics.get_variables(ΔGf_r)
+        if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
+            return 0
+        else
+            sol = Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
+        end
+        return sol 
         #φ_expr = ModelingToolkit.solve_for(ΔGf_r ~ 0, ϕ_we) |> only
         #ϕ_sol  = Symbolics.value(φ_expr)
         #return ϕ_sol
@@ -245,62 +265,47 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
 
     rxs = Reaction[]
-    revpot= Dict()
     for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
         number_electron = get(Dict(educts), "ele_g",0.0)
-        @show number_electron
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e
         @local_unitfactors eV cm μF
         Gf_TS= if isnothing(tstate)
-                   max(Gf_IS, Gf_FS)
+                    max(Gf_IS, Gf_FS)
+               elseif isnothing(tstate.barrier) || catmap_params.beta_mode == :none
+                    max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
                     surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) # C_gap 
                     ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH)
-                    @show ϕ_rev
                     ##to_number(r) = (eval(build_function(r; expression=Val(false)))())#
                     ##vals = to_number.(ϕ_rev) #
-                    
                     tstate_name = first(tstate.components)[1]
-                    ##revpot[tstate_name] = vals #
                     tstate_factor = first(tstate.components)[2]
-                    species = catmap_params.species_list
-                    educts_name = [pair.first for pair in educts]
-                    educts_factor = [pair.second for pair in educts]
-                    products_name = [pair.first for pair in products]
-                    products_factor = [pair.second for pair in products]
-                    is_adsorbate(name::AbstractString) = haskey(species, name) && species[name] isa CatmapInterface.AdsorbateSpecies
-                    Δa = (sum(species["$(l)"].sigma_params.a*m for (l,m) in zip(products_name, products_factor) if is_adsorbate(l); init =0.0)-sum(species["$(j)"].sigma_params.a*k for (j,k) in zip(educts_name, educts_factor) if is_adsorbate(j); init =0.0))*eV ## unit check
-                    @show Δa
-                    if catmap_params.beta_mode == :none
-                       max(Gf_IS, Gf_FS, mapreduce(x->free_energies[first(x)]^last(x), +, tstate.components))
-                    elseif catmap_params.beta_mode == :simple
-                       ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
-                      # ΔGf_r = substitute(ΔGf_r, Dict(C_gap =>20*μF/cm^2 )) ## undefined error without this
-                      # ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11)) ## undefined error without this
-                       ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
-                       ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
+                    if catmap_params.beta_mode == :simple
+                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
+                        #ΔGf_r = substitute(ΔGf_r, Dict(C_gap =>20*μF/cm^2 )) ## undefined error without this
+                        #ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11)) ## undefined error without this
+                        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
+                        ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
+                        IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r) ## beta eff to beta
 
-                       max(Gf_IS, Gf_FS, Gf_IS + Ga[tstate_name]*tstate_factor + 1/(number_electron+1/e*Δa*C_gap)*β[tstate_name]*ΔGf_r) ## beta eff to beta
-
-                 elseif catmap_params.beta_mode == :effective_surface_charging
-                        max(Gf_IS, Gf_FS, Gf_IS + Ga[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))## e should be defined
+                    elseif catmap_params.beta_mode == :effective_surface_charging
+                        IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))## e should be defined
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end
-               elseif isnothing(tstate.barrier)
-                       max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
+               else 
+                    throw(ArgumentError("$beta_mode is not defined in mkm file"))
                end
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    @show revpot
-    @show rxs
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
-    @show rn
     if conserve_pressures
 	stoichmat = netstoichmat(rn)
 	rr = reactionrates(rn)

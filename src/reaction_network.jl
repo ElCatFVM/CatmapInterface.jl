@@ -77,6 +77,7 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
             free_energies[species] += thermo_correction
         end
     end
+    @show free_energies
     nothing
 end
 
@@ -176,7 +177,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         if s == "H2O_g" # the solvent is assumed to have constant activity
             as      = Symbol("a$s")
             vars[s] = first(@parameters $as)
-            @show vars
             formation_energies[s] = sp.formation_energy
         elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
             ss          = Symbol(s)
@@ -191,7 +191,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
-            @show vars
             gs              = Symbol("γ$s")
             activ_coefs[s]  = first(@parameters $gs)
             formation_energies[s] = sp.formation_energy
@@ -242,8 +241,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0)) # exclude ad-ad interaction
         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
-        #Gf_r = substitute(ΔGf_r, Dict(C_gap => 20*μF/cm^2))
-        #Gf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11))
         ΔGf_r = Symbolics.expand(ΔGf_r)
         variable = Symbolics.get_variables(ΔGf_r)
         if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
@@ -252,9 +249,6 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             sol = Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
         end
         return sol 
-        #φ_expr = ModelingToolkit.solve_for(ΔGf_r ~ 0, ϕ_we) |> only
-        #ϕ_sol  = Symbolics.value(φ_expr)
-        #return ϕ_sol
     end
 
 
@@ -276,24 +270,20 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                elseif isnothing(tstate.barrier) || catmap_params.beta_mode == :none
                     max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
-                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) # C_gap 
+                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) 
                     ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH)
-                    ##to_number(r) = (eval(build_function(r; expression=Val(false)))())#
-                    ##vals = to_number.(ϕ_rev) #
                     tstate_name = first(tstate.components)[1]
                     tstate_factor = first(tstate.components)[2]
                     if catmap_params.beta_mode == :simple
-                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) ## do not need to subtrac ΔGf_r at revpot, since it is just 0.
-                        #ΔGf_r = substitute(ΔGf_r, Dict(C_gap =>20*μF/cm^2 )) ## undefined error without this
-                        #ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => 0.11)) ## undefined error without this
-                        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
+                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) 
+                        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) 
                         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r) ## beta eff to beta
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r) 
 
                     elseif catmap_params.beta_mode == :effective_surface_charging
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))## e should be defined
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end

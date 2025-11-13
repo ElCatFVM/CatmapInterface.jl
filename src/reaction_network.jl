@@ -34,7 +34,10 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]); symbolic_formation_energies::Bool=true)
+function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies,
+                                θ, σ, ϕ_we, ϕ, local_pH,
+                                β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]);
+                                symbolic_formation_energies::Bool=false)
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 

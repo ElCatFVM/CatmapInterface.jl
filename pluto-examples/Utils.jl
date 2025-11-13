@@ -3,7 +3,8 @@ using PyCall
 using CatmapInterface
 using ModelingToolkit
 using Catalyst
-using DifferentialEquations
+using OrdinaryDiffEqRosenbrock
+using SteadyStateDiffEq
 using Format
 
 const SymmapType    = Vector{Pair{Symbol, Float64}}

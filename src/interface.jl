@@ -223,9 +223,8 @@ Parse a string as a transition state. CatMAP allows for two different formulatio
 """
 function parse_transition_state(rs::AbstractString)
     @local_unitfactors eV
-    @show rs
     match_barrier_ts = match(re_barrier_name_ts, rs)
-    @show match_barrier_ts
+    @info "rs=$rs, match_barrier_ts= $match_barrier_ts"
     if !isnothing(match_barrier_ts)
         name = strip(String(match_barrier_ts[:tstate_name]))
         name_factor = parse_reactant_sum(name)
@@ -278,7 +277,7 @@ function parse_reaction(r::AbstractString; beta=nothing)
         educts                           = parse_reactant_sum(match_rxn_with_TS[:educts])
         products                         = parse_reactant_sum(match_rxn_with_TS[:products])
         tstate_components, barrier, site = parse_transition_state(match_rxn_with_TS[:tstate])
-        @show tstate_components
+        @info "tstate_components=$tstate_components"
         if isnothing(match_rxn_with_TS[:beta])
             if isnothing(beta)
                 throw(ArgumentError("The option beta=... has to be specified because no default for beta is specified"))

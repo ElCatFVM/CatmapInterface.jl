@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.8
+# v0.20.21
 
 using Markdown
 using InteractiveUtils
@@ -19,14 +19,16 @@ end
 # ╔═╡ f5a97e3e-e116-11ee-210f-cfc211ee8cbc
 begin
     import Pkg as _Pkg
-    haskey(ENV, "PLUTO_PROJECT") && _Pkg.activate(ENV["PLUTO_PROJECT"])
-	#using Revise
+    using Pkg
+    Pkg.activate(@__DIR__)
+	using Revise
     using Test
 	using PlutoUI
 	using CatmapInterface
 	using Catalyst
 	using ModelingToolkit
-	using DifferentialEquations
+	using OrdinaryDiffEqRosenbrock, SteadyStateDiffEq
+	using Symbolics: evaluate
 	using LessUnitful
     using CairoMakie
     CairoMakie.activate!(; type = "svg", visible = false)

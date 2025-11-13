@@ -14,6 +14,10 @@ $(TYPEDFIELDS)
     Transfer coefficient of the transition state
     """
     beta::Union{Nothing, Float64}
+    """
+    Reaction free energy barrier in J
+    """
+    barrier::Union{Nothing, Float64}
 end
 
 """
@@ -114,6 +118,10 @@ struct CatmapParams
     """
     electrochemical_thermo_mode::Symbol
     """
+    Mode for BEP scaling for TStateSpecies
+    """
+    beta_mode::Symbol
+    """
     pH value in the bulk of the electrolyte
     """
     bulk_pH::Float64
@@ -133,7 +141,7 @@ struct CatmapParams
     Parameter specifying the adsorbate interaction model
     """
     adsorbate_interaction_params::AdsorbateInteractionParams
-    function CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)       
+    function CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)       
         if !(length(prefactors) == length(reactions))
             throw(ArgumentError("The number of prefactors must match the number of reactions"))
         end
@@ -157,6 +165,10 @@ struct CatmapParams
                 throw(ArgumentError("$(String(:mode))=$mode is not implemented"))
             end
         end
+        # check that beta mode are defined
+        if !(beta_mode == :none || beta_mode == :simple || beta_mode == :effective_surface_charging)
+            throw(ArgumentError("$beta_mode is not a valid beta-mode"))
+        end
         # check that reference scale is either RHE or SHE
         if !(potential_reference_scale == "RHE" || potential_reference_scale == "SHE")
             throw(ArgumentError("$potential_reference_scale must be either SHE or RHE"))
@@ -164,7 +176,7 @@ struct CatmapParams
         if T < 0.0
             throw(ArgumentError("temperature T=$T must be positive"))
         end
-        new(reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+        new(reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
     end
 end
 
@@ -201,6 +213,34 @@ function parse_reactant_sum(rs::AbstractString)
     reactants
 end
 
+const re_barrier_name_ts = r"^(?<tstate_name>[^<>]+?)\^(?<barrier>[0-9.]+)eV_(?<site>[a-z])$"
+"""
+$(SIGNATURES) 
+
+Parse a string as a transition state. CatMAP allows for two different formulations of the transition state:
+- explicit sum of transition state components, and
+- implicit transition state with provided barrier at the reversible potential.
+"""
+function parse_transition_state(rs::AbstractString)
+    @local_unitfactors eV
+    @show rs
+    match_barrier_ts = match(re_barrier_name_ts, rs)
+    @show match_barrier_ts
+    if !isnothing(match_barrier_ts)
+        name = strip(String(match_barrier_ts[:tstate_name]))
+        name_factor = parse_reactant_sum(name)
+        barrier =
+            try
+                parse(Float64, match_barrier_ts[:barrier])    
+            catch e
+                throw(ArgumentError("$(match_barrier_ts[:barrier]) is not a valid float"))
+            end
+        (name_factor, barrier * eV, match_barrier_ts[:site])
+    else
+        tstate_components = parse_reactant_sum(rs)
+        (tstate_components, nothing, nothing)
+    end
+end
 
 const re_rxn            = r"^(?<educts>[^<>]+)<?->(?<products>[^<>]+)$"
 const re_rxn_with_TS    = r"^(?<educts>[^<>]+)<->(?<tstate>[^<>]+)<?->(?<products>[^<>;]+)(?:;beta=(?<beta>[0-9.]+))?$"
@@ -216,7 +256,10 @@ julia> CatmapInterface.parse_reaction("CO*_t <-> CO_g + *_t")
 CatmapInterface.ParsedReaction(["CO_t" => 1], ["CO_g" => 1, "_t" => 1], nothing)
 
 julia> CatmapInterface.parse_reaction("COOH*_t + H2O_g + ele_g <-> COOHΔH2OΔele_t <-> CO*_t + H2O_g + OH_g + *_t; beta=0.5")
-CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5))
+CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5, nothing))
+
+julia> CatmapInterface.parse_reaction("COOH*_t + H2O_g + ele_g <-> ^1.2eV_t <-> CO*_t + H2O_g + OH_g + *_t; beta=0.5")
+CatmapInterface.ParsedReaction(["COOH_t" => 1, "H2O_g" => 1, "ele_g" => 1], ["CO_t" => 1, "H2O_g" => 1, "OH_g" => 1, "_t" => 1], CatmapInterface.TState(["COOHΔH2OΔele_t" => 1], 0.5, 1.9226119607999997e-19))
 ```
 """
 function parse_reaction(r::AbstractString; beta=nothing)
@@ -232,9 +275,10 @@ function parse_reaction(r::AbstractString; beta=nothing)
         educts      = parse_reactant_sum(match_rxn[:educts])
         products    = parse_reactant_sum(match_rxn[:products]) 
     elseif !isnothing(match_rxn_with_TS)
-        educts            = parse_reactant_sum(match_rxn_with_TS[:educts])
-        products          = parse_reactant_sum(match_rxn_with_TS[:products])
-        tstate_components = parse_reactant_sum(match_rxn_with_TS[:tstate])
+        educts                           = parse_reactant_sum(match_rxn_with_TS[:educts])
+        products                         = parse_reactant_sum(match_rxn_with_TS[:products])
+        tstate_components, barrier, site = parse_transition_state(match_rxn_with_TS[:tstate])
+        @show tstate_components
         if isnothing(match_rxn_with_TS[:beta])
             if isnothing(beta)
                 throw(ArgumentError("The option beta=... has to be specified because no default for beta is specified"))
@@ -245,8 +289,12 @@ function parse_reaction(r::AbstractString; beta=nothing)
             catch e
                 throw(ArgumentError("$(match_rxn_with_TS[:beta]) is not a valid float"))
             end
-        end   
-        tstate = TState(components=tstate_components, beta=beta)
+        end
+        tstate = if isnothing(barrier)
+            TState(components=tstate_components, beta=beta, barrier=nothing)
+        else
+            TState(components=tstate_components, beta=beta, barrier=barrier)
+        end
     else
         throw(ArgumentError("$r is not a valid reaction equation"))
     end
@@ -402,7 +450,6 @@ function parse_catmap_input(input_file_path::AbstractString)
     py"
 $$input
 "
-    
     beta = 
     try
         py"beta"
@@ -440,23 +487,28 @@ $$input
     gas_thermo_mode             = Symbol(py"gas_thermo_mode")
     adsorbate_thermo_mode       = Symbol(py"adsorbate_thermo_mode")
     electrochemical_thermo_mode = Symbol(py"electrochemical_thermo_mode")
-
+    beta_mode = try
+        Symbol(py"beta_mode")
+    catch e
+        @warn "beta_mode not specified. Defaulting to :none."
+        :none
+    end
     adsorbate_interaction_params = _get_adsorbate_interaction_params()
     
     species_list = specieslist(reactions, species_definitions, energy_table, surface_name; electrochemical_thermo_mode)
     
     T = 298
-    CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+    CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
 end
 
 
 function _push_sigma_params!(optional_params, species_def)
-    @local_unitfactors μA cm
+    @local_unitfactors μC cm
     if !haskey(species_def, :sigma_params)
-        throw(ArgumentError("To use the electrochemical_thermo_mode=hbond_surface_charge_density sigma_params need to be specified for the adsorbate $species_name"))
+        throw(ArgumentError("To use the electrochemical_thermo_mode=hbond_surface_charge_density sigma_params need to be specified for the adsorbate $species_def.species_name"))
     else
         (; sigma_params) = species_def
-        push!(optional_params, :sigma_params => (; a = sigma_params[2] / (μA/cm^2), b = sigma_params[1] / (μA/cm^2)^2))
+        push!(optional_params, :sigma_params => (; a = sigma_params[2] / (μC/cm^2), b = sigma_params[1] / (μC/cm^2)^2))
     end
 end
 
@@ -570,10 +622,11 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
             else
                 match_tstate = match(re_tstate, component)
                 if !isnothing(match_tstate)
-                    species_name                        = match_tstate[:species_name]
-                    site                                = match_tstate[:site]
-                    species_def                         = findspecies(species_name, site, species_defs)
-                    optional_params                     = []
+                    species_name  = match_tstate[:species_name]
+                    site          = match_tstate[:site]
+                    barrier       = tstate.barrier
+                    species_def   = findspecies(species_name, site, species_defs)
+                    optional_params = []
                     if electrochemical_thermo_mode == :hbond_surface_charge_density
                         _push_sigma_params!(optional_params, species_def)
                     end
@@ -582,11 +635,16 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
                         cross_interaction_params = _parse_cross_interaction_params(component, cross_interaction_parameters, species_list)
                         push!(optional_params, :cross_interaction_params => cross_interaction_params)
                     end
+                    if haskey(species_def, :self_interaction_parameter)
+                        (; self_interaction_parameter) = species_def
+                        push!(optional_params, :self_interaction_param => self_interaction_parameter[1])
+                    end
                     coverage                            = 0.0
                     (; site_names)                      = findspecies("", site, species_defs)
                     site_name                           = site_names[1]
-                    (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
-                    species_list[component]             = TStateSpecies(; species_name, formation_energy, coverage, site, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
+                    n_sites                             = get(species_def, :n_sites, 1)
+                    (; formation_energy, frequencies)   =  findspecies(species_name, energy_table; surface_name, site_name)
+                    species_list[component]             = TStateSpecies(; species_name, formation_energy, barrier, coverage, site, n_sites, surface_name, frequencies, β=tstate.beta, between_species=[first.(educts) .=> -last.(educts); products], optional_params...)
                 else
                     throw(ArgumentError("$(component) is not a valid transition state"))
                 end

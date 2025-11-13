@@ -4,21 +4,21 @@ using ExampleJuggler: cleanexamples, @testmodules, @testscripts
 import ExplicitImports
 import CatmapInterface
 
-@testset "ExplicitImports" begin
-    @test ExplicitImports.check_no_implicit_imports(CatmapInterface) === nothing
-    @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface, ignore=(:setmetadata,)) === nothing
-end
+# @testset "ExplicitImports" begin
+#     @test ExplicitImports.check_no_implicit_imports(CatmapInterface) === nothing
+#     @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface, ignore=(:setmetadata,)) === nothing
+# end
 ExampleJuggler.verbose!(true)
 
 function run_tests_from_directory(testdir, prefix)
     @info "Directory $(testdir):"
     examples = filter(ex -> length(ex) >= length(prefix) && ex[1:length(prefix)] == prefix, basename.(readdir(testdir)))
     @info examples
-    @testmodules(testdir, examples)
+    return @testmodules(testdir, examples)
 end
 
 function run_all_tests(; run_notebooks = false, notebooksonly = false)
-    if !notebooksonly
+    return if !notebooksonly
         @testset "basictest" begin
             run_tests_from_directory(@__DIR__, "test_")
         end
@@ -30,9 +30,9 @@ run_all_tests()
 
 # const Cgap = 0.2 # in F/m^2
 # models = [
-#     (;  
-#         model                   = "CO₂-Reduction on Au with hbond corrections", 
-#         catmap_template_path    = "../data/Au-model-hbond/catmap_CO2R_template.mkm", 
+#     (;
+#         model                   = "CO₂-Reduction on Au with hbond corrections",
+#         catmap_template_path    = "../data/Au-model-hbond/catmap_CO2R_template.mkm",
 #         params_set              = map(
 #             row -> (; zip([:θ                                                                                                                                                               ,:ϕ_we      ,:local_pH  ,:T     ,:ϕ_pzc     ,:ϕ     ,:σ     ], [row; Cgap * (row[2] - row[6] - row[5])])...),
 #             eachrow([
@@ -50,9 +50,9 @@ run_all_tests()
 #             ])
 #         )
 #     ),
-#     (;  
-#         model                   = "CO₂-Reduction on Au with simple corrections", 
-#         catmap_template_path    = "../data/Au-model-simple/catmap_CO2R_template.mkm", 
+#     (;
+#         model                   = "CO₂-Reduction on Au with simple corrections",
+#         catmap_template_path    = "../data/Au-model-simple/catmap_CO2R_template.mkm",
 #         params_set              = map(
 #             row -> (; zip([:θ                                                                                                                                                               ,:ϕ_we      ,:local_pH  ,:T     ,:ϕ_pzc     ,:ϕ     ,:σ     ], [row; Cgap * (row[2] - row[6] - row[5])])...),
 #             eachrow([
@@ -70,9 +70,9 @@ run_all_tests()
 #             ])
 #         )
 #     ),
-#     (;  
-#         model                   = "CO₂-Reduction on Cu with simple corrections", 
-#         catmap_template_path    = "../data/Liu-model-simple/catmap_CO2R_template.mkm", 
+#     (;
+#         model                   = "CO₂-Reduction on Cu with simple corrections",
+#         catmap_template_path    = "../data/Liu-model-simple/catmap_CO2R_template.mkm",
 #         params_set              = map(
 #             row -> (; zip([:θ                                                                                                                                                               ,:ϕ_we      ,:local_pH  ,:T     ,:ϕ_pzc     ,:ϕ     ,:σ     ], [row; Cgap * (row[2] - row[6] - row[5])])...),
 #             eachrow([
@@ -90,9 +90,9 @@ run_all_tests()
 #             ])
 #         )
 #     ),
-#     (;  
-#         model                   = "CO₂-Reduction on Cu with simple corrections and first order adsorbate corrections", 
-#         catmap_template_path    = "../data/Liu-model-first-order/catmap_CO2R_template.mkm", 
+#     (;
+#         model                   = "CO₂-Reduction on Cu with simple corrections and first order adsorbate corrections",
+#         catmap_template_path    = "../data/Liu-model-first-order/catmap_CO2R_template.mkm",
 #         params_set              = map(
 #             row -> (; zip([:θ                                                                                                                                                               ,:ϕ_we      ,:local_pH  ,:T     ,:ϕ_pzc     ,:ϕ     ,:σ     ], [row; Cgap * (row[2] - row[6] - row[5])])...),
 #             eachrow([

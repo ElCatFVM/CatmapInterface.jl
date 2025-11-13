@@ -158,7 +158,7 @@ Add thermodynamic correction terms for all gas species using the ideal gas appro
 
 An ab-initio statistical model to correct the DFT-energies in order to obtain relative Gibbs free energies of formation. A reference for the approach is given in the book 'Essentials of Computational Chemistry: Theories and Models', 2nd edition, by Cramer, C.J. and published by Wiley.
 """
-function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real
+function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real 
     
     ideal_gas_params = py"ideal_gas_params"
     (; species_list, T) = catmap_params
@@ -249,11 +249,20 @@ function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we
     (; species_list, Uref) = catmap_params
     # simple_electrochem_corrections
     if haskey(energies, "ele_g")
-        energies["ele_g"] += -(ϕ_we - ϕ) * eV
+        energies["ele_g"] += - (ϕ_we-ϕ) * eV
     end
+
+    #if haskey(energies, "H_g")
+    #   energies["H_g"] += - ϕ * eV
+    #end 
+
+    #if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
+    #   energies["OH_g"] +=  ϕ * eV
+    #end 
+
     for (s, sp) in species_list
         if isa(sp, TStateSpecies) && occursin("ele", sp.species_name)
-            energies[s] += (-(ϕ_we - ϕ) + β[s] * (ϕ_we - ϕ - Uref)) * eV
+            energies[s] += (-(ϕ_we-ϕ) + β[s] * (ϕ_we -ϕ - Uref)) * eV
         end
     end
     # pH_correction
@@ -273,21 +282,26 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
     # simple_electrochem
     simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH, β)
     hbond_dict = py"hbond_dict"
-    (; species_list) = catmap_params
-    # hbond_electrochemical
+    (; species_list, beta_mode) = catmap_params
+    #hbond_electrochemical
     for (s, sp) in species_list
-        if isa(sp, AdsorbateSpecies)
-            (; species_name) = sp
-            if haskey(hbond_dict, species_name)
-                energies[s] += hbond_dict[species_name] * eV
-            end
-        end
+       if isa(sp, AdsorbateSpecies)
+          (; species_name) = sp
+          if haskey(hbond_dict, species_name)
+              energies[s] += hbond_dict[species_name] * eV
+          end
+       end
     end
+    @show energies
     # hbond_surface_charge_density
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
             (; a, b) = sp.sigma_params
-            energies[s] += (a * σ + b * σ^2) * eV
+            if beta_mode==:simple||beta_mode==:effective_surface_charging
+               energies[s] += (a * σ) * eV
+            else
+               energies[s] += (a * σ + b * σ^2) * eV
+            end
         end
     end
     nothing

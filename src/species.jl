@@ -146,7 +146,15 @@ struct TStateSpecies <: AbstractSpecies
     """
     Formation energy of the species in joule per mole
     """
-    formation_energy::Float64
+    formation_energy::Union{Nothing, Float64}
+    """
+    Number of needed sites for adsorption
+    """
+    n_sites::Int64
+    """
+    Reaction free energy barrier in joule per mole
+    """
+    barrier::Union{Nothing, Float64}
     """
     Surface coverage of the species
     """
@@ -174,19 +182,23 @@ struct TStateSpecies <: AbstractSpecies
     """
     Parameters specifying the electrochemcial correction to the formation energy due to surface charges: ``G_f(U=0, σ) ≈ G_f(U=0,σ=0)+a\\cdot σ + b\\cdot σ^2``
     """
-    sigma_params::@NamedTuple{a::Union{Nothing, Float64}, b::Union{Nothing, Float64}}
+    sigma_params::@NamedTuple{a::Union{Missing, Nothing, Float64}, b::Union{Missing, Nothing, Float64}}
+    """
+    Parameter used in [`CatmapInterface.first_order_adsorbate_interaction`](@ref) to specify the formation energy's dependence on the coverage
+    """
+    self_interaction_param::Float64
     """
     Parameter used in [`CatmapInterface.first_order_adsorbate_interaction`](@ref) to specify the formation energy's dependence on the coverage of other adsorbates
     """
     cross_interaction_params::Dict{String, Float64}
-    function TStateSpecies(; species_name, formation_energy, coverage, site, surface_name, frequencies, β, between_species, sigma_params=(;a=nothing, b=nothing), cross_interaction_params=Dict{String, Float64}())
+    function TStateSpecies(; species_name, formation_energy, barrier, coverage, site, n_sites, surface_name, frequencies, β, between_species, sigma_params=(;a=nothing, b=nothing), self_interaction_param = 0.0, cross_interaction_params=Dict{String, Float64}())
         if coverage < 0.0 || coverage > 1.0
             throw(DomainError("coverage must be between 0 and 1"))
         end
         if any(frequencies .<= 0.0)
             throw(DomainError("all frequencies must be positive"))
         end
-        new(species_name, formation_energy, coverage, site, surface_name, frequencies, β, between_species, sigma_params, cross_interaction_params)
+        new(species_name, formation_energy, n_sites, barrier, coverage, site, surface_name, frequencies, β, between_species, sigma_params, self_interaction_param, cross_interaction_params)
     end
 end
 #TStateSpecies(; formation_energy, coverage, site, surface_name, frequencies, sigma_params::Vector{Float64}) = TStateSpecies(; formation_energy, coverage, site, surface_name, frequencies, sigma_params=(; a=sigma_params[1], b=sigma_params[2]))

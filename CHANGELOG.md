@@ -2,7 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.3.0
+## 0.3.1 2025-11-13
+- Introduce beta_modes
+  - `:none` (default, also assumed if not given in mkm file)
+  - `:simple`
+  - `:effective_surface_charging`
+- Introduce symbolic formation energies (set `symbolic_formation_energies=true` when calling `compute_free_energies!`
+- Currently, the free energy of the transition state (TS) is calculated based on the formation free energy of the TS, thermodynamic corrections, and an electrochemical correction. For PCETs there is an electrochemical correction derived from BEP scaling in addition to the electrochemical correction due to surface charges.
+
+CatMAP (see this function) introduces a second way to specify the free energy of the transition state. In that case only the kinetic barrier at the reversible potential (w.r.t. the respective reaction) is specified. Moreover, there are two "beta-modes" that aim to compute a BEP scaling for the free energy of the transition state:
+
+Compute the BEP scaling based on the difference in the reaction free energy at the applied potential and the reversible potential, and
+compute the BEP scaling based on the difference of the applied potential and the reversible potential.
+Note that the different "beta-modes" can be shown to be equivalent (up to first order).
+
+The goal is to also implement the second specification of the free energy of the transition state together with the two "beta-modes".
+
+  
+## 0.3.0 2025-05-21
 
 ### Breaking 
 * Allow for Catalyst v15 + Symbolics v6

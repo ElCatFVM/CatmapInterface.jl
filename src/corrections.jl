@@ -292,7 +292,7 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
           end
        end
     end
-    @show energies
+#    @show energies
     # hbond_surface_charge_density
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))

@@ -80,7 +80,7 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
             free_energies[species] += thermo_correction
         end
     end
-    @show free_energies
+#    @show free_energies
     nothing
 end
 
@@ -209,7 +209,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
-    @show free_energies
+#    @show free_energies
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm

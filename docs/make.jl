@@ -26,7 +26,7 @@ function mkdocs()
             )
         ),
         clean       = false,
-        doctest     = true,
+        doctest     = false,
         draft       = false,
         authors     = "S. Maaß",
         repo        = "https://github.com/ElCatFVM/CatmapInterface.jl",
@@ -43,5 +43,5 @@ end
 mkdocs()
 
 if !isinteractive()
-    deploydocs(repo = "github.com/ElCatFVM/CatmapInterface.jl.git", devbranch = "main")
+#    deploydocs(repo = "github.com/ElCatFVM/CatmapInterface.jl.git", devbranch = "main")
 end

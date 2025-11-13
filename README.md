@@ -29,7 +29,7 @@ github repository URL and inspecting the contents.
 
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
-[docs-dev-url]: https://smaasz.github.io/CatmapInterface.jl/dev/
+[docs-dev-url]: https://www.wias-berlin.de/people/fuhrmann/_projects/CatmapInterface/
 
 [GHA-img]: https://github.com/smaasz/CatmapInterface.jl/actions/workflows/CI.yml/badge.svg?branch=main
 [GHA-url]: https://github.com/smaasz/CatmapInterface.jl/actions/workflows/CI.yml?query=branch%3Amain

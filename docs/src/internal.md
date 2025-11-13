@@ -20,6 +20,7 @@ CatmapInterface.AdsorbateInteractionParams
 CatmapInterface.TState
 CatmapInterface.ParsedReaction
 CatmapInterface.parse_reaction
+CatmapInterface.parse_transition_state
 CatmapInterface.parse_reactant_sum
 CatmapInterface.parse_energy_table
 CatmapInterface.specieslist

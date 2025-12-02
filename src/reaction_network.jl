@@ -158,7 +158,7 @@ New modes can be added by the user by adding a function with the same name to th
 if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
 The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false,symbolic_formation_energies= true)
+function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false,symbolic_formation_energies= true, C_gap_val = 0.20, ϕ_pzc_val =0.11)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc 
@@ -209,7 +209,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
-#    @show free_energies
+
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm
@@ -238,20 +238,27 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         Gf, rs, γs, a
     end
 
-    function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we, θ, local_pH) ## While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+    function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+        @show C_gap_val typeof(C_gap_val)
+        float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
-        ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0)) # exclude ad-ad interaction
-        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
-        ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
+        ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0.0)) # exclude ad-ad interaction
+        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0.0)) # exclude ph_dependece
+        ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0.0)) # assume that potential at reaction_plane is 0
+        ΔGf_r = substitute(ΔGf_r, Dict(C_gap => C_gap_val))
+        ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => ϕ_pzc_val))
         ΔGf_r = Symbolics.expand(ΔGf_r)
         variable = Symbolics.get_variables(ΔGf_r)
         if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
-            return 0
+            return 0.0
         else
             sol = Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
+            sol_expr = sol[1]
+            sol_val = Symbolics.value(sol_expr)
+    
         end
-        return sol 
+        return float_type(sol_val)
     end
 
 
@@ -274,30 +281,36 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
                     surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) 
-                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH)
-                    tstate_name = first(tstate.components)[1]
-                    tstate_factor = first(tstate.components)[2]
+                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
+                    @show typeof(ϕ_rev)
+                    tstate_name = first(tstate.components)[1] 
                     if catmap_params.beta_mode == :simple
-                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) 
+                        ΔGf_r = Gf_FS - Gf_IS
                         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) 
                         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r) 
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name] + β[tstate_name]*ΔGf_r) 
 
                     elseif catmap_params.beta_mode == :effective_surface_charging
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name] + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev))
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end
                else 
                     throw(ArgumentError("$beta_mode is not defined in mkm file"))
                end
+        if isnothing(tstate)
+            nothing
+        else
+            free_energies[tstate_name] = Gf_TS
+        end
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
+    @show free_energies
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
     if conserve_pressures
 	stoichmat = netstoichmat(rn)
@@ -319,16 +332,19 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     new_nr = numreactions(rn1)
                     isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
                     end)
-        return complete(rn1)
+        return complete(rn1), free_energies
     else
-        return complete(rn)
+        return complete(rn), free_energies
     end
 end
+
+
+
 
 """
 $(SIGNATURES)
 
-Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law.
+Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law
 """
 function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     @local_unitfactors bar

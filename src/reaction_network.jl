@@ -38,6 +38,7 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
                                 θ, σ, ϕ_we, ϕ, local_pH,
                                 β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]);
                                 symbolic_formation_energies::Bool=false)
+    @show symbolic_formation_energies
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
@@ -273,38 +274,43 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         number_electron = get(Dict(educts), "ele_g",0.0)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
+        @show Gf_FS
+        @show Gf_IS
         @local_phconstants e
         @local_unitfactors eV cm μF
         Gf_TS= if isnothing(tstate)
                     max(Gf_IS, Gf_FS)
                elseif isnothing(tstate.barrier) || catmap_params.beta_mode == :none
+                    tstate_name = first(tstate.components)[1]
                     max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
                     surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) 
                     ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
-                    @show typeof(ϕ_rev)
-                    tstate_name = first(tstate.components)[1] 
+                    @show ϕ_rev
+                    tstate_name = first(tstate.components)[1]
+                    tstate_factor = first(tstate.components)[2]
                     if catmap_params.beta_mode == :simple
                         ΔGf_r = Gf_FS - Gf_IS
                         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) 
                         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name] + β[tstate_name]*ΔGf_r) 
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r) 
 
                     elseif catmap_params.beta_mode == :effective_surface_charging
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name] + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev))
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev))
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end
                else 
                     throw(ArgumentError("$beta_mode is not defined in mkm file"))
                end
-        if isnothing(tstate)
-            nothing
-        else
-            free_energies[tstate_name] = Gf_TS
-        end
+        @show Gf_TS
+        #if isnothing(tstate)
+        #    nothing
+        #else
+        #    free_energies[tstate_name] = Gf_TS
+        #end
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)

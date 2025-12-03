@@ -19,7 +19,7 @@ using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin
 using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
 using Symbolics: setmetadata
 using Nemo
-using DoubleFloats: Double64
+
 
 function __init__()
     @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))

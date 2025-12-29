@@ -20,7 +20,6 @@ using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFun
 using Symbolics: setmetadata
 using Nemo
 
-
 function __init__()
     @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))
 end

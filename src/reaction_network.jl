@@ -159,7 +159,7 @@ New modes can be added by the user by adding a function with the same name to th
 if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
 The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false,symbolic_formation_energies= true, C_gap_val = 0.20, ϕ_pzc_val =0.11)
+function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false,symbolic_formation_energies= true, C_gap_val = C_gap, ϕ_pzc_val =0.11)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc 
@@ -244,22 +244,22 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
-        ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0.0)) # exclude ad-ad interaction
-        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0.0)) # exclude ph_dependece
-        ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0.0)) # assume that potential at reaction_plane is 0
+        ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0)) # exclude ad-ad interaction
+        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
+        ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
         ΔGf_r = substitute(ΔGf_r, Dict(C_gap => C_gap_val))
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => ϕ_pzc_val))
         ΔGf_r = Symbolics.expand(ΔGf_r)
         variable = Symbolics.get_variables(ΔGf_r)
         if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
-            return 0.0
+            return float_type(0)
         else
-            sol = Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
-            sol_expr = sol[1]
-            sol_val = Symbolics.value(sol_expr)
-    
+            slope_sym = Symbolics.derivative(ΔGf_r, ϕ_we)
+            intercept_sym = substitute(ΔGf_r, Dict(ϕ_we => 0))
+            slope_val = float_type(Symbolics.value(slope_sym))
+            intercept_val = float_type(Symbolics.value(intercept_sym))
         end
-        return float_type(sol_val)
+        return -intercept_val / slope_val
     end
 
 
@@ -306,11 +306,11 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     throw(ArgumentError("$beta_mode is not defined in mkm file"))
                end
         @show Gf_TS
-        #if isnothing(tstate)
-        #    nothing
-        #else
-        #    free_energies[tstate_name] = Gf_TS
-        #end
+        if isnothing(tstate)
+            nothing
+        else
+            free_energies[tstate_name] = Gf_TS
+        end
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)

@@ -1,6 +1,6 @@
 # Package Flow
 
-
+This documentation page was created from the information in the repository with the help of github copilote using Claude Opus 4.6.
 ## 1. Parsing — [`parse_catmap_input`](@ref)
 
 The entry point is `parse_catmap_input(input_file_path)`, which reads a CatMAP `.mkm` template file. Because CatMAP configuration files use Python syntax, the file contents are evaluated by an embedded Python interpreter (via **PyCall.jl**). From the evaluated Python namespace the following are extracted:

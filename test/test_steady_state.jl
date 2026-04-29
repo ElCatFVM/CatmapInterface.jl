@@ -1,9 +1,9 @@
 module test_steady_state
 using Catalyst: Catalyst, netstoichmat, numreactions, reactionrates, species,
-speciesmap, symmap_to_varmap
+speciesmap, symmap_to_varmap, ode_model
 using CatmapInterface: CatmapInterface, CatmapParams, create_reaction_network,
 parse_catmap_input
-using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute, get_defaults, complete
+using ModelingToolkit: ModelingToolkit, ODESystem, Symbolics, substitute, get_bindings, complete
 using OrdinaryDiffEqRosenbrock: OrdinaryDiffEqRosenbrock, Rodas5P,
 SteadyStateProblem, solve
 using PyCall: PyCall
@@ -66,16 +66,19 @@ function test_steady_state_with_catmap(rn::Catalyst.ReactionSystem, odesys, catm
     nr          = numreactions(rn)
     rrs_sym     = reactionrates(rn)
     stoichmat   = netstoichmat(rn)
+
+    #=
     rrs_num     = zeros(nr)
 
     for (ir, rr_sym) in enumerate(rrs_sym)
-        rrs_num[ir] = substitute(substitute(rr_sym, merge(get_defaults(rn), Dict(symmap_to_varmap(rn, ps)))), Dict(sp => ssol[sp] for sp in species(rn)))
+        rrs_num[ir] = substitute(substitute(rr_sym, merge(get_bindings(rn), Dict(symmap_to_varmap(rn, ps)))), Dict(sp => ssol[sp] for sp in species(rn)))
     end
+
     spmap = let 
         spmap = speciesmap(rn)
         Dict(Symbolics.tosymbol(k; escape=false) => v for (k, v) in spmap)
     end
-
+    =#
     @testset "species=$(string(species))" for (species, θcatmap) in catmap_ssol
         sp = species_list[string(species)]
         θ  = ssol[species] #* sp.n_sites
@@ -92,7 +95,7 @@ For each model instance run a testset over model parameters where the steady sta
 function runtests()
     @testset "Stationary Solutions" begin
 	@testset "Model=$(model_instance.name)" for model_instance in model_instances
-            odesys = complete(convert(ODESystem, model_instance.rn))
+            odesys = complete(ode_model(model_instance.rn))
             @testset "$(repr(ss_params.ps))" for ss_params in model_instance.ss_params_iter
                 test_steady_state_with_catmap(model_instance.rn, odesys, model_instance.catmap_params, model_instance.path, ss_params)
 	    end

@@ -1,4 +1,4 @@
-# CatmapInterface
+# CatmapInterface: [CatMap](https://github.com/SUNCAT-Center/catmap) based microkinetic models in Julia
 
 | **Documentation**                 | **Build Status**        |
 |:---------------------------------:|:-----------------------:|

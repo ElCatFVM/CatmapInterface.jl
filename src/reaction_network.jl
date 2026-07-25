@@ -100,7 +100,6 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
             free_energies[species] += thermo_correction
         end
     end
-#    @show free_energies
     nothing
 end
 
@@ -229,7 +228,6 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
-    @show vars 
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
 
@@ -271,7 +269,6 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         ΔGf_r = substitute(ΔGf_r, Dict(C_gap => C_gap_val))
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => ϕ_pzc_val))
         ΔGf_r = Symbolics.expand(ΔGf_r)
-        @show ΔGf_r
         variable = Symbolics.get_variables(ΔGf_r)
         if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
             return float_type(0)
@@ -340,7 +337,6 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    @show rxs
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
     if conserve_pressures
 	stoichmat = netstoichmat(rn)

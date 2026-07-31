@@ -289,6 +289,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
 
 
     rxs = Reaction[]
+    rev_pot = Dict()
     for ((; educts, products, tstate), prefactor_val) in zip(catmap_params.reactions, catmap_params.prefactors)
         number_electron = get(Dict(educts), "ele_g",0.0)
         if occursin("local", products[1].first)
@@ -307,10 +308,11 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
                     tstate_name = first(tstate.components)[1]
                     max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
-                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) 
+                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc)
                     ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
                     tstate_name = first(tstate.components)[1]
                     tstate_factor = first(tstate.components)[2]
+                    rev_pot[tstate_name] = ϕ_rev
                     if catmap_params.beta_mode == :simple
                         ΔGf_r = Gf_FS - Gf_IS
                         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) 
@@ -337,6 +339,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
+    @show rev_pot
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
     if conserve_pressures
 	stoichmat = netstoichmat(rn)

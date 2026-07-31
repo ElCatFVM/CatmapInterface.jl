@@ -213,7 +213,7 @@ function parse_reactant_sum(rs::AbstractString)
     reactants
 end
 
-const re_barrier_name_ts = r"^(?<tstate_name>[^<>]+?)\^(?<barrier>[0-9.]+)eV_(?<site>[a-z])$"
+const re_barrier_name_ts = r"^(?<tstate_name>[^<>]+?)\^(?<barrier>-?[0-9.]+)eV_(?<site>[a-z])$"
 """
 $(SIGNATURES) 
 

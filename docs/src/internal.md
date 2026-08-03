@@ -33,6 +33,7 @@ CatmapInterface._get_adsorbate_interaction_params
 ```@docs
 CatmapInterface.ratelaw_TS
 CatmapInterface.compute_free_energies!
+CatmapInterface.process_reaction_side
 ```
 
 ## Statistical Models

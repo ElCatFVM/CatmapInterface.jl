@@ -146,6 +146,13 @@ function ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, activprod)
     return prefactor * exp(- Gf_TS / (k_B * T)) * exp(Gf_IS / (k_B * T)) * activprod
 end
 
+
+"""
+     process_reaction_side(reactants)
+Compute the symbolic Gibbs free energy of the initial state (Gf_IS) and final state (Gf_FS), and assembles activity product
+"""
+function process_reaction_side end
+
 """
 $(SIGNATURES)
 

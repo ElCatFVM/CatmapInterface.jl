@@ -124,10 +124,10 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function CatmapInterface.compute_free_energies!(free_energies::Dict{InterfaceParams, Dict{String, T}}, catmap_params, params) where {T <: Real}
+function compute_free_energies!(free_energies::Dict{InterfaceParams, Dict{String, T}}, catmap_params, params) where {T <: Real}
     for intparams in params
         free_energies[intparams] = Dict([ sp => 0.0    for sp in keys(catmap_params.species_list)    ])
-        CatmapInterface.compute_free_energies!(free_energies[intparams], catmap_params, intparams)
+        compute_free_energies!(free_energies[intparams], catmap_params, intparams)
     end
     return
 end
@@ -381,7 +381,7 @@ function paramsidx(odesys)
     pidx = Dict{Symbol, Int}()
     px = Catalyst.parameters(odesys)
     for i in 1:length(px)
-        pidx[Catalyst.getname(px[i])] = i
+        pidx[getname(px[i])] = i
     end
     return pidx
 end
@@ -394,13 +394,13 @@ Generate a mutating function from a `ODESystem` that computes the concentration 
 """
 function generate_function(sys::ODESystem, udict, pdict)
     dvs = unknowns(sys)
-    ps  = parameters(sys) .=> 1.0
+    ps = parameters(sys) .=> 1.0
 
     prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
 
     uindexmap = getuindexmap(sys, udict)
     pindexmap = getpindexmap(sys, pdict)
-    
+
     invuindexmap = invperm(uindexmap)
     invpindexmap = invperm(pindexmap)
     return function (f, u, p, t)
@@ -413,16 +413,16 @@ end
 
 function getuindexmap(odesys::ODESystem, udict)
     sps = unknowns(odesys)
-    sps = Symbolics.tosymbol.(sps; escape=false)
+    sps = Symbolics.tosymbol.(sps; escape = false)
     symmap = Dict([sp => i  for (sp, i) in udict if sp in sps])
     varmap = symmap_to_varmap(odesys, symmap)
-    return varmap_to_vars(varmap, unknowns(odesys); tofloat=false)
+    return varmap_to_vars(varmap, unknowns(odesys); tofloat = false)
 end
 
 function getpindexmap(odesys::ODESystem, pdict)
     sps = parameters(odesys)
-    sps = tosymbol.(sps; escape=false)
+    sps = tosymbol.(sps; escape = false)
     symmap = Dict([sp => i for (sp, i) in pdict if sp in sps])
     varmap = symmap_to_varmap(odesys, symmap)
-    return varmap_to_vars(varmap, parameters(odesys); tofloat=false)
+    return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
 end

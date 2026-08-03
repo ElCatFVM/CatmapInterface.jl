@@ -8,13 +8,14 @@ module CatmapInterface
         SymbolicUtils, Symbolics, build_function, complete,
         equations, expand_derivatives, netstoichmat, numreactions,
         parameters, reactionrates, species, speciesmap,
-        ode_model, substitute, unknowns
+        ode_model, substitute, substitute_in_deriv, substitute_in_deriv_and_depvar,
+        unknowns, tosymbol, symmap_to_varmap
     using DelimitedFiles: DelimitedFiles, readdlm
     using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
     using JSON: JSON
     using LessUnitful: LessUnitful, @local_phconstants, @local_unitfactors, @ufac_str
     using LinearAlgebra: LinearAlgebra, I, Symmetric, eigvals
-    using ModelingToolkit: ModelingToolkit
+    using ModelingToolkit: ModelingToolkit, varmap_to_vars
     using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin
     using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
     using SciMLBase: ODEProblem

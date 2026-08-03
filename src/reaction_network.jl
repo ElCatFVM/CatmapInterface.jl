@@ -359,8 +359,8 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
 
     new_eqs = Equation[]
     for eq in equations(odesys)
-        lhs = expand_derivatives(substitute(eq.lhs, Dict(usubs)))
-        rhs = substitute(eq.rhs, Dict(csubs..., psubs...))
+        lhs = expand_derivatives(substitute_in_deriv(eq.lhs, Dict(usubs)))
+        rhs = substitute_in_deriv(eq.rhs, Dict(csubs..., psubs...))
         push!(new_eqs, Equation(lhs, rhs))
     end
 
@@ -390,60 +390,39 @@ end
 """
 $(SIGNATURES)
 
-Generate a mutating function from a `ReactionSystem` that computes the concentration fluxes due to the reaction.
-"""
-function generate_function(
-        rn::ReactionSystem;
-        dvs = species(rn),
-        ps = parameters(rn)
-    )
-    @assert Set(dvs) == Set(species(rn))
-    @assert Set(ps) == Set(parameters(rn))
-
-    #    species_map = speciesmap(rn)
-    sys = ode_model(rn; combinatoric_ratelaws = false)
-    prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
-    return function (f, u, p, t)
-        prob.f(f, u, p, t)
-        f .*= -1
-        return nothing
-    end
-    #=
-    eqs = equations(sys)
-    rhss = [-1 * eqs[species_map[dv]].rhs for dv in dvs] # multiply by -1 because the orientation assumed in VoronoiFVM physics functions
-
-    u = dvs # map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), dvs)
-    p = ps #map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
-    t = ModelingToolkit.get_iv(sys)
-
-    # pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
-
-    f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
-    return drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
-    =#
-end
-
-"""
-$(SIGNATURES)
-
 Generate a mutating function from a `ODESystem` that computes the concentration fluxes due to the reaction.
 """
-function generate_function(sys::ODESystem; dvs = unknowns(sys), ps = parameters(sys))
-    @assert Set(dvs) == Set(unknowns(sys))
-    @assert Set(ps) == Set(parameters(sys))
+function generate_function(sys::ODESystem, udict, pdict)
+    dvs = unknowns(sys)
+    ps  = parameters(sys) .=> 1.0
+
+    prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
+
+    uindexmap = getuindexmap(sys, udict)
+    pindexmap = getpindexmap(sys, pdict)
+    
+    invuindexmap = invperm(uindexmap)
+    invpindexmap = invperm(pindexmap)
+    return function (f, u, p, t)
+        prob.f(f, u[uindexmap], p[pindexmap], t)
+        f .= -1 * f[invuindexmap]
+        return nothing
+    end
+end
 
 
-    #state_map = Dict(zip(unknowns(sys), length(unknowns(sys))))
-    state_map = Dict([st => i for (i, st) in enumerate(unknowns(sys))])
-    eqs = equations(sys)
-    rhss = [-1 * eqs[state_map[dv]].rhs for dv in dvs] # multiply by -1 because the orientation assumed in VoronoiFVM physics functions
+function getuindexmap(odesys::ODESystem, udict)
+    sps = unknowns(odesys)
+    sps = Symbolics.tosymbol.(sps; escape=false)
+    symmap = Dict([sp => i  for (sp, i) in udict if sp in sps])
+    varmap = symmap_to_varmap(odesys, symmap)
+    return varmap_to_vars(varmap, unknowns(odesys); tofloat=false)
+end
 
-    u = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), dvs)
-    p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
-    t = ModelingToolkit.get_iv(sys)
-
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
-
-    f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
-    return drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
+function getpindexmap(odesys::ODESystem, pdict)
+    sps = parameters(odesys)
+    sps = tosymbol.(sps; escape=false)
+    symmap = Dict([sp => i for (sp, i) in pdict if sp in sps])
+    varmap = symmap_to_varmap(odesys, symmap)
+    return varmap_to_vars(varmap, parameters(odesys); tofloat=false)
 end

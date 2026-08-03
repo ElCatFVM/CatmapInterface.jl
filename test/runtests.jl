@@ -12,7 +12,6 @@ import CatmapInterface
             CatmapInterface,
             ignore = (
                 :PyError,
-                :getname,
                 :symmap_to_varmap,
                 :varmap_to_vars,
             )

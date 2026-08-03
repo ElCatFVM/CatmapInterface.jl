@@ -1,0 +1,22 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
+Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+ExampleJuggler = "3bbe58f8-ed81-4c4e-a134-03e85fcf4a1a"
+ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
+Format = "1fa38f19-a742-5d3f-a2b9-30dd87b9d5f8"
+OrdinaryDiffEqRosenbrock = "43230ef6-c299-4910-a778-202eb28ce4ce"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+SteadyStateDiffEq = "9672c7b4-1e72-59bd-8a11-6ac3964bc41f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Aqua = "0.8"
+Conda = "1"
+ExampleJuggler = "2.6"
+ExplicitImports = "1.15"
+Format = "1"
+OrdinaryDiffEqRosenbrock = "2"
+SteadyStateDiffEq = "2"
+Test = "1"

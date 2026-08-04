@@ -419,17 +419,15 @@ end
 
 
 function getuindexmap(odesys::ODESystem, udict)
-    sps = unknowns(odesys)
-    sps = Symbolics.tosymbol.(sps; escape = false)
-    symmap = Dict([sp => i  for (sp, i) in udict if sp in sps])
-    varmap = symmap_to_varmap(odesys, symmap)
+    us = unknowns(odesys)
+    us = tosymbol.(us; escape = false)
+    varmap = Dict([getproperty(odesys, u; namespace=false) => i  for (u, i) in udict if u in us])
     return varmap_to_vars(varmap, unknowns(odesys); tofloat = false)
 end
 
 function getpindexmap(odesys::ODESystem, pdict)
-    sps = parameters(odesys)
-    sps = tosymbol.(sps; escape = false)
-    symmap = Dict([sp => i for (sp, i) in pdict if sp in sps])
-    varmap = symmap_to_varmap(odesys, symmap)
+    ps = parameters(odesys)
+    ps = tosymbol.(ps; escape = false)
+    varmap = Dict([getproperty(odesys, p; namespace=false) => i for (p, i) in pdict if p in ps])
     return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
 end

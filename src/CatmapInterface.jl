@@ -12,7 +12,7 @@ module CatmapInterface
         equations, expand_derivatives, netstoichmat, numreactions,
         parameters, reactionrates, species,
         substitute, substitute_in_deriv,
-        unknowns, tosymbol, symmap_to_varmap
+        unknowns, tosymbol
     using DelimitedFiles: DelimitedFiles, readdlm
     using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
     using JSON: JSON
@@ -22,7 +22,7 @@ module CatmapInterface
     using PyCall: PyCall, @py_str, @pyinclude, keys
     using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions
     using SciMLBase: ODEProblem
-    using Symbolics: Symbolics
+    using Symbolics: Symbolics, SymbolicUtils
     using SymbolicIndexingInterface: getname
 
     function __init__()

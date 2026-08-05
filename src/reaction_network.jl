@@ -186,7 +186,8 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
     θ           = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
     β           = Dict{String, Num}() # transition state beta 
-    formation_energies= Dict{String, Num}()# I changed this 8/1
+    formation_energies = Dict{String, Num}()# I changed this 8/1
+    numeric_formation_energies = Dict{String, Float64}()
     Ga = Dict{String, Num}() ## barrier
     prefactors = Dict{String, Num}()
 
@@ -212,7 +213,8 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s] #* Num(sp.n_sites)
             vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
-            formation_energies[s] = sp.formation_energy
+            formation_energies[s] = first(@parameters $Es = sp.formation_energy) ## added
+            numeric_formation_energies[s] = sp.formation_energy
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
@@ -228,6 +230,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
+    @show numeric_formation_energies
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
 
@@ -259,7 +262,8 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         Gf, rs, γs, a
     end
 
-    function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+    function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+        @show numeric_formation_energies
         float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
@@ -268,6 +272,11 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
         ΔGf_r = substitute(ΔGf_r, Dict(C_gap => C_gap_val))
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => ϕ_pzc_val))
+        for (sp_name, num_val) in numeric_formation_energies
+            sym_val = formation_energies[sp_name]
+            ΔGf_r = substitute(ΔGf_r, Dict(sym_val => num_val))
+        end
+
         ΔGf_r = Symbolics.expand(ΔGf_r)
         variable = Symbolics.get_variables(ΔGf_r)
         if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
@@ -309,7 +318,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
                     max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
                     surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc)
-                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
+                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
                     tstate_name = first(tstate.components)[1]
                     tstate_factor = first(tstate.components)[2]
                     rev_pot[tstate_name] = ϕ_rev

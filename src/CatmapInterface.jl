@@ -19,6 +19,7 @@ module CatmapInterface
     using LessUnitful: LessUnitful, @local_phconstants, @local_unitfactors, @ufac_str
     using LinearAlgebra: LinearAlgebra, I, Symmetric, eigvals
     using ModelingToolkitBase: varmap_to_vars
+    using PreallocationTools: DiffCache, get_tmp
     using PyCall: PyCall, @py_str, @pyinclude, keys
     using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions
     using SciMLBase: ODEProblem

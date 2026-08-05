@@ -405,14 +405,23 @@ function generate_function(sys::ODESystem, udict, pdict)
 
     prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
 
+    fp_cache = DiffCache(zeros(length(dvs)), 13)
+    up_cache = DiffCache(zeros(length(dvs)), 13)
+    pp_cache = DiffCache(zeros(length(ps)), 13)
+    
     uindexmap = getuindexmap(sys, udict)
     pindexmap = getpindexmap(sys, pdict)
 
     invuindexmap = invperm(uindexmap)
     invpindexmap = invperm(pindexmap)
     return function (f, u, p, t)
-        prob.f(f, u[uindexmap], p[pindexmap], t)
-        f .= -1 * f[invuindexmap]
+        up = get_tmp(up_cache, u[1])
+        up .= getindex.(Ref(u), uindexmap)
+        pp = get_tmp(pp_cache, p[1])
+        pp .= getindex.(Ref(p), pindexmap)
+        fp = get_tmp(fp_cache, u[1])
+        prob.f(fp, up, pp, t)
+        f .= getindex.(Ref(fp), invuindexmap) .* -1
         return nothing
     end
 end

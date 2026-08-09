@@ -230,7 +230,6 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
-    @show numeric_formation_energies
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
 
@@ -263,7 +262,6 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
     end
 
     function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
-        @show numeric_formation_energies
         float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))

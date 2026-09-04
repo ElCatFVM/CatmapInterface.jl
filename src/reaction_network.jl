@@ -68,25 +68,12 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
     gas_thermo_correction!(thermo_corrections, catmap_params)
     adsorbate_thermo_correction!(thermo_corrections, catmap_params)
     
-    ## to make COlocal_b or CO2local_b which is treatd like adsorbate, but should be corrected like gas
-    base_gases = ("CO", "CO2")
-
-    for gas in base_gases
-        local_key = "$(gas)local_b"
-        gas_key = "$(gas)_g"
-
-        if haskey(thermo_corrections, local_key) && haskey(thermo_corrections, gas_key)
-            thermo_corrections[local_key] = thermo_corrections[gas_key]
+    for (s, sp) in catmap_params.species_list
+        if isa(sp, LocalGasSpecies) && haskey(thermo_corrections, s) && haskey(thermo_corrections, sp.parent_gas)
+            thermo_corrections[s] = thermo_corrections[sp.parent_gas]
         end
     end
 
-    #if haskey(thermo_corrections, "COlocal_b") && haskey(thermo_corrections, "CO_g") 
-    #    thermo_corrections["COlocal_b"] = thermo_corrections["CO_g"]
-    #end
-
-    #if haskey(thermo_corrections, "CO2local_b") && haskey(thermo_corrections, "CO2_g")
-    #    thermo_corrections["CO2local_b"] = thermo_corrections["CO2_g"]
-    #end
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     if  symbolic_formation_energies && (beta_mode==:effective_surface_charging || beta_mode==:simple)
@@ -128,6 +115,12 @@ function compute_free_energies!(free_energies::Dict{String, T}, catmap_params::C
     thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
     gas_thermo_correction!(thermo_corrections, catmap_params)
     adsorbate_thermo_correction!(thermo_corrections, catmap_params)
+    for (s, sp) in catmap_params.species_list
+        if isa(sp, LocalGasSpecies) && haskey(thermo_corrections, s) && haskey(thermo_corrections, sp.parent_gas)
+            thermo_corrections[s] = thermo_corrections[sp.parent_gas]
+        end
+    end
+
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     for (species, thermo_correction) in thermo_corrections
@@ -208,11 +201,13 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             ss          = Symbol(s)
             vars[s]     = first(@species $ss(t))
             formation_energies[s] = sp.formation_energy
-        elseif isa(sp, AdsorbateSpecies)
+        elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies)
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s] #* Num(sp.n_sites)
-            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
+            if isa(sp, AdsorbateSpecies)
+                vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
+            end
             formation_energies[s] = first(@parameters $Es = sp.formation_energy) ## added
             numeric_formation_energies[s] = sp.formation_energy
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
@@ -247,7 +242,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
                 push!(rs, vars[reactant])
                 push!(γs, factor)
-            elseif isa(sp, AdsorbateSpecies) # activity coefficients are assumed to be 1
+            elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies) # activity coefficients are assumed to be 1
                 push!(rs, vars[reactant])
                 push!(γs, factor)
                 a *= (vars[reactant])^factor #  (vars[reactant] * Num(sp.n_sites))^factor

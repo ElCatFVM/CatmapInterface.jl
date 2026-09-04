@@ -568,30 +568,41 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
             (; formation_energy, frequencies)   = findspecies(species_name, energy_table)
             henry_const                         = get(henry_consts, species_name, missing) * mol/(m^3 * Pa)
             species_list[s]                     = GasSpecies(; species_name, formation_energy, pressure, frequencies, henry_const)
-        # Adsorbed species (e.g. CO_t)
+        # Adsorbed species (e.g. CO_t) or Local gas species (e.g. COlocal_b)
         elseif !isnothing(match_adsorbate)
             species_name                        = match_adsorbate[:species_name]
             site                                = match_adsorbate[:site]
-            species_def                         = findspecies(species_name, site, species_defs)
-            optional_params                     = []
-            if electrochemical_thermo_mode == :hbond_surface_charge_density
-                _push_sigma_params!(optional_params, species_def)
+            if occursin("local", s) || occursin("local", species_name)
+                species_def                         = findspecies(species_name, site, species_defs)
+                pressure                            = Float64(get(species_def, :pressure, 1.0))
+                (; site_names)                      = findspecies("", site, species_defs)
+                site_name                           = site_names[1]
+                (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
+                parent_gas                          = "$(replace(species_name, "local" => ""))_g"
+                henry_const                         = get(henry_consts, replace(species_name, "local" => ""), missing) * mol/(m^3 * Pa)
+                species_list[s]                     = LocalGasSpecies(; species_name, formation_energy, pressure, site, frequencies, parent_gas, henry_const)
+            else
+                species_def                         = findspecies(species_name, site, species_defs)
+                optional_params                     = []
+                if electrochemical_thermo_mode == :hbond_surface_charge_density
+                    _push_sigma_params!(optional_params, species_def)
+                end
+                if haskey(species_def, :self_interaction_parameter)
+                    (; self_interaction_parameter) = species_def
+                    push!(optional_params, :self_interaction_param => self_interaction_parameter[1])
+                end
+                if haskey(species_def, :cross_interaction_parameters)
+                    (; cross_interaction_parameters) = species_def
+                    cross_interaction_params = _parse_cross_interaction_params(s, cross_interaction_parameters, species_list)
+                    push!(optional_params, :cross_interaction_params => cross_interaction_params)
+                end
+                coverage                            = 0.0
+                (; site_names)                      = findspecies("", site, species_defs)
+                site_name                           = site_names[1]
+                n_sites                             = get(species_def, :n_sites, 1)
+                (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
+                species_list[s]                     = AdsorbateSpecies(; species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, optional_params...)
             end
-            if haskey(species_def, :self_interaction_parameter)
-                (; self_interaction_parameter) = species_def
-                push!(optional_params, :self_interaction_param => self_interaction_parameter[1])
-            end
-            if haskey(species_def, :cross_interaction_parameters)
-                (; cross_interaction_parameters) = species_def
-                cross_interaction_params = _parse_cross_interaction_params(s, cross_interaction_parameters, species_list)
-                push!(optional_params, :cross_interaction_params => cross_interaction_params)
-            end
-            coverage                            = 0.0
-            (; site_names)                      = findspecies("", site, species_defs)
-            site_name                           = site_names[1]
-            n_sites                             = get(species_def, :n_sites, 1)
-            (; formation_energy, frequencies)   = findspecies(species_name, energy_table; surface_name, site_name)
-            species_list[s]                     = AdsorbateSpecies(; species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, optional_params...)
         # Electrode site (e.g. t)
         elseif !isnothing(match_site)
             site            = match_site[:site]

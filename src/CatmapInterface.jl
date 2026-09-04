@@ -30,7 +30,7 @@ export conserve_pressures!
 include("ideal-gas-model.jl")
 include("harmonic-model.jl")
 include("species.jl")
-export AbstractSpecies, GasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies
+export AbstractSpecies, GasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies, LocalGasSpecies
 include("interface.jl")
 export CatmapParams, parse_catmap_input
 include("corrections.jl")

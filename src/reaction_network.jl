@@ -67,6 +67,13 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
     thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
     gas_thermo_correction!(thermo_corrections, catmap_params)
     adsorbate_thermo_correction!(thermo_corrections, catmap_params)
+    
+    for (s, sp) in catmap_params.species_list
+        if isa(sp, LocalGasSpecies) && haskey(thermo_corrections, s) && haskey(thermo_corrections, sp.parent_gas)
+            thermo_corrections[s] = thermo_corrections[sp.parent_gas]
+        end
+    end
+
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     if  symbolic_formation_energies && (beta_mode==:effective_surface_charging || beta_mode==:simple)
@@ -80,7 +87,6 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
             free_energies[species] += thermo_correction
         end
     end
-#    @show free_energies
     nothing
 end
 
@@ -109,6 +115,12 @@ function compute_free_energies!(free_energies::Dict{String, T}, catmap_params::C
     thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
     gas_thermo_correction!(thermo_corrections, catmap_params)
     adsorbate_thermo_correction!(thermo_corrections, catmap_params)
+    for (s, sp) in catmap_params.species_list
+        if isa(sp, LocalGasSpecies) && haskey(thermo_corrections, s) && haskey(thermo_corrections, sp.parent_gas)
+            thermo_corrections[s] = thermo_corrections[sp.parent_gas]
+        end
+    end
+
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     for (species, thermo_correction) in thermo_corrections
@@ -165,7 +177,7 @@ New modes can be added by the user by adding a function with the same name to th
 if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
 The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams; conserve_pressures = false,symbolic_formation_energies= true)
+function create_reaction_network(catmap_params::CatmapParams;conserve_pressures = false, symbolic_formation_energies= true, C_gap_val = C_gap, ϕ_pzc_val =0.11)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc 
@@ -174,13 +186,17 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
     θ           = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
     β           = Dict{String, Num}() # transition state beta 
-    formation_energies= Dict{String, Num}()# I changed this 8/1
+    formation_energies = Dict{String, Num}()# I changed this 8/1
+    numeric_formation_energies = Dict{String, Float64}()
     Ga = Dict{String, Num}() ## barrier
+    prefactors = Dict{String, Num}()
+
     for (s, sp) in species_list
         if isa(sp, SiteSpecies) # the coverage of the free sites of site type is 1 - sum(coverages of adsorbates on site)
             vars[s] = Num(1)
         end
     end
+    
     for (s, sp) in species_list
         Es = Symbol("E$s")
         formation_energies[s] = sp.formation_energy
@@ -192,12 +208,15 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             ss          = Symbol(s)
             vars[s]     = first(@species $ss(t))
             formation_energies[s] = sp.formation_energy
-        elseif isa(sp, AdsorbateSpecies)
+        elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies)
             ss                  = Symbol(s)
             vars[s]             = first(@species $ss(t))
             θ[s]                = vars[s] #* Num(sp.n_sites)
-            vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
-            formation_energies[s] = sp.formation_energy
+            if isa(sp, AdsorbateSpecies)
+                vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
+            end
+            formation_energies[s] = first(@parameters $Es = sp.formation_energy) ## added
+            numeric_formation_energies[s] = sp.formation_energy
         elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
             ss              = Symbol(s)
             vars[s]         = first(@species $ss(t))
@@ -213,10 +232,9 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
-    
     free_energies = Dict(zip(keys(species_list), fill(Num(0.0), length(species_list))))
     compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies, θ, σ, ϕ_we, ϕ, local_pH, β; symbolic_formation_energies)
-#    @show free_energies
+
 
     function process_reaction_side(reactants)
         @local_unitfactors mol dm
@@ -231,7 +249,7 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
             elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
                 push!(rs, vars[reactant])
                 push!(γs, factor)
-            elseif isa(sp, AdsorbateSpecies) # activity coefficients are assumed to be 1
+            elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies) # activity coefficients are assumed to be 1
                 push!(rs, vars[reactant])
                 push!(γs, factor)
                 a *= (vars[reactant])^factor #  (vars[reactant] * Num(sp.n_sites))^factor
@@ -245,20 +263,31 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         Gf, rs, γs, a
     end
 
-    function compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we, θ, local_pH) ## While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+    function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+        float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0)) # exclude ad-ad interaction
         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) # exclude ph_dependece
         ΔGf_r = substitute(ΔGf_r, Dict(ϕ => 0)) # assume that potential at reaction_plane is 0
+        ΔGf_r = substitute(ΔGf_r, Dict(C_gap => C_gap_val))
+        ΔGf_r = substitute(ΔGf_r, Dict(ϕ_pzc => ϕ_pzc_val))
+        for (sp_name, num_val) in numeric_formation_energies
+            sym_val = formation_energies[sp_name]
+            ΔGf_r = substitute(ΔGf_r, Dict(sym_val => num_val))
+        end
+
         ΔGf_r = Symbolics.expand(ΔGf_r)
         variable = Symbolics.get_variables(ΔGf_r)
         if !any(v -> isequal(v, ϕ_we), variable) ## for no_surface charge & no electron transfer
-            return 0
+            return float_type(0)
         else
-            sol = Symbolics.symbolic_solve(ΔGf_r ~ 0, ϕ_we)
+            slope_sym = Symbolics.derivative(ΔGf_r, ϕ_we)
+            intercept_sym = substitute(ΔGf_r, Dict(ϕ_we => 0))
+            slope_val = float_type(Symbolics.value(slope_sym))
+            intercept_val = float_type(Symbolics.value(intercept_sym))
         end
-        return sol 
+        return -intercept_val / slope_val
     end
 
 
@@ -269,8 +298,20 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
 
     rxs = Reaction[]
-    for ((; educts, products, tstate), prefactor) in zip(catmap_params.reactions, catmap_params.prefactors)
+    rev_pot = Dict()
+    for ((; educts, products, tstate), prefactor_val) in zip(catmap_params.reactions, catmap_params.prefactors)
         number_electron = get(Dict(educts), "ele_g",0.0)
+        if occursin("local", products[1].first)
+            param_name = Symbol("diffusion_prefactor")
+            prefactor = first(@parameters $param_name = prefactor_val)
+        elseif !isnothing(tstate)
+            tstate_name = Symbol(first(tstate.components)[1])
+            param_name = Symbol("prefactor_$tstate_name")
+            prefactor = first(@parameters $param_name = prefactor_val)
+        else
+            prod_name = Symbol("prefactor_$(products[1].first)")
+            prefactor = first(@parameters $prod_name = prefactor_val)
+        end
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e
@@ -278,14 +319,16 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
         Gf_TS= if isnothing(tstate)
                     max(Gf_IS, Gf_FS)
                elseif isnothing(tstate.barrier) || catmap_params.beta_mode == :none
+                    tstate_name = first(tstate.components)[1]
                     max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
                elseif !isnothing(tstate.barrier)
-                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc) 
-                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, surface_charge_relation, ϕ_we , θ, local_pH)
+                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc)
+                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
                     tstate_name = first(tstate.components)[1]
                     tstate_factor = first(tstate.components)[2]
+                    rev_pot[tstate_name] = ϕ_rev
                     if catmap_params.beta_mode == :simple
-                        ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation)) 
+                        ΔGf_r = Gf_FS - Gf_IS
                         ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) 
                         ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
@@ -293,18 +336,24 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
 
                     elseif catmap_params.beta_mode == :effective_surface_charging
                         IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev[1]))
+                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev))
                     else
                         throw(ArgumentError("$beta_mode is not a valid beta-mode"))
                     end
                else 
                     throw(ArgumentError("$beta_mode is not defined in mkm file"))
                end
+        if isnothing(tstate)
+            nothing
+        else
+            free_energies[tstate_name] = Gf_TS
+        end
         rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
         rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
+    @show rev_pot
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
     if conserve_pressures
 	stoichmat = netstoichmat(rn)
@@ -326,16 +375,19 @@ function create_reaction_network(catmap_params::CatmapParams; conserve_pressures
                     new_nr = numreactions(rn1)
                     isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
                     end)
-        return complete(rn1)
+        return complete(rn1), free_energies
     else
-        return complete(rn)
+        return complete(rn), free_energies
     end
 end
+
+
+
 
 """
 $(SIGNATURES)
 
-Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law.
+Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law
 """
 function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     @local_unitfactors bar

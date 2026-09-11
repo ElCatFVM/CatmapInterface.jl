@@ -42,36 +42,36 @@ ideal_gas_params = {
         'Cl2_g':[2,'linear',0], #Added by M. Andersen, TUM from NIST
 }
 
-def generate_hbond_dict():
-    """Returns a dictionary of generic, surface-agnostic hydrogen bond stabilizations, in eV."""
-    OH = -0.50  # OH directly on the surface
-    ROH = -0.25  # a 'floppy' OH group
-    CO = -0.1  # carbon monoxide
-    d = {'COOH'   : ROH,
+def generate_doublebond_dict():
+    """Returns a dictionary of generic, surface-agnostic double bond corrections from Liu's thesis, in eV."""
+    d = {'COOH'   : 0.25,
          'OCHO'   : 0.,
-         'CO'     : CO,
-         'CHO'    : CO,
-         'CH2O'   : 0.,
+         'CO'     : 0.0,
+         'CHO'    : 0.15,
+         'CH2O'   : 0.15,
          'CO2'    : 0.,
          'OCH3'   : 0.,
          'O'      : 0.,
-         'OH'     : OH,
+         'OH'     : 0.0,
          'H'      : 0.,
-         'COH'    : ROH,
+         'COH'    : 0.0,
          'C'      : 0.,
          'CH'     : 0.,
          'CH2'    : 0.,
          'CH3'    : 0.,
-         'CHOH'   : ROH,
-         'COHOH'  : ROH,
+         'CHOH'   : 0.0,
+         'COHOH'  : 0.0,
          'OCH2O'  : 0.,
-         'CH2OH'  : ROH,
+         'CH2OH'  : 0.0,
          'OCHCH2' : 0.,
          'OCHCHO' : 0.,
+         'OCCO'   : 0.3,
+         'OCCOH'  : 0.15,
+         'CCO'    : 0.15
         }
     return d
 
-hbond_dict = generate_hbond_dict()
+doublebond_dict = generate_doublebond_dict()
 
 #Atmos. Chem. Phys., 15, 4399–4981, 2015
 henry_consts = {  # mol/m^3/Pa

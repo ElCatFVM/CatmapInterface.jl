@@ -42,7 +42,7 @@ ideal_gas_params = {
         'Cl2_g':[2,'linear',0], #Added by M. Andersen, TUM from NIST
 }
 
-def generate_double_dict():
+def generate_doublebond_dict():
     """Returns a dictionary of generic, surface-agnostic double bond corrections from Liu's thesis, in eV."""
     d = {'COOH'   : 0.25,
          'OCHO'   : 0.,

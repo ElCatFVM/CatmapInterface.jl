@@ -297,8 +297,13 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         if occursin("local", products[1].first)
             param_name = Symbol("diffusion_prefactor")
             prefactor = first(@parameters $param_name = prefactor_val)
+        elseif !isnothing(tstate)
+            tstate_name = Symbol(first(tstate.components)[1])
+            param_name = Symbol("prefactor_$tstate_name")
+            prefactor = first(@parameters $param_name = prefactor_val)
         else
-            prefactor = prefactor_val
+            prod_name = Symbol("prefactor_$(products[1].first)")
+            prefactor = first(@parameters $prod_name = prefactor_val)
         end
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)

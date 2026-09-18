@@ -1,4 +1,7 @@
 mpmath
 numpy
 scipy
+matplotlib
+tqdm
+graphviz
 ase==3.27.0

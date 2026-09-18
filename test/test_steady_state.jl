@@ -49,8 +49,7 @@ function ssolve(odesys, params; solver = DynamicSS(Rodas5P()), maxiters = 1.0e6)
     (; u0, ps) = params
     ssprob = SteadyStateProblem(
         odesys,
-        symmap_to_varmap(odesys, u0),
-        symmap_to_varmap(odesys, ps)
+        merge(Dict(symmap_to_varmap(odesys, u0)), Dict(symmap_to_varmap(odesys, ps)))
     )
     return solve(ssprob, solver; maxiters, reltol = 1.0e-10)
 end

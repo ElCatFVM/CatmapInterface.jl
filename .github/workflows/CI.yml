@@ -42,7 +42,7 @@ jobs:
         id: python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.x'
+          python-version: '3.11'
       - uses: julia-actions/julia-buildpkg@v1
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}

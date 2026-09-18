@@ -50,11 +50,11 @@ jobs:
         env:
           CATMAP: ${{ github.workspace }}/catmap-1
         run: ls ${{ env.CATMAP }}
-      - name: Install CatMAP dependencies
-        uses: parafoxia/pip-install@v1
+      - uses: actions/setup-python@v6
         with:
-          requirements: |
-            requirements.txt
+          python-version: '3.x'
+      - name: Install CatMAP dependencies
+        run: pip install -r requirements.txt
       - uses: julia-actions/julia-runtest@v1
         env:
           PYTHON: ""

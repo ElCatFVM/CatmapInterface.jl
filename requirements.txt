@@ -1,5 +1,5 @@
 mpmath
-numpy
+numpy==2.2.0
 scipy
 matplotlib
 tqdm

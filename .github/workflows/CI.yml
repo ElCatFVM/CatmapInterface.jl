@@ -61,7 +61,8 @@ jobs:
             Conda.add("mpmath")
             Conda.add("numpy")
             Conda.add("scipy")
-            Conda.add("ase")'
+            Conda.add("ase")
+            Conda.list()'
       - uses: julia-actions/julia-runtest@v1
         env:
           PYTHON: ""

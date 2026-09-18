@@ -51,18 +51,10 @@ jobs:
           CATMAP: ${{ github.workspace }}/catmap-1
         run: ls ${{ env.CATMAP }}
       - name: Install CatMAP dependencies
-        env:
-          PYTHON: ""
-        run: |
-          julia --project=test -e '
-            using Pkg
-            Pkg.instantiate()
-            using Conda
-            Conda.add("mpmath")
-            Conda.add("numpy")
-            Conda.add("scipy")
-            Conda.add("ase")
-            Conda.list()'
+        uses: parafoxia/pip-install@v1
+        with:
+          requirements: |
+            requirements.txt
       - uses: julia-actions/julia-runtest@v1
         env:
           PYTHON: ""

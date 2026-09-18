@@ -1,7 +1,8 @@
 # Package Guide
 
-CatmapInterface implements the functionality of a subset of the Python package [CatMAP](https://catmap.readthedocs.io) that is used in the Python package [CatINT](https://catint.readthedocs.io).
-Whereas [CatINT](https://catint.readthedocs.io) uses an iterative approach for combining the Poisson-Nernst-Planck transport model with a microkinetic model of the surface reactions at the electrode, the output of CatmapInterface can be directly plugged into the functionality of [LiquidElectrolytes](https://j-fu.github.io/LiquidElectrolytes.jl) to solve the coupled system.
+```@docs
+CatmapInterface
+```
 
 ## Installation
 

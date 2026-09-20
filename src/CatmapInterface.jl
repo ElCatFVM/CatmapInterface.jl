@@ -41,5 +41,6 @@ module CatmapInterface
     include("corrections.jl")
     include("reaction_network.jl")
     export create_reaction_network, generate_function, liquidize, paramsidx
+    export unknown_indexes, parameter_indexes, parameter_dict
 
 end

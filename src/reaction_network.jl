@@ -440,3 +440,47 @@ function getpindexmap(odesys::ODESystem, pdict)
     varmap = Dict([getproperty(odesys, p; namespace=false) => i for (p, i) in pdict if p in ps])
     return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
 end
+
+
+
+"""
+	unknown_indexes(odesys, species_dict::Dict{String, Int}; symb2name)
+
+For the symbolic names of unknowns in odesys, return the species
+indices given in `species_dict`.
+
+`symb2name` is a function which takes
+a symbolic object and converts it into a string serving as
+the key in `species_dict`. Default is `string`.
+"""
+function unknown_indexes(odesys,species_dict::Dict{String,Int}; symb2name=string)
+	names=symb2name.(Catalyst.unknowns(odesys))
+	return [species_dict[s] for s in names]
+end
+
+
+"""
+	parameter_indexes(odesys, params_dict::Dict{String, Int}; symb2name)
+
+For the symbolic names of parameters in odesys, return the indices given in `params_dict`.
+
+`symb2name` is a function which takes a symbolic object and converts it
+into a string serving as the key in `params_dict`. Default is `string`.
+"""
+function parameter_indexes(odesys,species_dict; symb2name=string)
+	names=symb2name.(Catalyst.parameters(odesys))
+	return [species_dict[s] for s in names]
+end
+
+"""
+	parameter_dict(odesys)
+
+Return a `Dict{Symbol, Int}` which allows to
+retrieve the index of a parameter in a vector of values.
+"""
+function parameter_dict(odesys)
+	psymbols=Catalyst.parameters(odesys).|> Symbol
+	Dict( [psymbols[i] =>i for i in 1:length(psymbols)]...)
+end
+
+export unknown_indexes, parameter_indexes, parameter_dict

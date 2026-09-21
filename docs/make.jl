@@ -33,14 +33,15 @@ function mkdocs()
         repo        = "https://github.com/ElCatFVM/CatmapInterface.jl",
         pages       = [
             "Home"      => "index.md",
-            "Guide"     => "guide.md",
-            "Public API"    => "public.md",
-            "Information flow"    => "package-flow.md",
-            "Internal"  => "internal.md",
+            "Guide Outline"     => "guide.md",
+            "Public API"        => "public.md",
+            "Information flow"  => "package-flow.md",
+            "Internal API"     => "internal.md",
             #"Notebooks" => notebooks,
         ]
     )
 end
+
 
 mkdocs()
 

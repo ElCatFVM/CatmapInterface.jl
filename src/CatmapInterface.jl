@@ -7,24 +7,20 @@ $(read(joinpath(@__DIR__, "..", "README.md"), String))
 """
 module CatmapInterface
 
-
-
 using Artifacts: Artifacts, @artifact_str
 using Catalyst: Catalyst, @parameters, @species, @variables, Equation,
 ModelingToolkit, Num, ODESystem, Reaction, ReactionSystem,
 SymbolicUtils, Symbolics,  build_function, complete,
 equations, expand_derivatives, netstoichmat, numreactions,
 parameters, reactionrates, species, speciesmap,
-substitute, unknowns
+substitute, unknowns, setmetadata
 using DelimitedFiles: DelimitedFiles, readdlm
 using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
 using JSON: JSON
 using LessUnitful: LessUnitful, @local_phconstants, @local_unitfactors, @ufac_str
 using LinearAlgebra: LinearAlgebra, I, Symmetric, convert, eigvals
-using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin
+using PyCall: PyCall, @py_str, @pyinclude, keys
 using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
-using Symbolics: setmetadata
-using Nemo
 
 function __init__()
     @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))

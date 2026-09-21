@@ -17,9 +17,12 @@ SiteSpecies
 ## Reaction Network
 ```@docs
 create_reaction_network
-paramsidx
 CatmapInterface.generate_function
 liquidize
+paramsidx
+unknown_indexes
+parameter_indexes
+parameter_dict
 ```
 
 ## Package

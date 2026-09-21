@@ -120,7 +120,7 @@ $(SIGNATURES)
 Add correction terms to the adsorbation energies based on first order interactions between the adsorbates. 
 
 Model for the excess chemical potential that correct the relative Gibbs free energies of formation due to first-order adsorbate interactions.
-This adsorbation interaction model is expained in ![CatMAP's documentation](https://catmap.readthedocs.io/en/latest/topics/including_adsorbate_adsorbate_interactions.html#coverage-dependent-adsorption-eneriges) and in this ![issue](https://github.com/smaasz/CatmapInterface.jl/issues/10).
+This adsorbation interaction model is expained in ![CatMAP's documentation](https://catmap.readthedocs.io/en/latest/topics/including_adsorbate_adsorbate_interactions.html#coverage-dependent-adsorption-eneriges) and in this ![issue](https://github.com/ElcatFVM/CatmapInterface.jl/issues/10).
 """
 function first_order_adsorbate_interaction(energies, catmap_params::CatmapParams, θ)
     @local_unitfactors eV

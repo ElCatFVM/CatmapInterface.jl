@@ -7,7 +7,8 @@
 ## Installation
 
 The package can be installed with the Julia package manager.
-For the time being, it is registered in the julia package registry [https://github.com/j-fu/PackageNursery](https://github.com/j-fu/PackageNursery)
+
+Package versions up to v0.3.1 are registered in the julia package registry [https://github.com/j-fu/PackageNursery](https://github.com/j-fu/PackageNursery)
 To add the registry (needed only once), and to install the package, 
 from the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 
@@ -29,8 +30,8 @@ github repository URL and inspecting the contents.
 
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
-[docs-dev-url]: https://www.wias-berlin.de/people/fuhrmann/_projects/CatmapInterface/
+[docs-dev-url]: https://elcatfvm.github.io/CatmapInterface.jl/dev/
 
-[GHA-img]: https://github.com/smaasz/CatmapInterface.jl/actions/workflows/CI.yml/badge.svg?branch=main
-[GHA-url]: https://github.com/smaasz/CatmapInterface.jl/actions/workflows/CI.yml?query=branch%3Amain
+[GHA-img]: https://github.com/ElCatFVM/CatmapInterface.jl/actions/workflows/CI.yml/badge.svg?branch=main
+[GHA-url]: https://github.com/ElCatFVM/CatmapInterface.jl/actions/workflows/CI.yml?query=branch%3Amain
 

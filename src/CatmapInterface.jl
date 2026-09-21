@@ -1,4 +1,10 @@
 __precompile__()
+
+"""
+    CatmapInterface
+
+$(read(joinpath(@__DIR__, "..", "README.md"), String))
+"""
 module CatmapInterface
 
 

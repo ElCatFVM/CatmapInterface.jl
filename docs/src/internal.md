@@ -1,5 +1,3 @@
-# Internal Documentation
-
 ## Corrections
 
 ```@docs

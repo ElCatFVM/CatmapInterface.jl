@@ -1,5 +1,3 @@
-# Public Documentation
-
 ## Interface
 ```@docs
 parse_catmap_input
@@ -23,4 +21,9 @@ create_reaction_network
 paramsidx
 CatmapInterface.generate_function
 liquidize
+```
+
+## Package
+```@docs
+CatmapInterface
 ```

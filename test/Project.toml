@@ -13,6 +13,22 @@ OrdinaryDiffEqRosenbrock = "43230ef6-c299-4910-a778-202eb28ce4ce"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 SteadyStateDiffEq = "9672c7b4-1e72-59bd-8a11-6ac3964bc41f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ExtendableGrids = "cfc395e8-590f-11e8-1f13-43a2532b2fa8"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+GridVisualize = "5eed8a63-0fb0-45eb-886d-8d5a387d12b8"
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+LessUnitful = "f29f6376-6e90-4d80-80c9-fb8ec61203d5"
+LiquidElectrolytes = "5a7dfd8c-b3af-4c8d-a082-d3a774d75e72"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+PreallocationTools = "d236fae5-4411-538c-8e31-a6e3d9e00b46"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+VoronoiFVM = "82b139dc-5afc-11e9-35da-9b9bdfd336f3"
+
+
+
 
 [compat]
 Aqua = "0.8"

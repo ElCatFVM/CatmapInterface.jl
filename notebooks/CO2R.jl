@@ -228,13 +228,10 @@ begin
 end
 
 # ╔═╡ 39e58387-a272-4bd8-8a9f-ef8dfcddb013
-goldmodeldir(args...)=datadir("models","Au",args...)
+datadir(args...)= joinpath(@__DIR__,"..","data", args...)
 
 # ╔═╡ ee0d1338-7807-4d38-abbe-b56b51e4aa31
-catmapfile=joinpath(@__DIR__,"..","data","models","Au","catmap_CO2R_template.mkm")
-
-# ╔═╡ ff0ebd77-950f-4394-af76-8543dc96f87e
-
+catmapfile=datadir("models","Au","catmap_CO2R_template.mkm")
 
 # ╔═╡ a538a6a3-5a35-4516-a19f-64960886e829
 catmap_params = parse_catmap_input(catmapfile)
@@ -576,6 +573,9 @@ Potential at the working electrode
 $(vshow = result.voltages[vindex]; @sprintf("%+1.4f", vshow))
 """
 
+# ╔═╡ 4e5c1eb4-9d2a-4a6e-8a6d-3c1fe7911a5f
+reftable = readdlm(datadir("IV-Ringe-digitized.csv"), ',', Float64, '\n')	
+
 # ╔═╡ c1d2305e-fb8b-4845-a414-08fff84aa9b0
 md"""
 ### Plotting Functions
@@ -752,8 +752,7 @@ end
 
 # ╔═╡ 1cd669ac-05eb-48b2-b457-8c395cd5807d
 let
-	table = readdlm("./data/IV-Ringe-digitized.csv", ',', Float64, '\n')
-	df = Dict(:voltage => table[:,1], :current => table[:,2])
+	df = Dict(:voltage => reftable[:,1], :current => reftable[:,2])
 	plotcurr(result; df=df)
 end
 
@@ -763,7 +762,7 @@ md"""
 """
 
 # ╔═╡ aa27430a-4eb5-4d2b-a3fe-f124b6eba9a7
-sresult = load(joinpath(@__DIR__,"..","data","regressionresults-CMI-v0.3.0.jld2"))["regressionresults"]
+sresult = load(datadir("regressionresults-CMI-v0.3.0.jld2"))["regressionresults"]
 
 # ╔═╡ 32eb1122-5013-4a8e-be54-18a30c151515
 begin
@@ -818,7 +817,6 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╟─06f52599-7006-4a5c-ba86-0b668b6952c9
 # ╠═39e58387-a272-4bd8-8a9f-ef8dfcddb013
 # ╠═ee0d1338-7807-4d38-abbe-b56b51e4aa31
-# ╠═ff0ebd77-950f-4394-af76-8543dc96f87e
 # ╠═a538a6a3-5a35-4516-a19f-64960886e829
 # ╟─ca22e3fe-5cb7-4910-b9fa-890fd2d20e4b
 # ╟─4c95d645-f909-492b-a425-927c093ae31a
@@ -859,6 +857,7 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╟─3bcb8261-5b98-4f4d-a9fe-fb71d5c5b476
 # ╠═5dd1a1e6-7db1-479e-a684-accec53ce06a
 # ╠═15fadfc2-3cf8-4fda-9aed-a79c602b1d51
+# ╠═4e5c1eb4-9d2a-4a6e-8a6d-3c1fe7911a5f
 # ╠═1cd669ac-05eb-48b2-b457-8c395cd5807d
 # ╟─c1d2305e-fb8b-4845-a414-08fff84aa9b0
 # ╟─2ce5aa45-4aa5-4c2a-a608-f581266e55f0

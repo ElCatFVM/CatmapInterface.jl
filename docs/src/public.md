@@ -11,6 +11,7 @@ CatmapParams
 AbstractSpecies
 GasSpecies
 AdsorbateSpecies
+LocalGasSpecies
 TStateSpecies
 FictiousSpecies
 SiteSpecies

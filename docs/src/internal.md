@@ -9,6 +9,7 @@ CatmapInterface.ideal_gas
 CatmapInterface.harmonic_adsorbate
 CatmapInterface.simple_electrochemical
 CatmapInterface.hbond_surface_charge_density
+CatmapInterface.doublebond_surface_charge_density
 CatmapInterface._get_echem_corrections
 CatmapInterface._get_interaction_term
 ```

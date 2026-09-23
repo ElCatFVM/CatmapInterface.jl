@@ -38,9 +38,14 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
+      - name: Setup Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
       - uses: julia-actions/julia-buildpkg@v1
         env:
-          PYTHON: ""
+          PYTHON: ${{ steps.python.outputs.python-path }}
       - name: Checkout CatMAP
         uses: actions/checkout@v5
         with:
@@ -51,20 +56,12 @@ jobs:
           CATMAP: ${{ github.workspace }}/catmap-1
         run: ls ${{ env.CATMAP }}
       - name: Install CatMAP dependencies
-        env:
-          PYTHON: ""
         run: |
-          julia --project=test -e '
-            using Pkg
-            Pkg.instantiate()
-            using Conda
-            Conda.add("mpmath")
-            Conda.add("numpy")
-            Conda.add("scipy")
-            Conda.add("ase")'
+          ${{ steps.python.outputs.python-path }} -m pip install --upgrade pip
+          ${{ steps.python.outputs.python-path }} -m pip install -r requirements.txt
       - uses: julia-actions/julia-runtest@v1
         env:
-          PYTHON: ""
+          PYTHON: ${{ steps.python.outputs.python-path }}
           CATMAP: ${{ github.workspace }}/catmap-1
   docs:
     if: github.event.pull_request.draft == false

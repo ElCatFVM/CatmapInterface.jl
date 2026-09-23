@@ -16,10 +16,18 @@ macro bind(def, element)
     #! format: on
 end
 
+# ╔═╡ 8bd435fe-89c6-4b96-99fe-0ae42b8bb6bd
+if isdefined(Main, :PlutoRunner)
+    using Pkg
+    docsdir = joinpath(@__DIR__, "..", "docs")
+    if isdir(docsdir)
+        Pkg.activate(docsdir)
+    end
+end
+
+
 # ╔═╡ 91ac9e35-71eb-4570-bef7-f63c67ce3881
 begin
-    using Pkg
-    Pkg.activate(joinpath(@__DIR__, "..", "docs"))
     using Revise
     using LiquidElectrolytes
     using CatmapInterface
@@ -814,6 +822,7 @@ begin
 end
 
 # ╔═╡ Cell order:
+# ╠═8bd435fe-89c6-4b96-99fe-0ae42b8bb6bd
 # ╠═91ac9e35-71eb-4570-bef7-f63c67ce3881
 # ╟─beae1479-1c0f-4a55-86e1-ad2b50174c83
 # ╟─ab2184fc-0279-46d9-9ee4-88fe3e732789

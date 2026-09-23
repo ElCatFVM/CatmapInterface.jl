@@ -1,4 +1,5 @@
 using Documenter
+using DocumenterMermaid
 using CatmapInterface
 using Catalyst
 using PlutoStaticHTML
@@ -33,7 +34,8 @@ function mkdocs()
         pages       = [
             "Home"      => "index.md",
             "Guide"     => "guide.md",
-            "Public"    => "public.md",
+            "Public API"    => "public.md",
+            "Information flow"    => "package-flow.md",
             "Internal"  => "internal.md",
             #"Notebooks" => notebooks,
         ]
@@ -43,5 +45,5 @@ end
 mkdocs()
 
 if !isinteractive()
-#    deploydocs(repo = "github.com/ElCatFVM/CatmapInterface.jl.git", devbranch = "main")
+    deploydocs(repo = "github.com/ElCatFVM/CatmapInterface.jl.git", devbranch = "main")
 end

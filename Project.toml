@@ -1,6 +1,6 @@
 name = "CatmapInterface"
 uuid = "6b1bba67-9fa6-466a-8c93-71aaf28c16e6"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Steffen Maass"]
 
 [deps]
@@ -22,7 +22,7 @@ Artifacts = "1.10.0"
 Catalyst = "14, 15"
 DelimitedFiles = "1.9.1"
 DocStringExtensions = "0.8, 0.9"
-JSON = "0.21.4"
+JSON = "0.21.4, 1"
 LessUnitful = "1"
 LinearAlgebra = "1.10.0"
 PyCall = "1"

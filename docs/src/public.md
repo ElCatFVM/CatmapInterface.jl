@@ -1,7 +1,5 @@
 # Public Documentation
 
-## General Remarks
-
 ## Interface
 ```@docs
 parse_catmap_input

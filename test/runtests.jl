@@ -47,6 +47,13 @@ end
 
 ExampleJuggler.verbose!(true)
 
+# Run the notebooks as scripts in the test environment.
+notebooks = ["CO2R.jl"]
+
+@testset "notebooks" begin
+    @testscripts(joinpath(@__DIR__, "..", "notebooks"), notebooks)
+end
+
 function run_tests_from_directory(testdir, prefix)
     @info "Directory $(testdir):"
     examples = filter(ex -> length(ex) >= length(prefix) && ex[1:length(prefix)] == prefix, basename.(readdir(testdir)))

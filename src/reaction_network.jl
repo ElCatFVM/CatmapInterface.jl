@@ -170,7 +170,7 @@ New modes can be added by the user by adding a function with the same name to th
 if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
 The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams;conserve_pressures = false, symbolic_formation_energies= true, C_gap_val = C_gap, ϕ_pzc_val =0.11)
+function create_reaction_network(catmap_params::CatmapParams;conserve_pressures = false, symbolic_formation_energies= true, C_gap_val = 0.2, ϕ_pzc_val =0.11)
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc 

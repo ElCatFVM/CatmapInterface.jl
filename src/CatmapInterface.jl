@@ -15,12 +15,13 @@ using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
 using JSON: JSON
 using LessUnitful: LessUnitful, @local_phconstants, @local_unitfactors, @ufac_str
 using LinearAlgebra: LinearAlgebra, I, Symmetric, convert, eigvals
-using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin
+using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin, pyrun
 using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
 using Symbolics: setmetadata
 using Nemo
 
 function __init__()
+    pyrun("import numpy as np\nif not hasattr(np, 'product'): np.product = np.prod\nif not hasattr(np, 'cumproduct'): np.cumproduct = np.cumprod")
     @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))
 end
 

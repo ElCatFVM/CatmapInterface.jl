@@ -25,7 +25,6 @@ LiquidElectrolytes = "5a7dfd8c-b3af-4c8d-a082-d3a774d75e72"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 PreallocationTools = "d236fae5-4411-538c-8e31-a6e3d9e00b46"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 VoronoiFVM = "82b139dc-5afc-11e9-35da-9b9bdfd336f3"
 

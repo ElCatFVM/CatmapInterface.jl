@@ -347,7 +347,7 @@ const symbolic_formation_energies = true
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
     catmap_params = parse_catmap_input(joinpath(@__DIR__, "..", "data", "models", "Au", "catmap_CO2R_template.mkm"))
-    rn = create_reaction_network(catmap_params; symbolic_formation_energies)
+    rn, _ = create_reaction_network(catmap_params; symbolic_formation_energies)
     odesys0 = convert(ODESystem, rn; combinatoric_ratelaws = false)
     odesys = CatmapInterface.liquidize(odesys0, catmap_params)
     vars = unknowns(odesys)
@@ -407,7 +407,14 @@ begin
         ps[pidx[:local_pH]] = local_pH
         ps[pidx[:γCO_aq]] = γ_co
         ps[pidx[:βCOOHΔH2OΔele_t]] = 0.59
+        ps[pidx[:prefactor_CO2_t]] = 1.0e13
+        ps[pidx[:prefactor_COOH_t]] = 1.0e13
+        ps[pidx[:prefactor_COOHΔH2OΔele_t]] = 1.0e13
+        ps[pidx[:prefactor_CO_g]] = 1.0e8
         if symbolic_formation_energies
+            ps[pidx[:ECO2_t]] = 0.657600203 * e
+            ps[pidx[:ECOOH_t]] = 0.128214079 * e
+            ps[pidx[:ECO_t]] = -0.02145440850567823 * e
             ps[pidx[:ECOOHΔH2OΔele_t]] = 0.95 * e
         end
         @views f_microkinetics!(
@@ -771,7 +778,7 @@ begin
             for (vidx_result, vidx_sresult) in zip(vidxs_result, vidxs_sresult)
                 for (j_result, j_sresult) in zip(
                         result.j_we[vidx_result][iohminus],
-                        sresult.j_we[vidx_result][iohminus]
+                        sresult.j_we[vidx_sresult][iohminus]
                     )
                     @test isapprox(j_result, j_sresult, atol = 1.0e-13)
                 end

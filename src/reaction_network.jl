@@ -396,9 +396,9 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     sts     = unknowns(odesys)
     ps      = parameters(odesys)
 
-    usubs = Pair{SymbolicUtils.BasicSymbolic{Real}, SymbolicUtils.BasicSymbolic{Real}}[]
+    usubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     csubs = Pair{Num, Num}[]
-    psubs = Pair{SymbolicUtils.BasicSymbolic{Real}, SymbolicUtils.BasicSymbolic{Real}}[]
+    psubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     @variables t
     for st in sts
         sp = species_list[string(Symbolics.operation(Symbolics.value(st)))]
@@ -480,7 +480,7 @@ $(SIGNATURES)
 
 Generate a mutating function from a `ReactionSystem` that computes the concentration fluxes due to the reaction.
 """
-function generate_function(rn::ReactionSystem; dvs::Vector{Tval}=species(rn), ps::Vector{Tval}=parameters(rn)) where {Tval <: Union{SymbolicUtils.BasicSymbolic{Real}, Num}}
+function generate_function(rn::ReactionSystem; dvs::Vector{Tval}=species(rn), ps::Vector{Tval}=parameters(rn)) where {Tval <: Union{SymbolicUtils.BasicSymbolic, Num}}
     @assert Set(dvs) == Set(species(rn))
     @assert Set(ps)  == Set(parameters(rn))
 

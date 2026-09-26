@@ -399,6 +399,7 @@ begin
         local_pH = -log10(u[ihplus] / (mol / dm^3))
 
         ps = get_tmp(ps_cache, u[iϕ])
+        init_params!(ps, odesys)
         ps[pidx[:σ]] = σ
         ps[pidx[:γCO2_aq]] = γ_co2
         ps[pidx[:aH2O_g]] = aH₂O
@@ -407,14 +408,7 @@ begin
         ps[pidx[:local_pH]] = local_pH
         ps[pidx[:γCO_aq]] = γ_co
         ps[pidx[:βCOOHΔH2OΔele_t]] = 0.59
-        ps[pidx[:prefactor_CO2_t]] = 1.0e13
-        ps[pidx[:prefactor_COOH_t]] = 1.0e13
-        ps[pidx[:prefactor_COOHΔH2OΔele_t]] = 1.0e13
-        ps[pidx[:prefactor_CO_g]] = 1.0e8
         if symbolic_formation_energies
-            ps[pidx[:ECO2_t]] = 0.657600203 * e
-            ps[pidx[:ECOOH_t]] = 0.128214079 * e
-            ps[pidx[:ECO_t]] = -0.02145440850567823 * e
             ps[pidx[:ECOOHΔH2OΔele_t]] = 0.95 * e
         end
         @views f_microkinetics!(

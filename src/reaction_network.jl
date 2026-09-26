@@ -446,6 +446,34 @@ function paramsidx(odesys)
     return pidx
 end
 
+"""
+$(SIGNATURES)
+
+Return parameter vector for `odesys` initialized with default parameter values from ModelingToolkit defaults.
+"""
+function default_params(odesys::ODESystem)
+    ps = zeros(length(Catalyst.parameters(odesys)))
+    init_params!(ps, odesys)
+    return ps
+end
+
+"""
+$(SIGNATURES)
+
+Populate parameter vector `ps` with default parameter values from `odesys`.
+"""
+function init_params!(ps, odesys::ODESystem)
+    defs = ModelingToolkit.defaults(odesys)
+    pidx = paramsidx(odesys)
+    for (p, val) in defs
+        name = Symbolics.getname(p)
+        if haskey(pidx, name)
+            ps[pidx[name]] = Float64(val)
+        end
+    end
+    return ps
+end
+
 
 """
 $(SIGNATURES)

@@ -249,20 +249,20 @@ function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we
     (; species_list, Uref) = catmap_params
     # simple_electrochem_corrections
     if haskey(energies, "ele_g")
-        energies["ele_g"] += - (ϕ_we-ϕ) * eV
+        energies["ele_g"] += - (ϕ_we) * eV
     end
 
-    #if haskey(energies, "H_g")
-    #   energies["H_g"] += - ϕ * eV
-    #end 
+    if haskey(energies, "H_g")
+       energies["H_g"] += - ϕ * eV
+    end 
 
-    #if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
-    #   energies["OH_g"] +=  ϕ * eV
-    #end 
+    if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
+       energies["OH_g"] +=  ϕ * eV
+    end 
 
     for (s, sp) in species_list
         if isa(sp, TStateSpecies) && occursin("ele", sp.species_name)
-            energies[s] += (-(ϕ_we-ϕ) + β[s] * (ϕ_we -ϕ - Uref)) * eV
+            energies[s] += (-(ϕ_we) + β[s] * (ϕ_we -ϕ - Uref)) * eV
         end
     end
     # pH_correction

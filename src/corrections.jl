@@ -273,9 +273,7 @@ end
 """
 $(SIGNATURES) 
 
-Add electrochemical correction terms to the relative Gibbs free energies of formation of (polarized) adsorbed species.
-
-The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. The surface charge dependence is fitted to a quadratic model. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
+Add electrochemical correction terms to the relative Gibbs free energies of formation of (polarized) adsorbed species using hydrogen bonding dictionary.
 """
 function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
@@ -283,7 +281,7 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
     simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH, β)
     hbond_dict = py"hbond_dict"
     (; species_list, beta_mode) = catmap_params
-    #hbond_electrochemical
+    # hbond_electrochemical
     for (s, sp) in species_list
        if isa(sp, AdsorbateSpecies)
           (; species_name) = sp
@@ -292,8 +290,41 @@ function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ,
           end
        end
     end
-#    @show energies
-    # hbond_surface_charge_density
+    # surface_charge_density
+    for (s, sp) in species_list
+        if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
+            (; a, b) = sp.sigma_params
+            if beta_mode==:simple||beta_mode==:effective_surface_charging
+               energies[s] += (a * σ) * eV
+            else
+               energies[s] += (a * σ + b * σ^2) * eV
+            end
+        end
+    end
+    nothing
+end
+
+"""
+$(SIGNATURES) 
+
+Add electrochemical correction terms to the relative Gibbs free energies of formation of (polarized) adsorbed species using double-bond dictionary.
+"""
+function doublebond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
+    @local_unitfactors eV
+    # simple_electrochem
+    simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH, β)
+    doublebond_dict = py"doublebond_dict"
+    (; species_list, beta_mode) = catmap_params
+    # doublebond_electrochemical
+    for (s, sp) in species_list
+       if isa(sp, AdsorbateSpecies)
+          (; species_name) = sp
+          if haskey(doublebond_dict, species_name)
+              energies[s] += doublebond_dict[species_name] * eV
+          end
+       end
+    end
+    # surface_charge_density
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
             (; a, b) = sp.sigma_params

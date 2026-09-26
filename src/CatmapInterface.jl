@@ -19,10 +19,17 @@ using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDEF, TYPEDFIELDS
 using JSON: JSON
 using LessUnitful: LessUnitful, @local_phconstants, @local_unitfactors, @ufac_str
 using LinearAlgebra: LinearAlgebra, I, Symmetric, convert, eigvals
-using PyCall: PyCall, @py_str, @pyinclude, keys
+using PyCall: PyCall, @py_str, @pyinclude, keys, pybuiltin, pyimport
 using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions, @RuntimeGeneratedFunction, drop_expr
 
 function __init__()
+    np = pyimport("numpy")
+    if !hasproperty(np, :product)
+        setproperty!(np, :product, np.prod)
+    end
+    if !hasproperty(np, :cumproduct)
+        setproperty!(np, :cumproduct, np.cumprod)
+    end
     @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))
 end
 
@@ -32,11 +39,11 @@ export conserve_pressures!
 include("ideal-gas-model.jl")
 include("harmonic-model.jl")
 include("species.jl")
-export AbstractSpecies, GasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies
+export AbstractSpecies, GasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies, LocalGasSpecies
 include("interface.jl")
 export CatmapParams, parse_catmap_input
 include("corrections.jl")
 include("reaction_network.jl")
-export create_reaction_network, generate_function, liquidize, paramsidx
+export create_reaction_network, generate_function, liquidize, paramsidx, default_params, init_params!
 
 end

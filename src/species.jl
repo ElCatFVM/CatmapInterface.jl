@@ -229,8 +229,58 @@ $(TYPEDFIELDS)
     interaction_response_params::InteractionResponseParams = InteractionResponseParams()
 end
 
+"""
+$(TYPEDEF)
+
+$(TYPEDFIELDS)
+"""
+struct LocalGasSpecies <: AbstractSpecies
+    """
+    Name of the species
+    """
+    species_name::String
+    """
+    Formation energy of the species in joule per mole
+    """
+    formation_energy::Float64
+    """
+    Partial pressure or local concentration parameter of the species in pascal
+    """
+    pressure::Float64
+    """
+    Site the species adsorbs to / is located at (e.g. "b")
+    """
+    site::String
+    """
+    Normal modes of vibration of the species in m⁻¹ (wavenumbers)
+    """
+    frequencies::Vector{Float64}
+    """
+    Name of the parent gas species (e.g. "CO_g")
+    """
+    parent_gas::String
+    """
+    Henry constant used to convert between gas and liquid phase
+    """
+    henry_const::Union{Float64, Missing}
+    function LocalGasSpecies(; species_name, formation_energy, pressure=1.0, site="b", frequencies=Float64[], parent_gas="$(replace(species_name, "local" => ""))_g", henry_const=missing)
+        if pressure < 0.0
+            throw(DomainError("pressure must be nonnegative"))
+        end
+        if any(frequencies .<= 0.0)
+            throw(DomainError("all frequencies must be positive"))
+        end
+        if !ismissing(henry_const) && henry_const <= 0.0
+            throw(DomainError("Henry constant must be positive"))
+        end
+        new(species_name, formation_energy, pressure, site, frequencies, parent_gas, henry_const)
+    end
+end
+
 fictiousspecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, FictiousSpecies), species_list)
 gasspecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, GasSpecies), species_list)
 adsorbatespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, AdsorbateSpecies), species_list)
 tstatespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, TStateSpecies), species_list)
 sitespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, SiteSpecies), species_list)
+localgasspecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, LocalGasSpecies), species_list)
+

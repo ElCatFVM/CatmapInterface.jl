@@ -10,7 +10,7 @@ Whereas [CatINT](https://catint.readthedocs.io) uses an iterative approach for c
 ## Installation
 
 ### Version >=0.4
-Starting with version 0.4, the package can be installed with the Julia package manager from the Julia General Registry
+Starting with version 0.4, the package can be installed using the Julia package manager from the Julia General Registry
 
 ### Older versions
 Package versions up to v0.3.1 are registered in the julia package registry [https://github.com/j-fu/PackageNursery](https://github.com/j-fu/PackageNursery)

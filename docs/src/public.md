@@ -23,6 +23,9 @@ paramsidx
 unknown_indexes
 parameter_indexes
 parameter_dict
+ReactionTerm
+ReactionTermParameterCache
+parametercache
 ```
 
 ## Package

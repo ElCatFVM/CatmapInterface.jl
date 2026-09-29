@@ -31,7 +31,7 @@ begin
     using LiquidElectrolytes: ElectrolyteData, PNPSystem, ivsweep, bulkbcondition, voltages_solutions
 	using CatmapInterface: parse_catmap_input, create_reaction_network, liquidize
 	using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict
-	using CatmapInterface: CatmapInterface
+	using CatmapInterface: ReactionTerm, parametercache
 	using Catalyst: Catalyst, @variables, @species, @parameters, @reaction_network
     using Catalyst: ode_model, complete, ODEProblem
 	using VoronoiFVM: VoronoiFVM, boundary_robin!
@@ -96,17 +96,15 @@ begin
 	# species not involved in reactions
 	const ikplus 	= 1
 	# species involved in buffer reactions but not in surface reactions
-	const ibufferstart = 2
 	const ihplus 	= 2
 	const ihco3 	= 3
     const ico3 		= 4
 	# species involved in buffer reactions and surface reactions
-    const isurfacestart = 5
 	const ico2 		= 5
     const iohminus 	= 6
-	const ibufferend = 6
 	# species involved in surface reactions but not in buffer reactions
 	const ico  		= 7
+	#overall number of bulk species
 	const nc 		= 7
 	## reaction rate constants for bulk reactions
 	### CO2 + OH- <=> HCO3-
@@ -135,11 +133,13 @@ begin
 	const S 		= 9.61e-5 / N_A * (1.0e10)^2 * mol/m^2
 	const C_gap 	= 20 * μF/cm^2
     const ϕ_pzc 	= 0.16 * V
-	const ico_t 	= 8
-	const icooh_t 	= 9
-	const ico2_t 	= 10
-	const isurfaceend = 10
+	# surface species indices (must continue after nc)
+	const ico_t 	= nc+1
+	const icooh_t 	= nc+2
+	const ico2_t 	= nc+3
+	# overall number of surface species
 	const na 		= 3 # CO_t, CO2_t, COOH_t
+
 	const M0 		= 18.0153 * ufac"g/mol"
 	const v0        = N_A * (8.2 * Å)^3 # 1 / (55.4 * ufac"M") #
 	
@@ -279,9 +279,11 @@ begin
 	odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws=false) |> complete
  end
 
+# ╔═╡ 398a9cb8-2022-4909-99c2-c3b3e1f189db
+Catalyst.parameters(odesys_buffer)
+
 # ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
-const react_buffer=CatmapInterface.XReaction(odesys_buffer, species_dict;
-											 nparams = nc)
+const react_buffer=ReactionTerm(odesys_buffer, species_dict);
 
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
 	function reaction(
@@ -293,7 +295,7 @@ const react_buffer=CatmapInterface.XReaction(odesys_buffer, species_dict;
 		(; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
 
 		# compute activity coefficients according to the approach in Ringe et al.
-		p = CatmapInterface.params(react_buffer, eltype(u))
+		p = parametercache(react_buffer, eltype(u))
 		γ=1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
 	    p[:γH⁺]=γ
             p[:γHCO₃⁻]=γ
@@ -347,12 +349,15 @@ const symbolic_formation_energies=true
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
 	rn 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
-	odesys0 				= ode_model(rn; combinatoric_ratelaws=false)
-	odesys_catmap 				= liquidize(odesys0, catmap_params)|> complete
+	odesys0 			= ode_model(rn; combinatoric_ratelaws=false)
+	odesys_catmap 		= liquidize(odesys0, catmap_params)|> complete
  end
 
+# ╔═╡ 30939809-60ab-4d35-b0b9-b83d41021395
+Catalyst.parameters(odesys_catmap)
+
 # ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
-react_catmap=CatmapInterface.XReaction(odesys_catmap, species_dict_catmap)
+react_catmap=ReactionTerm(odesys_catmap, species_dict_catmap);
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -386,8 +391,8 @@ function we_breactions(f,
 	γ_co	= 1.0 / (1 - v[ikplus] * u[ikplus] / (mol/dm^3))
 	σ			= C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
 	local_pH	= -log10(u[ihplus] / (mol/dm^3))
-	ps=CatmapInterface.params(react_catmap,eltype(u))
-	@time "ps" ps[:σ] = σ
+	ps=parametercache(react_catmap,eltype(u))
+	ps[:σ] = σ
 	ps[:γCO2_aq] = γ_co2
 	ps[:aH2O_g] = aH₂O
 	ps[:ϕ] = u[iϕ]
@@ -399,6 +404,7 @@ function we_breactions(f,
 		ps[:ECOOHΔH2OΔele_t] = 0.95*e
 	end
 	react_catmap(f,u,ps)
+	
 	# conversion from turnover frequency (appropriate for change in coverage) to 
 	# production rate (per unit area) (approprite for change in concentration)
 	# by S = number of free catalyst sites in mole per unit area
@@ -446,8 +452,8 @@ md"""
 
 # ╔═╡ e7e0eb0d-fe3e-4f1d-876f-cc13a9aaf84c
 grid = let
-	X = geomspace(0, L, hmin*200, hmax*20)
-#	X = geomspace(0, L, hmin, hmax)
+#	X = geomspace(0, L, hmin*200, hmax*20)
+	X = geomspace(0, L, hmin, hmax)
 	simplexgrid(X)
 end
 
@@ -780,12 +786,14 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╟─de2c826d-6c05-47cf-b5f5-44a00ea9889c
 # ╟─d8f00649-e2ed-4bdd-853f-05268f0d5353
 # ╠═47b36c81-b57e-4dd0-a22f-999e4fd3ac9f
+# ╠═398a9cb8-2022-4909-99c2-c3b3e1f189db
 # ╠═214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
 # ╠═8a1047fa-e483-40d9-8904-7576f30acfb4
 # ╟─8912f990-6b02-467a-bd11-92f94818b1c7
 # ╟─a8157cc1-1761-4b11-a37c-9e12a9ca695e
 # ╠═489ead3b-04b8-44bb-9d73-7b1d13cf5346
 # ╠═6b5cf93c-0df3-4a18-8786-502361736838
+# ╠═30939809-60ab-4d35-b0b9-b83d41021395
 # ╠═28ba113c-c352-4841-b634-2e1205f231cb
 # ╟─d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 # ╟─06d45088-ab8b-4e5d-931d-b58701bf8464

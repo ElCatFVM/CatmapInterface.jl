@@ -42,4 +42,5 @@ module CatmapInterface
     export create_reaction_network, generate_function, liquidize, paramsidx
     export unknown_indexes, parameter_indexes, parameter_dict
 
+    export ReactionTerm, parametercache, ReactionTermParameterCache
 end

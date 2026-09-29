@@ -13,7 +13,10 @@ function mkdocs()
 
     cleanexamples()
     notebookdir = joinpath(@__DIR__, "..", "notebooks")
-    notebooks = ["CO2 reduction" => "CO2R.jl"]
+    notebooks = [
+        "CO2 reduction" => "CO2R.jl",
+        "Example with ReactionTerm" => "XCO2R.jl"]
+    
     notebook_examples = @docplutonotebooks(notebookdir, notebooks, iframe = false, append_build_context = false)
 
     DocMeta.setdocmeta!(CatmapInterface, :DocTestSetup, :(using CatmapInterface, Catalyst); recursive = true)

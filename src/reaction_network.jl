@@ -484,45 +484,100 @@ end
 
 export unknown_indexes, parameter_indexes, parameter_dict
 
+"""
+    struct ReactionTerm
 
-struct XParams{P}
+Callable struct describing a parametrized reaction term built by Catalyst
+for use in reaction functions in VoronoiFVM.
+
+$(TYPEDFIELDS)
+"""
+struct ReactionTerm{F, C}
+    "Original ODE function"
+    func::F
+
+    """
+    Index vector allowing to translate between VoronoiFVM species numbers
+    and species indices in ODE function `func`. For a given `u` from VoronoiFVM,
+    `view(u, pidx)` can be passed to `func`.
+    """
+    uidx::Vector{Int}
+
+    """
+    Dictionary allowing to index a parameter in a parameter buffer.
+    """
+    pdict::Dict{Symbol, Int}
+
+    """
+    Optional default values for parameters. Can be used to set fixed parameter
+    values which are not dependent on unknowns.
+    """
+    pdefaults::Union{Dict{Symbol, Float64}, Nothing}
+
+    """
+    PreallocationTools.DiffCache providing workspace for parameters.
+    """
+    cache::C
+end
+
+"""
+        ReactionTerm(odesys, species_dict; pdefaults)
+
+Create a reaction term from the right hand side of `odesys`.
+- `species_dict` is a dictionary which for each unknown from odesys contains the
+  species index in a VoronoiFVM.System
+- `pdefaults` is a dictionary which holds default parameter values.
+"""
+function ReactionTerm(
+        odesys, species_dict;
+        pdefaults = nothing
+    )
+    nparams = length(parameters(odesys))
+    u0 = Dict(Catalyst.unknowns(odesys) .=> 0)
+    p = Dict(Catalyst.parameters(odesys) .=> 0)
+    prob = ODEProblem(odesys, merge(u0, p), (0, 1))
+    uidx = unknown_indexes(
+        odesys, species_dict;
+        symb2name = s -> replace(string(s), "(t)" => "")
+    )
+    pdict = parameter_dict(odesys)
+    cache = DiffCache(zeros(nparams))
+    return ReactionTerm(prob.f, uidx, pdict, pdefaults, cache)
+end
+
+
+"""
+    struct ReactionTermParameterCache
+
+Struct which holds a parameter workspace, indexed by symbolic parameter names.
+"""
+struct ReactionTermParameterCache{P}
     values::P
     dict::Dict{Symbol, Int}
 end
 
-function Base.setindex!(p::XParams, v, idx::Symbol)
+function Base.setindex!(p::ReactionTermParameterCache, v, idx::Symbol)
     (; values, dict) = p
     values[dict[idx]] = v
     return v
 end
 
-function Base.getindex(p::XParams, idx::Symbol)
+function Base.getindex(p::ReactionTermParameterCache, idx::Symbol)
     (; values, dict) = p
     return values[dict[idx]]
 end
 
 
-struct XReaction{F, C}
-    func::F
-    uidx::Vector{Int}
-    pidx::Vector{Int}
-    pdict::Dict{Symbol, Int}
-    pdefaults::Union{Dict{Symbol, Float64}, Nothing}
-    cache::C
-end
+"""
+        parametercache(reactionterm, T)
 
-
-function (r::XReaction)(f, u, p::XParams)
-    (; func, uidx) = r
-    @views func(f[uidx], u[uidx], p.values, nothing)
-    @views f[uidx] .*= -1
-    return nothing
-end
-
-
-function params(r::XReaction, t::Type{T}) where {T}
+Return a work vector which an hold parameter values of type T.
+It is indexed by the symbolic parameter names. In the background,
+it calls the `get_tmp` function from PreallocationTools.
+"""
+function parametercache(r::ReactionTerm, t::Type{T}) where {T}
     p = get_tmp(r.cache, t)
-    xp = XParams(p, r.pdict)
+    xp = ReactionTermParameterCache(p, r.pdict)
     if !isnothing(r.pdefaults)
         for (key, v) in r.pdefaults
             xp[key] = v
@@ -531,23 +586,17 @@ function params(r::XReaction, t::Type{T}) where {T}
     return xp
 end
 
-#paramdict(r::XReaction) = r.pdict
-#parameter!(r
+"""
+    (reaction_term)(f,u,p)
 
-function XReaction(
-        odesys, species_dict;
-        pdefaults = nothing,
-        nparams = length(parameters(odesys))
-    )
-    u0 = Dict(Catalyst.unknowns(odesys) .=> 0)
-    p = Dict(Catalyst.parameters(odesys) .=> 0)
-    prob = ODEProblem(odesys, merge(u0, p), (0, 1))
-    uidx = unknown_indexes(
-        odesys, species_dict;
-        symb2name = s -> replace(string(s), "(t)" => "")
-    )
-    pidx = uidx
-    pdict = parameter_dict(odesys)
-    cache = DiffCache(zeros(nparams))
-    return XReaction(prob.f, uidx, pidx, pdict, pdefaults, cache)
+Call the reaction term. `f` and `u` are the right hand side and unknowns
+provided by VoronoiFVM bulk or surface reaction functions.
+`p` is the parameter workspace obtained from the `reaction_term` via
+`parametercache`.
+"""
+function (r::ReactionTerm)(f, u, p::ReactionTermParameterCache)
+    (; func, uidx) = r
+    @views func(f[uidx], u[uidx], p.values, nothing)
+    @views f[uidx] .*= -1
+    return nothing
 end

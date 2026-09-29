@@ -277,27 +277,26 @@ begin
 		($kwf * $aH₂O, $kwr * γH⁺ * γOH⁻), ∅ <--> H⁺ + OH⁻
 	end
 	odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws=false) |> complete
-    u0_buffer= Dict(Catalyst.unknowns(odesys_buffer).=>0)
-	p_buffer= Dict(Catalyst.parameters(odesys_buffer).=>0)
-	const prob_buffer = ODEProblem(odesys_buffer, merge(u0_buffer,p_buffer),(0, 1.0))	
-end
+ end
 
-# ╔═╡ ad51d6a3-bc92-4fc2-9631-96c4e16ded61
-stript(s)=replace(string(s),"(t)"=>"")
+# ╔═╡ bbcc48e0-6b6c-4216-9b30-e25cd0df8d7d
+Catalyst.parameters(odesys_buffer)
 
-# ╔═╡ 302c3f76-4a80-47e4-bf43-c178286d18f2
-stripγ(s)=replace(string(s),"γ"=>"")
+# ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
+const react_buffer=CatmapInterface.XReaction(odesys_buffer, species_dict;
+											 nparams = nc)
 
 # ╔═╡ ee6062f3-5ccc-4392-8431-d975aa756312
 const uidx_buffer=unknown_indexes(odesys_buffer,species_dict;
 							  symb2name=s->replace(string(s), "(t)"=>""))
 
+# ╔═╡ 5224fb8e-7b0c-464f-ab90-8dc56fecb56a
+unknown_indexes(odesys_buffer,species_dict;
+							  symb2name=s->Catalyst.tosymbol(s; escape=false)|> string)
+
 # ╔═╡ 4e5ed7bb-0700-4240-9246-2bae7edb3d63
 const pidx_buffer=parameter_indexes(odesys_buffer,species_dict,
 						symb2name=s->replace(string(s), "γ"=>""))
-
-# ╔═╡ b422b788-1914-40bc-af47-6afe2370b97b
-CatmapInterface.varmap_to_vars
 
 # ╔═╡ 1e877f17-0219-45f1-b640-3a25ae085dbd
 latexify(odesys_buffer)
@@ -315,7 +314,7 @@ begin
 		(; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
 
 		# compute activity coefficients according to the approach in Ringe et al.
-		γ = get_tmp(γ_cache, u[ico2])
+		γ = CatmapInterface.params(react_buffer, eltype(u))
 		γ .= 1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
 		
 		# compute activity coefficients according to the approach in Dreyer et al.
@@ -328,14 +327,7 @@ begin
 		# 	γ[ic] = exp(tildev * p / (RT)) * (bar_c / c0)^Mrel*(1/bar_c) /v0
 		# end
 		
-		
-		@views prob_buffer.f(
-			f[uidx_buffer], 
-			u[uidx_buffer],
-			γ[pidx_buffer],
-			nothing
-		)
-		@views f[uidx_buffer].*=-1
+		react_buffer(f,u,γ)
 		nothing
 	end
 end;
@@ -373,18 +365,10 @@ begin
 	rn 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
 	odesys0 				= ode_model(rn; combinatoric_ratelaws=false)
 	odesys_catmap 				= liquidize(odesys0, catmap_params)|> complete
-    u0_catmap= Dict(Catalyst.unknowns(odesys_catmap).=>0)
-	p_catmap= Dict(Catalyst.parameters(odesys_catmap).=>0)
-	const prob_catmap = ODEProblem(odesys_catmap,merge(u0_catmap, p_catmap),(0, 1.0)) 
-	latexify(odesys_catmap)
-end
+ end
 
-# ╔═╡ 7af0462f-3b99-46dc-9dbe-25987c890019
-const uidx_catmap=unknown_indexes(odesys_catmap,species_dict_catmap;
-							  symb2name=s->replace(string(s), "(t)"=>""))
-
-# ╔═╡ 3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
-pdict_catmap=parameter_dict(odesys_catmap)
+# ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
+react_catmap=CatmapInterface.XReaction(odesys_catmap, species_dict_catmap)
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -408,9 +392,6 @@ __Question is the pH-dependence only in the reaction rate constants (i.e. activi
 
 # ╔═╡ 91113083-d80e-4528-be41-82d10f6860fc
 begin
-	const nparams=length(Catalyst.parameters(odesys_catmap))
-	const ps_cache = DiffCache(zeros(nparams))
-	
 	function we_breactions(f, 
 			u, 
 			bnode, 
@@ -423,31 +404,24 @@ begin
 		σ 			= C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
 		local_pH 	= -log10(u[ihplus] / (mol/dm^3))
 
-
-	    ps = get_tmp(ps_cache, u[iϕ])
-		ps[pdict_catmap[:σ]] = σ
-		ps[pdict_catmap[:γCO2_aq]] = γ_co2
-		ps[pdict_catmap[:aH2O_g]] = aH₂O
-		ps[pdict_catmap[:ϕ]] = u[iϕ]
-		ps[pdict_catmap[:ϕ_we]] = ϕ_we
-		ps[pdict_catmap[:local_pH]] = local_pH
-		ps[pdict_catmap[:γCO_aq]] = γ_co
-		ps[pdict_catmap[:βCOOHΔH2OΔele_t]] = 0.59
+		pdict=CatmapInterface.paramdict(react_catmap)
+		ps=CatmapInterface.params(react_catmap,eltype(u))
+		ps[pdict[:σ]] = σ
+		ps[pdict[:γCO2_aq]] = γ_co2
+		ps[pdict[:aH2O_g]] = aH₂O
+		ps[pdict[:ϕ]] = u[iϕ]
+		ps[pdict[:ϕ_we]] = ϕ_we
+		ps[pdict[:local_pH]] = local_pH
+		ps[pdict[:γCO_aq]] = γ_co
+		ps[pdict[:βCOOHΔH2OΔele_t]] = 0.59
 		if symbolic_formation_energies
-			ps[pdict_catmap[:ECOOHΔH2OΔele_t]] = 0.95*e
+			ps[pdict[:ECOOHΔH2OΔele_t]] = 0.95*e
 		end
 
-        @views prob_catmap.f(
-			f[uidx_catmap], 
-			u[uidx_catmap],
-	    ps,
-            nothing
-		)
-
+		react_catmap(f,u,ps)
 		# conversion from turnover frequency (appropriate for change in coverage) to 
 		# production rate (per unit area) (approprite for change in concentration)
 		# by S = number of free catalyst sites in mole per unit area
-		@views f[uidx_catmap].*=-1
 		f[ico2] *= S
 		f[iohminus] *= S
 		f[ico] *= S
@@ -824,19 +798,18 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╟─de2c826d-6c05-47cf-b5f5-44a00ea9889c
 # ╟─d8f00649-e2ed-4bdd-853f-05268f0d5353
 # ╠═47b36c81-b57e-4dd0-a22f-999e4fd3ac9f
-# ╠═ad51d6a3-bc92-4fc2-9631-96c4e16ded61
-# ╠═302c3f76-4a80-47e4-bf43-c178286d18f2
+# ╠═bbcc48e0-6b6c-4216-9b30-e25cd0df8d7d
+# ╠═214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
 # ╠═ee6062f3-5ccc-4392-8431-d975aa756312
+# ╠═5224fb8e-7b0c-464f-ab90-8dc56fecb56a
 # ╠═4e5ed7bb-0700-4240-9246-2bae7edb3d63
-# ╠═b422b788-1914-40bc-af47-6afe2370b97b
 # ╠═1e877f17-0219-45f1-b640-3a25ae085dbd
 # ╠═8a1047fa-e483-40d9-8904-7576f30acfb4
 # ╟─8912f990-6b02-467a-bd11-92f94818b1c7
 # ╟─a8157cc1-1761-4b11-a37c-9e12a9ca695e
 # ╠═489ead3b-04b8-44bb-9d73-7b1d13cf5346
 # ╠═6b5cf93c-0df3-4a18-8786-502361736838
-# ╠═7af0462f-3b99-46dc-9dbe-25987c890019
-# ╠═3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
+# ╠═28ba113c-c352-4841-b634-2e1205f231cb
 # ╟─d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 # ╟─06d45088-ab8b-4e5d-931d-b58701bf8464
 # ╠═91113083-d80e-4528-be41-82d10f6860fc

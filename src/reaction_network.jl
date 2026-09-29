@@ -408,7 +408,7 @@ function generate_function(sys::ODESystem, udict, pdict)
     fp_cache = DiffCache(zeros(length(dvs)), 13)
     up_cache = DiffCache(zeros(length(dvs)), 13)
     pp_cache = DiffCache(zeros(length(ps)), 13)
-    
+
     uindexmap = getuindexmap(sys, udict)
     pindexmap = getpindexmap(sys, pdict)
 
@@ -430,17 +430,16 @@ end
 function getuindexmap(odesys::ODESystem, udict)
     us = unknowns(odesys)
     us = tosymbol.(us; escape = false)
-    varmap = Dict([getproperty(odesys, u; namespace=false) => i  for (u, i) in udict if u in us])
+    varmap = Dict([getproperty(odesys, u; namespace = false) => i  for (u, i) in udict if u in us])
     return varmap_to_vars(varmap, unknowns(odesys); tofloat = false)
 end
 
 function getpindexmap(odesys::ODESystem, pdict)
     ps = parameters(odesys)
     ps = tosymbol.(ps; escape = false)
-    varmap = Dict([getproperty(odesys, p; namespace=false) => i for (p, i) in pdict if p in ps])
+    varmap = Dict([getproperty(odesys, p; namespace = false) => i for (p, i) in pdict if p in ps])
     return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
 end
-
 
 
 """
@@ -453,9 +452,9 @@ indices given in `species_dict`.
 a symbolic object and converts it into a string serving as
 the key in `species_dict`. Default is `string`.
 """
-function unknown_indexes(odesys,species_dict::Dict{String,Int}; symb2name=string)
-	names=symb2name.(Catalyst.unknowns(odesys))
-	return [species_dict[s] for s in names]
+function unknown_indexes(odesys, species_dict::Dict{String, Int}; symb2name = string)
+    names = symb2name.(Catalyst.unknowns(odesys))
+    return [species_dict[s] for s in names]
 end
 
 
@@ -467,9 +466,9 @@ For the symbolic names of parameters in odesys, return the indices given in `par
 `symb2name` is a function which takes a symbolic object and converts it
 into a string serving as the key in `params_dict`. Default is `string`.
 """
-function parameter_indexes(odesys,species_dict; symb2name=string)
-	names=symb2name.(Catalyst.parameters(odesys))
-	return [species_dict[s] for s in names]
+function parameter_indexes(odesys, species_dict; symb2name = string)
+    names = symb2name.(Catalyst.parameters(odesys))
+    return [species_dict[s] for s in names]
 end
 
 """
@@ -479,8 +478,42 @@ Return a `Dict{Symbol, Int}` which allows to
 retrieve the index of a parameter in a vector of values.
 """
 function parameter_dict(odesys)
-	psymbols=Catalyst.parameters(odesys).|> Symbol
-	Dict( [psymbols[i] =>i for i in 1:length(psymbols)]...)
+    psymbols = Catalyst.parameters(odesys) .|> Symbol
+    return Dict([psymbols[i] => i for i in 1:length(psymbols)]...)
 end
 
 export unknown_indexes, parameter_indexes, parameter_dict
+
+
+struct XReaction{F, C}
+    func::F
+    uidx::Vector{Int}
+    pidx::Vector{Int}
+    pdict::Dict{Symbol, Int}
+    cache::C
+end
+
+function (r::XReaction)(f, u, p)
+    (; func, uidx) = r
+    @views func(f[uidx], u[uidx], p, 0.0)
+    @views f[uidx] .*= -1
+    return nothing
+end
+
+
+params(r::XReaction, t::Type{T}) where {T} = get_tmp(r.cache, t)
+paramdict(r::XReaction) = r.pdict
+
+function XReaction(odesys, species_dict; nparams = length(parameters(odesys)))
+    u0 = Dict(Catalyst.unknowns(odesys) .=> 0)
+    p = Dict(Catalyst.parameters(odesys) .=> 0)
+    prob = ODEProblem(odesys, merge(u0, p), (0, 1))
+    uidx = unknown_indexes(
+        odesys, species_dict;
+        symb2name = s -> replace(string(s), "(t)" => "")
+    )
+    pidx = uidx
+    pdict = parameter_dict(odesys)
+    cache = DiffCache(zeros(nparams))
+    return XReaction(prob.f, uidx, pidx, pdict, cache)
+end

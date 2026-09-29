@@ -20,7 +20,6 @@ module CatmapInterface
     using ModelingToolkitBase: varmap_to_vars
     using PreallocationTools: DiffCache, get_tmp
     using PyCall: PyCall, @py_str, @pyinclude, keys
-    using RuntimeGeneratedFunctions: RuntimeGeneratedFunctions
     using SciMLBase: ODEProblem
     using Symbolics: Symbolics, SymbolicUtils
     using SymbolicIndexingInterface: getname
@@ -29,7 +28,6 @@ module CatmapInterface
         return @pyinclude(joinpath(@__DIR__, "../data/parameter_data.py"))
     end
 
-    RuntimeGeneratedFunctions.init(@__MODULE__)
     include("utils.jl")
     include("ideal-gas-model.jl")
     include("harmonic-model.jl")

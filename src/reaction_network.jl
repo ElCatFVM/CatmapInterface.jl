@@ -507,16 +507,10 @@ struct XReaction{F, C}
     uidx::Vector{Int}
     pidx::Vector{Int}
     pdict::Dict{Symbol, Int}
-    pdefaults::Dict{Symbol, Float64}
+    pdefaults::Union{Dict{Symbol, Float64}, Nothing}
     cache::C
 end
 
-# function (r::XReaction)(f, u, p)
-#     (; func, uidx) = r
-#     @views func(f[uidx], u[uidx], p, nothing)
-#     @views f[uidx] .*= -1
-#     return nothing
-# end
 
 function (r::XReaction)(f, u, p::XParams)
     (; func, uidx) = r
@@ -529,8 +523,10 @@ end
 function params(r::XReaction, t::Type{T}) where {T}
     p = get_tmp(r.cache, t)
     xp = XParams(p, r.pdict)
-    for (key, v) in r.pdefaults
-        xp[key] = v
+    if !isnothing(r.pdefaults)
+        for (key, v) in r.pdefaults
+            xp[key] = v
+        end
     end
     return xp
 end
@@ -540,7 +536,7 @@ end
 
 function XReaction(
         odesys, species_dict;
-        pdefaults::Dict{Symbol, Float64} = Dict{Symbol, Float64}(),
+        pdefaults = nothing,
         nparams = length(parameters(odesys))
     )
     u0 = Dict(Catalyst.unknowns(odesys) .=> 0)

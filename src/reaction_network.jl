@@ -485,26 +485,64 @@ end
 export unknown_indexes, parameter_indexes, parameter_dict
 
 
+struct XParams{P}
+    values::P
+    dict::Dict{Symbol, Int}
+end
+
+function Base.setindex!(p::XParams, v, idx::Symbol)
+    (; values, dict) = p
+    values[dict[idx]] = v
+    return v
+end
+
+function Base.getindex(p::XParams, idx::Symbol)
+    (; values, dict) = p
+    return values[dict[idx]]
+end
+
+
 struct XReaction{F, C}
     func::F
     uidx::Vector{Int}
     pidx::Vector{Int}
     pdict::Dict{Symbol, Int}
+    pdefaults::Dict{Symbol, Float64}
     cache::C
 end
 
-function (r::XReaction)(f, u, p)
+# function (r::XReaction)(f, u, p)
+#     (; func, uidx) = r
+#     @views func(f[uidx], u[uidx], p, nothing)
+#     @views f[uidx] .*= -1
+#     return nothing
+# end
+
+function (r::XReaction)(f, u, p::XParams)
     (; func, uidx) = r
-    @views func(f[uidx], u[uidx], p, 0.0)
+    @views func(f[uidx], u[uidx], p.values, nothing)
     @views f[uidx] .*= -1
     return nothing
 end
 
 
-params(r::XReaction, t::Type{T}) where {T} = get_tmp(r.cache, t)
-paramdict(r::XReaction) = r.pdict
+function params(r::XReaction, t::Type{T}) where {T}
+    p = get_tmp(r.cache, t)
+    xp = XParams(p, r.pdict)
+    for (key, v) in r.pdefaults
+        xp[key] = v
+    end
+    return xp
+end
 
-function XReaction(odesys, species_dict; nparams = length(parameters(odesys)))
+#paramdict(r::XReaction) = r.pdict
+#parameter!(r
+
+function XReaction(
+        odesys, species_dict;
+        pdefaults::Dict{Symbol, Float64} = Dict{Symbol, Float64}(),
+        nparams = length(parameters(odesys))
+    )
     u0 = Dict(Catalyst.unknowns(odesys) .=> 0)
     p = Dict(Catalyst.parameters(odesys) .=> 0)
     prob = ODEProblem(odesys, merge(u0, p), (0, 1))
@@ -515,5 +553,5 @@ function XReaction(odesys, species_dict; nparams = length(parameters(odesys)))
     pidx = uidx
     pdict = parameter_dict(odesys)
     cache = DiffCache(zeros(nparams))
-    return XReaction(prob.f, uidx, pidx, pdict, cache)
+    return XReaction(prob.f, uidx, pidx, pdict, pdefaults, cache)
 end

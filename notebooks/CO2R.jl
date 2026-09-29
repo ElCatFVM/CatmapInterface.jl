@@ -279,9 +279,6 @@ begin
 	odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws=false) |> complete
  end
 
-# ╔═╡ bbcc48e0-6b6c-4216-9b30-e25cd0df8d7d
-Catalyst.parameters(odesys_buffer)
-
 # ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
 const react_buffer=CatmapInterface.XReaction(odesys_buffer, species_dict;
 											 nparams = nc)
@@ -298,9 +295,6 @@ unknown_indexes(odesys_buffer,species_dict;
 const pidx_buffer=parameter_indexes(odesys_buffer,species_dict,
 						symb2name=s->replace(string(s), "γ"=>""))
 
-# ╔═╡ 1e877f17-0219-45f1-b640-3a25ae085dbd
-latexify(odesys_buffer)
-
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
 begin
 	const γ_cache = DiffCache(zeros(nc), 12)
@@ -314,8 +308,14 @@ begin
 		(; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
 
 		# compute activity coefficients according to the approach in Ringe et al.
-		γ = CatmapInterface.params(react_buffer, eltype(u))
-		γ .= 1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
+		p = CatmapInterface.params(react_buffer, eltype(u))
+		γ=1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
+	    p[:γH⁺]=γ
+            p[:γHCO₃⁻]=γ
+            p[:γCO₃²⁻]=γ
+            p[:γCO₂]=γ
+            p[:γOH⁻]=γ
+
 		
 		# compute activity coefficients according to the approach in Dreyer et al.
 		# p = u[ip] * pscale-p_bulk
@@ -327,7 +327,7 @@ begin
 		# 	γ[ic] = exp(tildev * p / (RT)) * (bar_c / c0)^Mrel*(1/bar_c) /v0
 		# end
 		
-		react_buffer(f,u,γ)
+		react_buffer(f,u,p)
 		nothing
 	end
 end;
@@ -404,18 +404,17 @@ begin
 		σ 			= C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
 		local_pH 	= -log10(u[ihplus] / (mol/dm^3))
 
-		pdict=CatmapInterface.paramdict(react_catmap)
 		ps=CatmapInterface.params(react_catmap,eltype(u))
-		ps[pdict[:σ]] = σ
-		ps[pdict[:γCO2_aq]] = γ_co2
-		ps[pdict[:aH2O_g]] = aH₂O
-		ps[pdict[:ϕ]] = u[iϕ]
-		ps[pdict[:ϕ_we]] = ϕ_we
-		ps[pdict[:local_pH]] = local_pH
-		ps[pdict[:γCO_aq]] = γ_co
-		ps[pdict[:βCOOHΔH2OΔele_t]] = 0.59
+		ps[:σ] = σ
+		ps[:γCO2_aq] = γ_co2
+		ps[:aH2O_g] = aH₂O
+		ps[:ϕ] = u[iϕ]
+		ps[:ϕ_we] = ϕ_we
+		ps[:local_pH] = local_pH
+		ps[:γCO_aq] = γ_co
+		ps[:βCOOHΔH2OΔele_t] = 0.59
 		if symbolic_formation_energies
-			ps[pdict[:ECOOHΔH2OΔele_t]] = 0.95*e
+			ps[:ECOOHΔH2OΔele_t] = 0.95*e
 		end
 
 		react_catmap(f,u,ps)
@@ -466,6 +465,7 @@ md"""
 
 # ╔═╡ e7e0eb0d-fe3e-4f1d-876f-cc13a9aaf84c
 grid = let
+#	X = geomspace(0, L, hmin*200, hmax*20)
 	X = geomspace(0, L, hmin, hmax)
 	simplexgrid(X)
 end
@@ -525,13 +525,13 @@ function simulate_CO2R(grid, celldata; voltages = (-1.5:0.1:0.0) * V, kwargs...)
 	cell, ivresult
 end;
 
-# ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
-cell, result = simulate_CO2R(grid, celldata; voltages);
-
 # ╔═╡ 114d2324-5289-4e44-8d77-736a9bdec365
 md"""
 Show only pH: $(@bind useonly_pH PlutoUI.CheckBox(default=false))
 """
+
+# ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
+cell, result = simulate_CO2R(grid, celldata; voltages);
 
 # ╔═╡ 659091d3-60b2-4158-80e2-cd28a492e870
 (~, default_index) = findmin(abs, result.voltages .+ 0.9 * ufac"V");
@@ -769,7 +769,11 @@ begin
 		end
 	end
 	end
+	ok=true
 end;
+
+# ╔═╡ 2018fa66-74e0-48f3-a423-6f945adffe13
+ok
 
 # ╔═╡ d0985ca6-fef5-4b67-9ad6-f51d84b595b4
 TableOfContents(title="📚 Table of Contents", indent=true, depth=4, aside=true)
@@ -798,12 +802,10 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╟─de2c826d-6c05-47cf-b5f5-44a00ea9889c
 # ╟─d8f00649-e2ed-4bdd-853f-05268f0d5353
 # ╠═47b36c81-b57e-4dd0-a22f-999e4fd3ac9f
-# ╠═bbcc48e0-6b6c-4216-9b30-e25cd0df8d7d
 # ╠═214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
 # ╠═ee6062f3-5ccc-4392-8431-d975aa756312
 # ╠═5224fb8e-7b0c-464f-ab90-8dc56fecb56a
 # ╠═4e5ed7bb-0700-4240-9246-2bae7edb3d63
-# ╠═1e877f17-0219-45f1-b640-3a25ae085dbd
 # ╠═8a1047fa-e483-40d9-8904-7576f30acfb4
 # ╟─8912f990-6b02-467a-bd11-92f94818b1c7
 # ╟─a8157cc1-1761-4b11-a37c-9e12a9ca695e
@@ -823,8 +825,9 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╠═dc203e95-7763-4b13-8408-038b933c5c9c
 # ╟─842b074b-f808-48d8-8dc5-110ddd907f90
 # ╠═84d1270b-8df5-4d5d-a153-da4ffdb1d283
-# ╠═11b12556-5b61-42c2-a911-4ea98a0a1e85
 # ╟─114d2324-5289-4e44-8d77-736a9bdec365
+# ╠═11b12556-5b61-42c2-a911-4ea98a0a1e85
+# ╠═2018fa66-74e0-48f3-a423-6f945adffe13
 # ╟─659091d3-60b2-4158-80e2-cd28a492e870
 # ╟─c4876d26-e841-4e28-8303-131d4635fc23
 # ╟─3bcb8261-5b98-4f4d-a9fe-fb71d5c5b476

@@ -277,23 +277,30 @@ begin
 		($kwf * $aH₂O, $kwr * γH⁺ * γOH⁻), ∅ <--> H⁺ + OH⁻
 	end
 	odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws=false) |> complete
- end
+    u0_buffer= Dict(Catalyst.unknowns(odesys_buffer).=>0)
+	p_buffer= Dict(Catalyst.parameters(odesys_buffer).=>0)
+	const prob_buffer = ODEProblem(odesys_buffer, merge(u0_buffer,p_buffer),(0, 1.0))	
+end
 
-# ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
-const react_buffer=CatmapInterface.XReaction(odesys_buffer, species_dict;
-											 nparams = nc)
+# ╔═╡ ad51d6a3-bc92-4fc2-9631-96c4e16ded61
+stript(s)=replace(string(s),"(t)"=>"")
+
+# ╔═╡ 302c3f76-4a80-47e4-bf43-c178286d18f2
+stripγ(s)=replace(string(s),"γ"=>"")
 
 # ╔═╡ ee6062f3-5ccc-4392-8431-d975aa756312
 const uidx_buffer=unknown_indexes(odesys_buffer,species_dict;
 							  symb2name=s->replace(string(s), "(t)"=>""))
 
-# ╔═╡ 5224fb8e-7b0c-464f-ab90-8dc56fecb56a
-unknown_indexes(odesys_buffer,species_dict;
-							  symb2name=s->Catalyst.tosymbol(s; escape=false)|> string)
-
 # ╔═╡ 4e5ed7bb-0700-4240-9246-2bae7edb3d63
 const pidx_buffer=parameter_indexes(odesys_buffer,species_dict,
 						symb2name=s->replace(string(s), "γ"=>""))
+
+# ╔═╡ b422b788-1914-40bc-af47-6afe2370b97b
+CatmapInterface.varmap_to_vars
+
+# ╔═╡ 1e877f17-0219-45f1-b640-3a25ae085dbd
+latexify(odesys_buffer)
 
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
 begin
@@ -308,14 +315,8 @@ begin
 		(; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
 
 		# compute activity coefficients according to the approach in Ringe et al.
-		p = CatmapInterface.params(react_buffer, eltype(u))
-		γ=1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
-	    p[:γH⁺]=γ
-            p[:γHCO₃⁻]=γ
-            p[:γCO₃²⁻]=γ
-            p[:γCO₂]=γ
-            p[:γOH⁻]=γ
-
+		γ = get_tmp(γ_cache, u[ico2])
+		γ .= 1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
 		
 		# compute activity coefficients according to the approach in Dreyer et al.
 		# p = u[ip] * pscale-p_bulk
@@ -327,7 +328,14 @@ begin
 		# 	γ[ic] = exp(tildev * p / (RT)) * (bar_c / c0)^Mrel*(1/bar_c) /v0
 		# end
 		
-		react_buffer(f,u,p)
+		
+		@views prob_buffer.f(
+			f[uidx_buffer], 
+			u[uidx_buffer],
+			γ[pidx_buffer],
+			nothing
+		)
+		@views f[uidx_buffer].*=-1
 		nothing
 	end
 end;
@@ -365,10 +373,18 @@ begin
 	rn 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
 	odesys0 				= ode_model(rn; combinatoric_ratelaws=false)
 	odesys_catmap 				= liquidize(odesys0, catmap_params)|> complete
- end
+    u0_catmap= Dict(Catalyst.unknowns(odesys_catmap).=>0)
+	p_catmap= Dict(Catalyst.parameters(odesys_catmap).=>0)
+	const prob_catmap = ODEProblem(odesys_catmap,merge(u0_catmap, p_catmap),(0, 1.0)) 
+	latexify(odesys_catmap)
+end
 
-# ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
-react_catmap=CatmapInterface.XReaction(odesys_catmap, species_dict_catmap)
+# ╔═╡ 7af0462f-3b99-46dc-9dbe-25987c890019
+const uidx_catmap=unknown_indexes(odesys_catmap,species_dict_catmap;
+							  symb2name=s->replace(string(s), "(t)"=>""))
+
+# ╔═╡ 3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
+pdict_catmap=parameter_dict(odesys_catmap)
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -392,6 +408,9 @@ __Question is the pH-dependence only in the reaction rate constants (i.e. activi
 
 # ╔═╡ 91113083-d80e-4528-be41-82d10f6860fc
 begin
+	const nparams=length(Catalyst.parameters(odesys_catmap))
+	const ps_cache = DiffCache(zeros(nparams))
+	
 	function we_breactions(f, 
 			u, 
 			bnode, 
@@ -404,23 +423,31 @@ begin
 		σ 			= C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
 		local_pH 	= -log10(u[ihplus] / (mol/dm^3))
 
-		ps=CatmapInterface.params(react_catmap,eltype(u))
-		ps[:σ] = σ
-		ps[:γCO2_aq] = γ_co2
-		ps[:aH2O_g] = aH₂O
-		ps[:ϕ] = u[iϕ]
-		ps[:ϕ_we] = ϕ_we
-		ps[:local_pH] = local_pH
-		ps[:γCO_aq] = γ_co
-		ps[:βCOOHΔH2OΔele_t] = 0.59
+
+	    ps = get_tmp(ps_cache, u[iϕ])
+		ps[pdict_catmap[:σ]] = σ
+		ps[pdict_catmap[:γCO2_aq]] = γ_co2
+		ps[pdict_catmap[:aH2O_g]] = aH₂O
+		ps[pdict_catmap[:ϕ]] = u[iϕ]
+		ps[pdict_catmap[:ϕ_we]] = ϕ_we
+		ps[pdict_catmap[:local_pH]] = local_pH
+		ps[pdict_catmap[:γCO_aq]] = γ_co
+		ps[pdict_catmap[:βCOOHΔH2OΔele_t]] = 0.59
 		if symbolic_formation_energies
-			ps[:ECOOHΔH2OΔele_t] = 0.95*e
+			ps[pdict_catmap[:ECOOHΔH2OΔele_t]] = 0.95*e
 		end
 
-		react_catmap(f,u,ps)
+        @views prob_catmap.f(
+			f[uidx_catmap], 
+			u[uidx_catmap],
+	    ps,
+            nothing
+		)
+
 		# conversion from turnover frequency (appropriate for change in coverage) to 
 		# production rate (per unit area) (approprite for change in concentration)
 		# by S = number of free catalyst sites in mole per unit area
+		@views f[uidx_catmap].*=-1
 		f[ico2] *= S
 		f[iohminus] *= S
 		f[ico] *= S
@@ -465,7 +492,6 @@ md"""
 
 # ╔═╡ e7e0eb0d-fe3e-4f1d-876f-cc13a9aaf84c
 grid = let
-#	X = geomspace(0, L, hmin*200, hmax*20)
 	X = geomspace(0, L, hmin, hmax)
 	simplexgrid(X)
 end
@@ -525,13 +551,13 @@ function simulate_CO2R(grid, celldata; voltages = (-1.5:0.1:0.0) * V, kwargs...)
 	cell, ivresult
 end;
 
+# ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
+cell, result = simulate_CO2R(grid, celldata; voltages);
+
 # ╔═╡ 114d2324-5289-4e44-8d77-736a9bdec365
 md"""
 Show only pH: $(@bind useonly_pH PlutoUI.CheckBox(default=false))
 """
-
-# ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
-cell, result = simulate_CO2R(grid, celldata; voltages);
 
 # ╔═╡ 659091d3-60b2-4158-80e2-cd28a492e870
 (~, default_index) = findmin(abs, result.voltages .+ 0.9 * ufac"V");
@@ -769,11 +795,7 @@ begin
 		end
 	end
 	end
-	ok=true
 end;
-
-# ╔═╡ 2018fa66-74e0-48f3-a423-6f945adffe13
-ok
 
 # ╔═╡ d0985ca6-fef5-4b67-9ad6-f51d84b595b4
 TableOfContents(title="📚 Table of Contents", indent=true, depth=4, aside=true)
@@ -802,16 +824,19 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╟─de2c826d-6c05-47cf-b5f5-44a00ea9889c
 # ╟─d8f00649-e2ed-4bdd-853f-05268f0d5353
 # ╠═47b36c81-b57e-4dd0-a22f-999e4fd3ac9f
-# ╠═214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
+# ╠═ad51d6a3-bc92-4fc2-9631-96c4e16ded61
+# ╠═302c3f76-4a80-47e4-bf43-c178286d18f2
 # ╠═ee6062f3-5ccc-4392-8431-d975aa756312
-# ╠═5224fb8e-7b0c-464f-ab90-8dc56fecb56a
 # ╠═4e5ed7bb-0700-4240-9246-2bae7edb3d63
+# ╠═b422b788-1914-40bc-af47-6afe2370b97b
+# ╠═1e877f17-0219-45f1-b640-3a25ae085dbd
 # ╠═8a1047fa-e483-40d9-8904-7576f30acfb4
 # ╟─8912f990-6b02-467a-bd11-92f94818b1c7
 # ╟─a8157cc1-1761-4b11-a37c-9e12a9ca695e
 # ╠═489ead3b-04b8-44bb-9d73-7b1d13cf5346
 # ╠═6b5cf93c-0df3-4a18-8786-502361736838
-# ╠═28ba113c-c352-4841-b634-2e1205f231cb
+# ╠═7af0462f-3b99-46dc-9dbe-25987c890019
+# ╠═3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
 # ╟─d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 # ╟─06d45088-ab8b-4e5d-931d-b58701bf8464
 # ╠═91113083-d80e-4528-be41-82d10f6860fc
@@ -825,9 +850,8 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╠═dc203e95-7763-4b13-8408-038b933c5c9c
 # ╟─842b074b-f808-48d8-8dc5-110ddd907f90
 # ╠═84d1270b-8df5-4d5d-a153-da4ffdb1d283
-# ╟─114d2324-5289-4e44-8d77-736a9bdec365
 # ╠═11b12556-5b61-42c2-a911-4ea98a0a1e85
-# ╠═2018fa66-74e0-48f3-a423-6f945adffe13
+# ╟─114d2324-5289-4e44-8d77-736a9bdec365
 # ╟─659091d3-60b2-4158-80e2-cd28a492e870
 # ╟─c4876d26-e841-4e28-8303-131d4635fc23
 # ╟─3bcb8261-5b98-4f4d-a9fe-fb71d5c5b476

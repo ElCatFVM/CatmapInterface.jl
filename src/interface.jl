@@ -584,7 +584,7 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
             else
                 species_def                         = findspecies(species_name, site, species_defs)
                 optional_params                     = []
-                if electrochemical_thermo_mode == :hbond_surface_charge_density
+                if electrochemical_thermo_mode in (:hbond_surface_charge_density, :doublebond_surface_charge_density)
                     _push_sigma_params!(optional_params, species_def)
                 end
                 if haskey(species_def, :self_interaction_parameter)
@@ -637,7 +637,7 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
                     barrier       = tstate.barrier
                     species_def   = findspecies(species_name, site, species_defs)
                     optional_params = []
-                    if electrochemical_thermo_mode == :hbond_surface_charge_density
+                    if electrochemical_thermo_mode in (:hbond_surface_charge_density, :doublebond_surface_charge_density)
                         _push_sigma_params!(optional_params, species_def)
                     end
                     if haskey(species_def, :cross_interaction_parameters)

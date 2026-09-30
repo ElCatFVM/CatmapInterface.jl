@@ -9,6 +9,7 @@ CatmapParams
 AbstractSpecies
 GasSpecies
 AdsorbateSpecies
+LocalGasSpecies
 TStateSpecies
 FictiousSpecies
 SiteSpecies
@@ -18,6 +19,8 @@ SiteSpecies
 ```@docs
 create_reaction_network
 paramsidx
+default_params
+init_params!
 CatmapInterface.generate_function
 liquidize
 ```

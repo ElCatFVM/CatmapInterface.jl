@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.0 2026-09-30
+### Breaking changes
+- `create_reaction_network` now returns the reaction network  and the free energies
+- Parameter caches for surface reaction need initialization after calling `get_tmp:`
+```
+        ps = get_tmp(ps_cache, u[iϕ])
+        init_params!(ps, odesys)
+```
+
+## General description
+- Introduction of LocalGasSpecies & Automated Thermo Correction Inheritance
+  • Introduced struct LocalGasSpecies <: AbstractSpecies in src/species.jl.
+  • Resolves architectural issues where local boundary species were misclassified as AdsorbateSpecies, preventing unphysical catalyst active site coverage deductions (1 -
+θₜ) and unphysical adsorbate-adsorbate interaction / harmonic vibrational calculations.
+  • Elimination of Hardcoded Base Gases:
+  • Removed hardcoded gas arrays (base_gases = ("CO", "CO2")) from src/reaction_network.jl.
+  • Implemented automatic thermodynamic correction inheritance: any local species containing "local" (e.g., COlocal_b)
+-  Performance Optimization of compute_reversiblepotential & Reaction System Construction
+  • Optimized Symbolic Evaluation:
+  • Refactored compute_reversiblepotential under effective_surface_charging and electrochemical modes to streamline potential slope and intercept evaluations.
+
+
+
+
 ## 0.4.0 2026-09-23
 - First version registered in General registry
 - Removed Nemo dependency, updated documentation

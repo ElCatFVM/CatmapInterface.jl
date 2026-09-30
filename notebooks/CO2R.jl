@@ -347,7 +347,7 @@ const symbolic_formation_energies = true
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
     catmap_params = parse_catmap_input(joinpath(@__DIR__, "..", "data", "models", "Au", "catmap_CO2R_template.mkm"))
-    rn = create_reaction_network(catmap_params; symbolic_formation_energies)
+    rn, _ = create_reaction_network(catmap_params; symbolic_formation_energies)
     odesys0 = convert(ODESystem, rn; combinatoric_ratelaws = false)
     odesys = CatmapInterface.liquidize(odesys0, catmap_params)
     vars = unknowns(odesys)
@@ -399,6 +399,7 @@ begin
         local_pH = -log10(u[ihplus] / (mol / dm^3))
 
         ps = get_tmp(ps_cache, u[iϕ])
+        init_params!(ps, odesys)
         ps[pidx[:σ]] = σ
         ps[pidx[:γCO2_aq]] = γ_co2
         ps[pidx[:aH2O_g]] = aH₂O
@@ -771,7 +772,7 @@ begin
             for (vidx_result, vidx_sresult) in zip(vidxs_result, vidxs_sresult)
                 for (j_result, j_sresult) in zip(
                         result.j_we[vidx_result][iohminus],
-                        sresult.j_we[vidx_result][iohminus]
+                        sresult.j_we[vidx_sresult][iohminus]
                     )
                     @test isapprox(j_result, j_sresult, atol = 1.0e-13)
                 end

@@ -47,12 +47,6 @@ end
 
 ExampleJuggler.verbose!(true)
 
-# Run the notebooks as scripts in the test environment.
-notebooks = ["CO2R.jl", "XCO2R.jl"]
-
-@testset "notebooks" begin
-    @testscripts(joinpath(@__DIR__, "..", "notebooks"), notebooks)
-end
 
 function run_tests_from_directory(testdir, prefix)
     @info "Directory $(testdir):"
@@ -69,7 +63,17 @@ function run_all_tests(; run_notebooks = false, notebooksonly = false)
     end
 end
 
-run_all_tests()
+@testset "test files" begin
+    run_all_tests()
+end
+
+# Run the notebooks as scripts in the test environment.
+notebooks = ["CO2R.jl", "XCO2R.jl"]
+
+@testset "notebooks" begin
+    @testscripts(joinpath(@__DIR__, "..", "notebooks"), notebooks)
+end
+
 
 
 # const Cgap = 0.2 # in F/m^2

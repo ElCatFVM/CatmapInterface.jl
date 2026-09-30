@@ -21,7 +21,7 @@ module CatmapInterface
     using PreallocationTools: DiffCache, get_tmp
     using PyCall: PyCall, @py_str, @pyinclude, keys
     using SciMLBase: ODEProblem
-    using Symbolics: Symbolics, SymbolicUtils
+    using Symbolics: Symbolics, SymbolicUtils, getmetadata, VariableDefaultValue, hasmetadata
     using SymbolicIndexingInterface: getname
 
     function __init__()

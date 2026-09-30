@@ -300,15 +300,14 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         number_electron = get(Dict(educts), "ele_g",0.0)
         if occursin("local", products[1].first)
             param_name = Symbol("diffusion_prefactor")
-            prefactor = first(@parameters $param_name = prefactor_val)
         elseif !isnothing(tstate)
             tstate_name = Symbol(first(tstate.components)[1])
             param_name = Symbol("prefactor_$tstate_name")
-            prefactor = first(@parameters $param_name = prefactor_val)
         else
-            prod_name = Symbol("prefactor_$(products[1].first)")
-            prefactor = first(@parameters $prod_name = prefactor_val)
+            param_name = Symbol("prefactor_$(products[1].first)")
         end
+        param = @parameters $param_name = prefactor_val
+        prefactor = first(param)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e
@@ -350,7 +349,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    @show rev_pot
+
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
     if conserve_pressures
         stoichmat = netstoichmat(rn)
@@ -460,12 +459,15 @@ $(SIGNATURES)
 Populate parameter vector `ps` with default parameter values from `odesys`.
 """
 function init_params!(ps, odesys::ODESystem)
-    defs = ModelingToolkit.defaults(odesys)
+    params = Catalyst.parameters(odesys)
     pidx = paramsidx(odesys)
-    for (p, val) in defs
-        name = Symbolics.getname(p)
+    for p in params
+        name = nameof(p)
         if haskey(pidx, name)
-            ps[pidx[name]] = Float64(val)
+            if hasmetadata(p,VariableDefaultValue)
+                val=getmetadata(p,VariableDefaultValue)
+                ps[pidx[name]] = val
+            end
         end
     end
     return ps

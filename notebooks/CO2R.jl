@@ -30,7 +30,7 @@ end
 begin
     using LiquidElectrolytes: ElectrolyteData, PNPSystem, ivsweep, bulkbcondition, voltages_solutions
 	using CatmapInterface: parse_catmap_input, create_reaction_network, liquidize
-	using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict
+	using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict, init_params!
 	using CatmapInterface: CatmapInterface
 	using Catalyst: Catalyst, @variables, @species, @parameters, @reaction_network
     using Catalyst: ode_model, complete, ODEProblem
@@ -43,6 +43,7 @@ begin
 	using FileIO: load
 	using PlutoUI: PlutoUI, LocalResource, TableOfContents
 	using Latexify: latexify
+	import Latexify
 	using Printf: @sprintf
 	using Test: @test, @testset
 	if isdefined(Main,:PlutoRunner)
@@ -370,7 +371,7 @@ const symbolic_formation_energies=true
 
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
-	rn, _ 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
+	rn, _					= create_reaction_network(catmap_params;	symbolic_formation_energies)
 	odesys0 				= ode_model(rn; combinatoric_ratelaws=false)
 	odesys_catmap 				= liquidize(odesys0, catmap_params)|> complete
     u0_catmap= Dict(Catalyst.unknowns(odesys_catmap).=>0)
@@ -383,8 +384,14 @@ end
 const uidx_catmap=unknown_indexes(odesys_catmap,species_dict_catmap;
 							  symb2name=s->replace(string(s), "(t)"=>""))
 
+# ╔═╡ d69b56b0-9fdc-4164-9df0-111d12e8ab11
+catmap_params
+
 # ╔═╡ 3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
 pdict_catmap=parameter_dict(odesys_catmap)
+
+# ╔═╡ fb5fa604-4a4d-431f-8ddf-2dba330e12c2
+Catalyst.parameters(odesys_catmap)
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -837,7 +844,9 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╠═489ead3b-04b8-44bb-9d73-7b1d13cf5346
 # ╠═6b5cf93c-0df3-4a18-8786-502361736838
 # ╠═7af0462f-3b99-46dc-9dbe-25987c890019
+# ╠═d69b56b0-9fdc-4164-9df0-111d12e8ab11
 # ╠═3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
+# ╠═fb5fa604-4a4d-431f-8ddf-2dba330e12c2
 # ╟─d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 # ╟─06d45088-ab8b-4e5d-931d-b58701bf8464
 # ╠═91113083-d80e-4528-be41-82d10f6860fc

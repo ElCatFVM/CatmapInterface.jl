@@ -348,7 +348,7 @@ const symbolic_formation_energies=true
 
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
-	rn 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
+	rn, _ 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
 	odesys0 			= ode_model(rn; combinatoric_ratelaws=false)
 	odesys_catmap 		= liquidize(odesys0, catmap_params)|> complete
  end

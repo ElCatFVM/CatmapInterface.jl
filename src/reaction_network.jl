@@ -473,6 +473,21 @@ function init_params!(ps, odesys::ODESystem)
     return ps
 end
 
+"""
+     default_parametervalues(odsysys)
+
+Obtain dictionary of default parameter values.
+"""
+function default_parametervalues(odesys:: ODESystem)
+    params = Catalyst.parameters(odesys)
+    pdict=Dict{Symbol, Float64}()
+    for p in params
+        if hasmetadata(p,VariableDefaultValue)
+            pdict[nameof(p)]= getmetadata(p,VariableDefaultValue)
+        end
+    end
+    return pdict
+end
 
 """
 $(SIGNATURES)
@@ -610,7 +625,7 @@ Create a reaction term from the right hand side of `odesys`.
 """
 function ReactionTerm(
         odesys, species_dict;
-        pdefaults = nothing
+        pdefaults = default_parametervalues(odesys)
     )
     nparams = length(parameters(odesys))
     u0 = Dict(Catalyst.unknowns(odesys) .=> 0)

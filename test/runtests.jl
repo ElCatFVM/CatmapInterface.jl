@@ -1,21 +1,52 @@
 using Test
 import ExampleJuggler
 using ExampleJuggler: cleanexamples, @testmodules, @testscripts
-import ExplicitImports
+import ExplicitImports, Aqua
 import CatmapInterface
 
-# @testset "ExplicitImports" begin
-#     @test ExplicitImports.check_no_implicit_imports(CatmapInterface) === nothing
-#     @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface, ignore=(:setmetadata,)) === nothing
-# end
+@testset "ExplicitImports" begin
+    @test ExplicitImports.check_no_implicit_imports(CatmapInterface) === nothing
+    @test ExplicitImports.check_all_explicit_imports_via_owners(CatmapInterface) === nothing
+    @static if VERSION >= v"1.11.0"
+        @test ExplicitImports.check_all_explicit_imports_are_public(
+            CatmapInterface,
+            ignore = (
+                :PyError,
+                :symmap_to_varmap,
+                :varmap_to_vars,
+            )
+        ) === nothing
+    end
+    @test ExplicitImports.check_no_stale_explicit_imports(CatmapInterface) === nothing
+    @test ExplicitImports.check_all_qualified_accesses_via_owners(CatmapInterface) === nothing
+    @static if VERSION >= v"1.11.0"
+        @test ExplicitImports.check_all_qualified_accesses_are_public(
+            CatmapInterface,
+            ignore = (
+                :PyError,
+            )
+        ) === nothing
+    end
+    @test ExplicitImports.check_no_self_qualified_accesses(CatmapInterface) === nothing
+end
+
+@testset "Aqua" begin
+    persistent_tasks = true
+    if VERSION >= v"1.12.0" && VERSION < v"1.13.0-alpha1"
+        persistent_tasks = false
+    end
+    Aqua.test_all(CatmapInterface; persistent_tasks)
+end
+
+@testset "UndocumentedNames" begin
+    if isdefined(Docs, :undocumented_names) # >=1.11
+        @test isempty(Docs.undocumented_names(CatmapInterface))
+    end
+end
+
+
 ExampleJuggler.verbose!(true)
 
-# Run the notebooks as scripts in the test environment.
-notebooks = ["CO2R.jl"]
-
-@testset "notebooks" begin
-    @testscripts(joinpath(@__DIR__, "..", "notebooks"), notebooks)
-end
 
 function run_tests_from_directory(testdir, prefix)
     @info "Directory $(testdir):"
@@ -32,7 +63,17 @@ function run_all_tests(; run_notebooks = false, notebooksonly = false)
     end
 end
 
-run_all_tests()
+@testset "test files" begin
+    run_all_tests()
+end
+
+# Run the notebooks as scripts in the test environment.
+notebooks = ["CO2R.jl", "XCO2R.jl"]
+
+@testset "notebooks" begin
+    @testscripts(joinpath(@__DIR__, "..", "notebooks"), notebooks)
+end
+
 
 
 # const Cgap = 0.2 # in F/m^2

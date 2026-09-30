@@ -34,18 +34,20 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, formation_energies,
-                                θ, σ, ϕ_we, ϕ, local_pH,
-                                β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]);
-                                symbolic_formation_energies::Bool=false)
+function compute_free_energies!(
+        free_energies, Ga, catmap_params::CatmapParams, formation_energies,
+        θ, σ, ϕ_we, ϕ, local_pH,
+        β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)]);
+        symbolic_formation_energies::Bool = false
+    )
     (; adsorbate_interaction_params, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode) = catmap_params
     (; adsorbate_interaction_model) = adsorbate_interaction_params
 
-    if symbolic_formation_energies && beta_mode== :none
+    if symbolic_formation_energies && beta_mode == :none
         for (s, formation_energy) in formation_energies
             free_energies[s] += formation_energy
         end
-    elseif symbolic_formation_energies && (beta_mode== :effective_surface_charging || beta_mode== :simple)
+    elseif symbolic_formation_energies && (beta_mode == :effective_surface_charging || beta_mode == :simple)
         for (s, formation_energy) in formation_energies
             free_energies[s] += formation_energy
         end
@@ -57,9 +59,9 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
     end
 
 
-    adsorbate_interaction_correction!  = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
-    gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
-    adsorbate_thermo_correction!       = getfield(@__MODULE__, adsorbate_thermo_mode)
+    adsorbate_interaction_correction! = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
+    gas_thermo_correction! = getfield(@__MODULE__, gas_thermo_mode)
+    adsorbate_thermo_correction! = getfield(@__MODULE__, adsorbate_thermo_mode)
     electrochemical_thermo_correction! = getfield(@__MODULE__, electrochemical_thermo_mode)
 
     adsorbate_interaction_correction!(free_energies, catmap_params, θ)
@@ -76,13 +78,13 @@ function compute_free_energies!(free_energies, Ga, catmap_params::CatmapParams, 
 
     # electrochemical corrections
     electrochemical_thermo_correction!(thermo_corrections, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
-    if  symbolic_formation_energies && (beta_mode==:effective_surface_charging || beta_mode==:simple)
+    if symbolic_formation_energies && (beta_mode == :effective_surface_charging || beta_mode == :simple)
         for (species, thermo_correction) in thermo_corrections
-            if !haskey(Ga,species)
+            if !haskey(Ga, species)
                 free_energies[species] += thermo_correction
             end
         end
-    else 
+    else
         for (species, thermo_correction) in thermo_corrections
             free_energies[species] += thermo_correction
         end
@@ -105,9 +107,9 @@ function compute_free_energies!(free_energies::Dict{String, T}, catmap_params::C
     end
     β = Dict([s => sp.β for (s, sp) in catmap_params.species_list if isa(sp, TStateSpecies)])
 
-    adsorbate_interaction_correction!  = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
-    gas_thermo_correction!             = getfield(@__MODULE__, gas_thermo_mode)
-    adsorbate_thermo_correction!       = getfield(@__MODULE__, adsorbate_thermo_mode)
+    adsorbate_interaction_correction! = getfield(@__MODULE__, Symbol(adsorbate_interaction_model, "_adsorbate_interaction"))
+    gas_thermo_correction! = getfield(@__MODULE__, gas_thermo_mode)
+    adsorbate_thermo_correction! = getfield(@__MODULE__, adsorbate_thermo_mode)
     electrochemical_thermo_correction! = getfield(@__MODULE__, electrochemical_thermo_mode)
 
     adsorbate_interaction_correction!(free_energies, catmap_params, θ)
@@ -126,7 +128,7 @@ function compute_free_energies!(free_energies::Dict{String, T}, catmap_params::C
     for (species, thermo_correction) in thermo_corrections
         free_energies[species] += thermo_correction
     end
-    nothing
+    return nothing
 end
 
 """
@@ -134,11 +136,12 @@ $(SIGNATURES)
 
 Compute the Gibbs free energies of all species specified in the `catmap_params` by applying the specified correction modes.
 """
-function CatmapInterface.compute_free_energies!(free_energies::Dict{InterfaceParams, Dict{String, T}}, catmap_params, params) where {T <: Real}
-	for intparams in params
-		free_energies[intparams] = Dict([ sp => 0.0	for sp in keys(catmap_params.species_list)	])
-		CatmapInterface.compute_free_energies!(free_energies[intparams], catmap_params, intparams)
-	end
+function compute_free_energies!(free_energies::Dict{InterfaceParams, Dict{String, T}}, catmap_params, params) where {T <: Real}
+    for intparams in params
+        free_energies[intparams] = Dict([ sp => 0.0    for sp in keys(catmap_params.species_list)    ])
+        compute_free_energies!(free_energies[intparams], catmap_params, intparams)
+    end
+    return
 end
 
 """
@@ -152,7 +155,7 @@ A `prefactor` and the product of the activities `activprod` complete the rate la
 """
 function ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, activprod)
     @local_phconstants k_B
-    prefactor * exp(- Gf_TS/ (k_B * T)) * exp(Gf_IS / (k_B * T)) * activprod
+    return prefactor * exp(- Gf_TS / (k_B * T)) * exp(Gf_IS / (k_B * T)) * activprod
 end
 
 
@@ -180,10 +183,10 @@ The pressures of the gaseous and fictious species are conserved by adding an add
 function create_reaction_network(catmap_params::CatmapParams;conserve_pressures = false, symbolic_formation_energies= true, C_gap_val = 0.2, ϕ_pzc_val =0.11)
     (; species_list, T) = catmap_params
 
-    @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc 
+    @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc
     @variables t
-    vars        = Dict{String, Num}() # converages and concentrations
-    θ           = Dict{String, Num}() # coverages
+    vars = Dict{String, Num}() # converages and concentrations
+    θ = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
     β           = Dict{String, Num}() # transition state beta 
     formation_energies = Dict{String, Num}()# I changed this 8/1
@@ -201,12 +204,12 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         Es = Symbol("E$s")
         formation_energies[s] = sp.formation_energy
         if s == "H2O_g" # the solvent is assumed to have constant activity
-            as      = Symbol("a$s")
+            as = Symbol("a$s")
             vars[s] = first(@parameters $as)
             formation_energies[s] = sp.formation_energy
         elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
-            ss          = Symbol(s)
-            vars[s]     = first(@species $ss(t))
+            ss = Symbol(s)
+            vars[s] = first(@species $ss(t))
             formation_energies[s] = sp.formation_energy
         elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies)
             ss                  = Symbol(s)
@@ -224,11 +227,11 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             activ_coefs[s]  = first(@parameters $gs)
             formation_energies[s] = sp.formation_energy
         elseif isa(sp, TStateSpecies)
-            Es= Symbol("E$s")
+            Es = Symbol("E$s")
             formation_energies[s] = first(@parameters $Es = sp.formation_energy)
-            Gas   = Symbol("Ga$s")
+            Gas = Symbol("Ga$s")
             Ga[s] = first(@parameters $Gas = sp.barrier) # should be checked.
-            βs   = Symbol("β$s")
+            βs = Symbol("β$s")
             β[s] = first(@parameters $βs = sp.β) # note: default value not included when generate_function is used!
         end
     end
@@ -241,10 +244,10 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         Gf = Num(0.0)
         rs = Num[]
         γs = Int[]
-        a  = Num(1.0)
+        a = Num(1.0)
         for (reactant, factor) in reactants
             sp = species_list[reactant]
-            if (reactant =="H2O_g" || isa(sp, SiteSpecies))
+            if (reactant == "H2O_g" || isa(sp, SiteSpecies))
                 a *= vars[reactant]^factor
             elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
                 push!(rs, vars[reactant])
@@ -260,7 +263,7 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
             end
             Gf += factor * free_energies[reactant]
         end
-        Gf, rs, γs, a
+        return Gf, rs, γs, a
     end
 
     function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
@@ -291,27 +294,20 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
     end
 
 
-            
-            
-
-
-
-
     rxs = Reaction[]
     rev_pot = Dict()
     for ((; educts, products, tstate), prefactor_val) in zip(catmap_params.reactions, catmap_params.prefactors)
         number_electron = get(Dict(educts), "ele_g",0.0)
         if occursin("local", products[1].first)
             param_name = Symbol("diffusion_prefactor")
-            prefactor = first(@parameters $param_name = prefactor_val)
         elseif !isnothing(tstate)
             tstate_name = Symbol(first(tstate.components)[1])
             param_name = Symbol("prefactor_$tstate_name")
-            prefactor = first(@parameters $param_name = prefactor_val)
         else
-            prod_name = Symbol("prefactor_$(products[1].first)")
-            prefactor = first(@parameters $prod_name = prefactor_val)
+            param_name = Symbol("prefactor_$(products[1].first)")
         end
+        param = @parameters $param_name = prefactor_val
+        prefactor = first(param)
         (Gf_IS, es, αs, af) = process_reaction_side(educts)
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e
@@ -353,19 +349,19 @@ function create_reaction_network(catmap_params::CatmapParams;conserve_pressures 
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
-    @show rev_pot
+
     rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
     if conserve_pressures
-	stoichmat = netstoichmat(rn)
-	rr = reactionrates(rn)
-	nr = numreactions(rn)
- 	for (isp, s) in enumerate(species(rn))
- 	    sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+        stoichmat = netstoichmat(rn)
+        rr = reactionrates(rn)
+        nr = numreactions(rn)
+        for (isp, s) in enumerate(species(rn))
+            sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
             if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
-		R = sum([stoichmat[isp ,i] * rr[i] for i in 1:nr])
-	        r = Reaction(R, [s], nothing; only_use_rate=true)
+                R = sum([stoichmat[isp, i] * rr[i] for i in 1:nr])
+                r = Reaction(R, [s], nothing; only_use_rate = true)
                 push!(rxs, r)
-	    end
+            end
         end
         rn1=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
         @assert all(map(enumerate(species(rn1))) do (isp, s)
@@ -393,25 +389,25 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     @local_unitfactors bar
     (; species_list) = catmap_params
 
-    sts     = unknowns(odesys)
-    ps      = parameters(odesys)
+    sts = unknowns(odesys)
+    ps = parameters(odesys)
 
-    usubs = Pair{SymbolicUtils.BasicSymbolic{Real}, SymbolicUtils.BasicSymbolic{Real}}[]
+    usubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     csubs = Pair{Num, Num}[]
-    psubs = Pair{SymbolicUtils.BasicSymbolic{Real}, SymbolicUtils.BasicSymbolic{Real}}[]
+    psubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     @variables t
     for st in sts
         sp = species_list[string(Symbolics.operation(Symbolics.value(st)))]
         if isa(sp, GasSpecies)
             (; henry_const) = sp
-            ss          = Symbol("$(sp.species_name)_aq")
-            var         = first(@variables $ss(t))
+            ss = Symbol("$(sp.species_name)_aq")
+            var = first(@variables $ss(t))
             push!(usubs, st => Symbolics.value(var))
             push!(csubs, st => var / henry_const / bar)
 
-            gs          = Symbol("γ$(sp.species_name)_aq")
-            activ_coef  = first(@parameters $gs)
-            p = getproperty(odesys, Symbol("γ$(sp.species_name)_g"); namespace=false)
+            gs = Symbol("γ$(sp.species_name)_aq")
+            activ_coef = first(@parameters $gs)
+            p = getproperty(odesys, Symbol("γ$(sp.species_name)_g"); namespace = false)
             p = Symbolics.value(p)
             push!(psubs, p => Symbolics.value(activ_coef))
         end
@@ -419,16 +415,16 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
 
     new_eqs = Equation[]
     for eq in equations(odesys)
-        lhs = expand_derivatives(substitute(eq.lhs, Dict(usubs)))
-        rhs = substitute(eq.rhs, Dict(csubs..., psubs...))
+        lhs = expand_derivatives(substitute_in_deriv(eq.lhs, Dict(usubs)))
+        rhs = substitute_in_deriv(eq.rhs, Dict(csubs..., psubs...))
         push!(new_eqs, Equation(lhs, rhs))
     end
 
     # JF: this runs into the fact that the symbolic tools now require to work with `ifelse()` instead of
     # `if ... then ... else ... end`. The later seems to be used deep down in some packages.
     # structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
-    
-    ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name)
+
+    return ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name = nameof(odesys))
 end
 
 """
@@ -438,10 +434,10 @@ Create index map of odesys parameters as a `Dict{Symbol,Int}`.
 E.g. with `pidx=paramsidx(odesys)`, the index of `odesys.σ` can be accessed via `pidx[:σ]`.
 """
 function paramsidx(odesys)
-    pidx=Dict{Symbol, Int}()
-    px=Catalyst.parameters(odesys)
-    for i=1:length(px)
-	pidx[Catalyst.getname(px[i])]=i
+    pidx = Dict{Symbol, Int}()
+    px = Catalyst.parameters(odesys)
+    for i in 1:length(px)
+        pidx[getname(px[i])] = i
     end
     return pidx
 end
@@ -463,40 +459,34 @@ $(SIGNATURES)
 Populate parameter vector `ps` with default parameter values from `odesys`.
 """
 function init_params!(ps, odesys::ODESystem)
-    defs = ModelingToolkit.defaults(odesys)
+    params = Catalyst.parameters(odesys)
     pidx = paramsidx(odesys)
-    for (p, val) in defs
-        name = Symbolics.getname(p)
+    for p in params
+        name = nameof(p)
         if haskey(pidx, name)
-            ps[pidx[name]] = Float64(val)
+            if hasmetadata(p,VariableDefaultValue)
+                val=getmetadata(p,VariableDefaultValue)
+                ps[pidx[name]] = val
+            end
         end
     end
     return ps
 end
 
-
 """
-$(SIGNATURES)
+     default_parametervalues(odsysys)
 
-Generate a mutating function from a `ReactionSystem` that computes the concentration fluxes due to the reaction.
+Obtain dictionary of default parameter values.
 """
-function generate_function(rn::ReactionSystem; dvs::Vector{Tval}=species(rn), ps::Vector{Tval}=parameters(rn)) where {Tval <: Union{SymbolicUtils.BasicSymbolic{Real}, Num}}
-    @assert Set(dvs) == Set(species(rn))
-    @assert Set(ps)  == Set(parameters(rn))
-
-    species_map = speciesmap(rn)
-    sys = convert(ODESystem, rn; combinatoric_ratelaws=false)
-    eqs = equations(sys)
-    rhss = [-1 * eqs[species_map[dv]].rhs for dv in dvs] # multiply by -1 because the orientation assumed in VoronoiFVM physics functions
-
-    u = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), dvs)
-    p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
-    t = ModelingToolkit.get_iv(sys)
-
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
-
-    f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
-    drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
+function default_parametervalues(odesys:: ODESystem)
+    params = Catalyst.parameters(odesys)
+    pdict=Dict{Symbol, Float64}()
+    for p in params
+        if hasmetadata(p,VariableDefaultValue)
+            pdict[nameof(p)]= getmetadata(p,VariableDefaultValue)
+        end
+    end
+    return pdict
 end
 
 """
@@ -504,22 +494,204 @@ $(SIGNATURES)
 
 Generate a mutating function from a `ODESystem` that computes the concentration fluxes due to the reaction.
 """
-function generate_function(sys::ODESystem; dvs=unknowns(sys), ps=parameters(sys))
-    @assert Set(dvs) == Set(unknowns(sys))
-    @assert Set(ps)  == Set(parameters(sys))
+function generate_function(sys::ODESystem, udict, pdict)
+    dvs = unknowns(sys)
+    ps = parameters(sys) .=> 1.0
+
+    prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
+
+    fp_cache = DiffCache(zeros(length(dvs)), 13)
+    up_cache = DiffCache(zeros(length(dvs)), 13)
+    pp_cache = DiffCache(zeros(length(ps)), 13)
+
+    uindexmap = getuindexmap(sys, udict)
+    pindexmap = getpindexmap(sys, pdict)
+
+    invuindexmap = invperm(uindexmap)
+    invpindexmap = invperm(pindexmap)
+    return function (f, u, p, t)
+        up = get_tmp(up_cache, u[1])
+        up .= getindex.(Ref(u), uindexmap)
+        pp = get_tmp(pp_cache, p[1])
+        pp .= getindex.(Ref(p), pindexmap)
+        fp = get_tmp(fp_cache, u[1])
+        prob.f(fp, up, pp, t)
+        f .= getindex.(Ref(fp), invuindexmap) .* -1
+        return nothing
+    end
+end
 
 
-    #state_map = Dict(zip(unknowns(sys), length(unknowns(sys))))
-    state_map = Dict([st => i for (i, st) in enumerate(unknowns(sys))])
-    eqs = equations(sys)
-    rhss = [-1 * eqs[state_map[dv]].rhs for dv in dvs] # multiply by -1 because the orientation assumed in VoronoiFVM physics functions
+function getuindexmap(odesys::ODESystem, udict)
+    us = unknowns(odesys)
+    us = tosymbol.(us; escape = false)
+    varmap = Dict([getproperty(odesys, u; namespace = false) => i  for (u, i) in udict if u in us])
+    return varmap_to_vars(varmap, unknowns(odesys); tofloat = false)
+end
 
-    u = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), dvs)
-    p = map(x -> ModelingToolkit.time_varying_as_func(Symbolics.value(x), sys), ps)
-    t = ModelingToolkit.get_iv(sys)
+function getpindexmap(odesys::ODESystem, pdict)
+    ps = parameters(odesys)
+    ps = tosymbol.(ps; escape = false)
+    varmap = Dict([getproperty(odesys, p; namespace = false) => i for (p, i) in pdict if p in ps])
+    return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
+end
 
-    pre, sol_states = ModelingToolkit.get_substitutions_and_solved_unknowns(sys, no_postprocess = false)
 
-    f_expr = build_function(rhss, u, p, t; postprocess_fbody = pre, states = sol_states)[2]
-    drop_expr(@RuntimeGeneratedFunction(@__MODULE__, f_expr))
+"""
+	unknown_indexes(odesys, species_dict::Dict{String, Int}; symb2name)
+
+For the symbolic names of unknowns in odesys, return the species
+indices given in `species_dict`.
+
+`symb2name` is a function which takes
+a symbolic object and converts it into a string serving as
+the key in `species_dict`. Default is `string`.
+"""
+function unknown_indexes(odesys, species_dict::Dict{String, Int}; symb2name = string)
+    names = symb2name.(Catalyst.unknowns(odesys))
+    return [species_dict[s] for s in names]
+end
+
+
+"""
+	parameter_indexes(odesys, params_dict::Dict{String, Int}; symb2name)
+
+For the symbolic names of parameters in odesys, return the indices given in `params_dict`.
+
+`symb2name` is a function which takes a symbolic object and converts it
+into a string serving as the key in `params_dict`. Default is `string`.
+"""
+function parameter_indexes(odesys, species_dict; symb2name = string)
+    names = symb2name.(Catalyst.parameters(odesys))
+    return [species_dict[s] for s in names]
+end
+
+"""
+	parameter_dict(odesys)
+
+Return a `Dict{Symbol, Int}` which allows to
+retrieve the index of a parameter in a vector of values.
+"""
+function parameter_dict(odesys)
+    psymbols = Catalyst.parameters(odesys) .|> Symbol
+    return Dict([psymbols[i] => i for i in 1:length(psymbols)]...)
+end
+
+export unknown_indexes, parameter_indexes, parameter_dict
+
+"""
+    struct ReactionTerm
+
+Callable struct describing a parametrized reaction term built by Catalyst
+for use in reaction functions in VoronoiFVM.
+
+$(TYPEDFIELDS)
+"""
+struct ReactionTerm{F, C}
+    "Original ODE function"
+    func::F
+
+    """
+    Index vector allowing to translate between VoronoiFVM species numbers
+    and species indices in ODE function `func`. For a given `u` from VoronoiFVM,
+    `view(u, pidx)` can be passed to `func`.
+    """
+    uidx::Vector{Int}
+
+    """
+    Dictionary allowing to index a parameter in a parameter buffer.
+    """
+    pdict::Dict{Symbol, Int}
+
+    """
+    Optional default values for parameters. Can be used to set fixed parameter
+    values which are not dependent on unknowns.
+    """
+    pdefaults::Union{Dict{Symbol, Float64}, Nothing}
+
+    """
+    PreallocationTools.DiffCache providing workspace for parameters.
+    """
+    cache::C
+end
+
+"""
+        ReactionTerm(odesys, species_dict; pdefaults)
+
+Create a reaction term from the right hand side of `odesys`.
+- `species_dict` is a dictionary which for each unknown from odesys contains the
+  species index in a VoronoiFVM.System
+- `pdefaults` is a dictionary which holds default parameter values.
+"""
+function ReactionTerm(
+        odesys, species_dict;
+        pdefaults = default_parametervalues(odesys)
+    )
+    nparams = length(parameters(odesys))
+    u0 = Dict(Catalyst.unknowns(odesys) .=> 0)
+    p = Dict(Catalyst.parameters(odesys) .=> 0)
+    prob = ODEProblem(odesys, merge(u0, p), (0, 1))
+    uidx = unknown_indexes(
+        odesys, species_dict;
+        symb2name = s -> replace(string(s), "(t)" => "")
+    )
+    pdict = parameter_dict(odesys)
+    cache = DiffCache(zeros(nparams))
+    return ReactionTerm(prob.f, uidx, pdict, pdefaults, cache)
+end
+
+
+"""
+    struct ReactionTermParameterCache
+
+Struct which holds a parameter workspace, indexed by symbolic parameter names.
+"""
+struct ReactionTermParameterCache{P}
+    values::P
+    dict::Dict{Symbol, Int}
+end
+
+function Base.setindex!(p::ReactionTermParameterCache, v, idx::Symbol)
+    (; values, dict) = p
+    values[dict[idx]] = v
+    return v
+end
+
+function Base.getindex(p::ReactionTermParameterCache, idx::Symbol)
+    (; values, dict) = p
+    return values[dict[idx]]
+end
+
+
+"""
+        parametercache(reactionterm, T)
+
+Return a work vector which an hold parameter values of type T.
+It is indexed by the symbolic parameter names. In the background,
+it calls the `get_tmp` function from PreallocationTools.
+"""
+function parametercache(r::ReactionTerm, t::Type{T}) where {T}
+    p = get_tmp(r.cache, t)
+    xp = ReactionTermParameterCache(p, r.pdict)
+    if !isnothing(r.pdefaults)
+        for (key, v) in r.pdefaults
+            xp[key] = v
+        end
+    end
+    return xp
+end
+
+"""
+    (reaction_term)(f,u,p)
+
+Call the reaction term. `f` and `u` are the right hand side and unknowns
+provided by VoronoiFVM bulk or surface reaction functions.
+`p` is the parameter workspace obtained from the `reaction_term` via
+`parametercache`.
+"""
+function (r::ReactionTerm)(f, u, p::ReactionTermParameterCache)
+    (; func, uidx) = r
+    @views func(f[uidx], u[uidx], p.values, nothing)
+    @views f[uidx] .*= -1
+    return nothing
 end

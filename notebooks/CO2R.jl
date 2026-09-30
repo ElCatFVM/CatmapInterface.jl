@@ -370,7 +370,7 @@ const symbolic_formation_energies=true
 
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
-	rn 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
+	rn, _ 					= create_reaction_network(catmap_params;	symbolic_formation_energies)
 	odesys0 				= ode_model(rn; combinatoric_ratelaws=false)
 	odesys_catmap 				= liquidize(odesys0, catmap_params)|> complete
     u0_catmap= Dict(Catalyst.unknowns(odesys_catmap).=>0)
@@ -425,6 +425,7 @@ begin
 
 
 	    ps = get_tmp(ps_cache, u[iϕ])
+            init_params!(ps, odesys_catmap)
 		ps[pdict_catmap[:σ]] = σ
 		ps[pdict_catmap[:γCO2_aq]] = γ_co2
 		ps[pdict_catmap[:aH2O_g]] = aH₂O

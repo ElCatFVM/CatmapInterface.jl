@@ -73,6 +73,37 @@ def generate_hbond_dict():
 
 hbond_dict = generate_hbond_dict()
 
+def generate_doublebond_dict():
+    """Returns a dictionary of generic, surface-agnostic double bond corrections from Liu's thesis, in eV."""
+    d = {'COOH'   : 0.25,
+         'OCHO'   : 0.,
+         'CO'     : 0.0,
+         'CHO'    : 0.15,
+         'CH2O'   : 0.15,
+         'CO2'    : 0.,
+         'OCH3'   : 0.,
+         'O'      : 0.,
+         'OH'     : 0.0,
+         'H'      : 0.,
+         'COH'    : 0.0,
+         'C'      : 0.,
+         'CH'     : 0.,
+         'CH2'    : 0.,
+         'CH3'    : 0.,
+         'CHOH'   : 0.0,
+         'COHOH'  : 0.0,
+         'OCH2O'  : 0.,
+         'CH2OH'  : 0.0,
+         'OCHCH2' : 0.,
+         'OCHCHO' : 0.,
+         'OCCO'   : 0.3,
+         'OCCOH'  : 0.15,
+         'CCO'    : 0.15
+        }
+    return d
+
+doublebond_dict = generate_doublebond_dict()
+
 #Atmos. Chem. Phys., 15, 4399–4981, 2015
 henry_consts = {  # mol/m^3/Pa
     "CH4"       : 1.4e-5,

@@ -8,6 +8,7 @@ CatmapParams
 ```@docs
 AbstractSpecies
 GasSpecies
+CatmapInterface.LocalGasSpecies
 AdsorbateSpecies
 LocalGasSpecies
 TStateSpecies
@@ -30,6 +31,9 @@ parameter_dict
 ReactionTerm
 ReactionTermParameterCache
 parametercache
+default_parametervalues
+default_params
+init_params!
 ```
 
 ## Package

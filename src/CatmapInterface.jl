@@ -32,13 +32,13 @@ module CatmapInterface
     include("ideal-gas-model.jl")
     include("harmonic-model.jl")
     include("species.jl")
-    export AbstractSpecies, GasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies
+    export AbstractSpecies, GasSpecies, LocalGasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies
     include("interface.jl")
     export CatmapParams, parse_catmap_input
     include("corrections.jl")
     include("reaction_network.jl")
     export create_reaction_network, generate_function, liquidize, paramsidx
     export unknown_indexes, parameter_indexes, parameter_dict
-
-    export ReactionTerm, parametercache, ReactionTermParameterCache
+    export default_params, init_params!
+    export ReactionTerm, parametercache, ReactionTermParameterCache, default_parametervalues
 end

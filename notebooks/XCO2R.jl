@@ -295,9 +295,9 @@ const react_buffer=ReactionTerm(odesys_buffer, species_dict);
 		(; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
 
 		# compute activity coefficients according to the approach in Ringe et al.
-		p = parametercache(react_buffer, eltype(u))
 		γ=1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
-	    p[:γH⁺]=γ
+		p = parametercache(react_buffer, eltype(u))
+	        p[:γH⁺]=γ
             p[:γHCO₃⁻]=γ
             p[:γCO₃²⁻]=γ
             p[:γCO₂]=γ

@@ -31,14 +31,13 @@ begin
     using LiquidElectrolytes: ElectrolyteData, PNPSystem, ivsweep, bulkbcondition, voltages_solutions
 	using CatmapInterface: parse_catmap_input, create_reaction_network, liquidize
 	using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict
-	using CatmapInterface: ReactionTerm, parametercache
+	using CatmapInterface: generate_function, parameter_cache
 	using Catalyst: Catalyst, @variables, @species, @parameters, @reaction_network
     using Catalyst: ode_model, complete, ODEProblem
 	using VoronoiFVM: VoronoiFVM, boundary_robin!
 	using LessUnitful: @ufac_str, @unitfactors, @phconstants
 	using ExtendableGrids: simplexgrid, geomspace, XCoordinates
 	using GridVisualize: GridVisualize,GridVisualizer, scalarplot, scalarplot!, reveal, movie
-	using PreallocationTools: DiffCache, get_tmp
 	using DelimitedFiles: readdlm
 	using FileIO: load
 	using PlutoUI: PlutoUI, LocalResource, TableOfContents
@@ -283,7 +282,7 @@ begin
 Catalyst.parameters(odesys_buffer)
 
 # ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
-const react_buffer=ReactionTerm(odesys_buffer, species_dict);
+const react_buffer=generate_function(odesys_buffer, species_dict);
 
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
 	function reaction(
@@ -296,7 +295,7 @@ const react_buffer=ReactionTerm(odesys_buffer, species_dict);
 
 		# compute activity coefficients according to the approach in Ringe et al.
 		γ=1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
-		p = parametercache(react_buffer, eltype(u))
+		p = parameter_cache(react_buffer, eltype(u))
 	        p[:γH⁺]=γ
             p[:γHCO₃⁻]=γ
             p[:γCO₃²⁻]=γ
@@ -357,7 +356,7 @@ begin
 Catalyst.parameters(odesys_catmap)
 
 # ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
-react_catmap=ReactionTerm(odesys_catmap, species_dict_catmap);
+react_catmap=generate_function(odesys_catmap, species_dict_catmap);
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -391,7 +390,7 @@ function we_breactions(f,
 	γ_co	= 1.0 / (1 - v[ikplus] * u[ikplus] / (mol/dm^3))
 	σ			= C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
 	local_pH	= -log10(u[ihplus] / (mol/dm^3))
-	ps=parametercache(react_catmap,eltype(u))
+	ps=parameter_cache(react_catmap,eltype(u))
 	ps[:σ] = σ
 	ps[:γCO2_aq] = γ_co2
 	ps[:aH2O_g] = aH₂O

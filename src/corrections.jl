@@ -120,7 +120,7 @@ $(SIGNATURES)
 Add correction terms to the adsorbation energies based on first order interactions between the adsorbates. 
 
 Model for the excess chemical potential that correct the relative Gibbs free energies of formation due to first-order adsorbate interactions.
-This adsorbation interaction model is expained in ![CatMAP's documentation](https://catmap.readthedocs.io/en/latest/topics/including_adsorbate_adsorbate_interactions.html#coverage-dependent-adsorption-eneriges) and in this ![issue](https://github.com/ElcatFVM/CatmapInterface.jl/issues/10).
+This adsorbation interaction model is explained in ![CatMAP's documentation](https://catmap.readthedocs.io/en/latest/topics/including_adsorbate_adsorbate_interactions.html#coverage-dependent-adsorption-eneriges) and in this ![issue](https://github.com/ElcatFVM/CatmapInterface.jl/issues/10).
 """
 function first_order_adsorbate_interaction(energies, catmap_params::CatmapParams, θ)
     @local_unitfactors eV
@@ -244,7 +244,7 @@ $(SIGNATURES)
 
 Add electrochemical correction terms to the relative Gibbs free energies of formation of 'free' electrons and transition states including 'free' electrons.
 
-The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. In this model the corrections accomodate the Frumkin effects of proton-coupled electron transfers. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
+The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. In this model the corrections accommodate the Frumkin effects of proton-coupled electron transfers. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
 """
 function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV

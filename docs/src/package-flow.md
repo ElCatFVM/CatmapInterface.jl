@@ -45,7 +45,7 @@ All species appearing in the parsed reactions are classified into one of five co
 
 | Type               | Examples           | Key fields                                                                          |
 |--------------------|--------------------|-------------------------------------------------------------------------------------|
-| `FictiousSpecies`  | `ele_g`, `OH_g`, `H_g` | `formation_energy`, `pressure`                                                 |
+| `FictitiousSpecies`  | `ele_g`, `OH_g`, `H_g` | `formation_energy`, `pressure`                                                 |
 | `GasSpecies`       | `CO2_g`, `CO_g`    | `formation_energy`, `pressure`, `frequencies`, `henry_const`                        |
 | `AdsorbateSpecies` | `CO_t`, `COOH_t`   | `formation_energy`, `coverage`, `site`, `n_sites`, `frequencies`, `sigma_params`, `self_interaction_param`, `cross_interaction_params` |
 | `TStateSpecies`    | `COOHΔeleΔH2O_t`   | `formation_energy`, `barrier`, `β`, `between_species`, `frequencies`, `sigma_params` |
@@ -76,7 +76,7 @@ This is the core computational step, converting the declarative `CatmapParams` i
 Symbolic (Symbolics.jl/ModelingToolkit) variables are created for:
 
 - **Coverages** `θ` — one per adsorbate, with free-site coverages computed as `1 − Σθ` per site
-- **Concentrations** — for gas and fictious species
+- **Concentrations** — for gas and fictitious species
 - **Activity coefficients** `γ` — for gas species
 - **Formation energies** `E` — symbolic parameters for transition states
 - **Barriers** `Ga` and **transfer coefficients** `β` — symbolic parameters for transition states
@@ -124,7 +124,7 @@ For each elementary reaction:
 
 ### 4d. Pressure Conservation (optional)
 
-If `conserve_pressures=true`, additional compensation reactions are added for each gas and fictious species so that their net stoichiometry sums to zero — effectively making gas-phase concentrations constant.
+If `conserve_pressures=true`, additional compensation reactions are added for each gas and fictitious species so that their net stoichiometry sums to zero — effectively making gas-phase concentrations constant.
 
 The final result is a `complete(ReactionSystem)`.
 
@@ -194,7 +194,7 @@ flowchart TD
     subgraph SPECIES["🧪 Species Types (species.jl)"]
         direction LR
         GS["GasSpecies\n(formation_energy, pressure,\nfrequencies, henry_const)"]
-        FS["FictiousSpecies\n(ele_g, OH_g, H_g)"]
+        FS["FictitiousSpecies\n(ele_g, OH_g, H_g)"]
         AS["AdsorbateSpecies\n(coverage, site, n_sites,\nfrequencies, σ-params,\ninteraction params)"]
         TS["TStateSpecies\n(barrier, β, between_species,\nfrequencies, σ-params)"]
         SS["SiteSpecies\n(site_name,\ninteraction_response_params)"]
@@ -250,7 +250,7 @@ flowchart TD
 
     FWD_REV --> RS["ReactionSystem\n(Catalyst.jl)"]
 
-    RS -->|"conserve_pressures=true"| CONSERVE["Add compensation reactions\nfor gas/fictious species\n(net stoich = 0)"]
+    RS -->|"conserve_pressures=true"| CONSERVE["Add compensation reactions\nfor gas/fictitious species\n(net stoich = 0)"]
     CONSERVE --> RS_COMPLETE["complete(ReactionSystem)"]
     RS -->|"conserve_pressures=false"| RS_COMPLETE
 

@@ -527,7 +527,7 @@ function _parse_cross_interaction_params(species, cross_interaction_parameters, 
     return cross_interaction_params
 end
 
-const re_fictious_gas = r"^(?<species_name>ele|OH)_g$"
+const re_fictitious_gas = r"^(?<species_name>ele|OH)_g$"
 const re_gas = r"^(?<species_name>[A-Za-z0-9]+)_g$"
 const re_adsorbate = r"^(?<species_name>[A-Za-z0-9]+)_(?<site>[^g])$"
 const re_site = r"^_(?<site>[^g])$"
@@ -550,17 +550,17 @@ function specieslist(reactions::Vector{ParsedReaction}, species_defs, energy_tab
     species_list = Dict{String, AbstractSpecies}()
 
     for s in species
-        match_fictious = match(re_fictious_gas, s)
+        match_fictitious = match(re_fictitious_gas, s)
         match_gas = match(re_gas, s)
         match_adsorbate = match(re_adsorbate, s)
         match_site = match(re_site, s)
-        # Fictious species (e.g. OH_g)
-        if !isnothing(match_fictious)
-            species_name = match_fictious[:species_name]
+        # Fictitious species (e.g. OH_g)
+        if !isnothing(match_fictitious)
+            species_name = match_fictitious[:species_name]
             (; pressure) = findspecies(species_name, "g", species_defs)
             (; formation_energy) = findspecies(species_name, energy_table)
             pressure = species_defs[s]["pressure"]
-            species_list[s] = FictiousSpecies(; species_name, formation_energy, pressure)
+            species_list[s] = FictitiousSpecies(; species_name, formation_energy, pressure)
             # Gas species (e.g. CO2_g)
         elseif !isnothing(match_gas)
             species_name = match_gas[:species_name]

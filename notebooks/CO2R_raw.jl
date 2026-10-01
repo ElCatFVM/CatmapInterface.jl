@@ -409,7 +409,7 @@ md"""
 md"""
 For the calculation of the reaction rates a __mean field approach__ based is applied.
 
-The acitivities of H⁺, OH⁻ and e⁻ are set to be zero. The dependence on the rates on the pH-value, applied voltage and surface charges are contained in the reaction rate constants.
+The activities of H⁺, OH⁻ and e⁻ are set to be zero. The dependence on the rates on the pH-value, applied voltage and surface charges are contained in the reaction rate constants.
 
 The surface charging relation $σ = σ(U)$ is given by the Robin boundary condition
 
@@ -423,7 +423,7 @@ __Question is the pH-dependence only in the reaction rate constants (i.e. activi
 # ╔═╡ 91113083-d80e-4528-be41-82d10f6860fc
 begin
     const nparams = length(Catalyst.parameters(odesys_catmap))
-    const ps_cache = DiffCache(zeros(nparams), warn_on_resize=false)
+    const ps_cache = DiffCache(zeros(nparams), warn_on_resize = false)
 
     function we_breactions(
             f,
@@ -461,7 +461,7 @@ begin
         )
 
         # conversion from turnover frequency (appropriate for change in coverage) to
-        # production rate (per unit area) (approprite for change in concentration)
+        # production rate (per unit area) (appropriate for change in concentration)
         # by S = number of free catalyst sites in mole per unit area
         @views f[uidx_catmap] .*= -1
         f[ico2] *= S
@@ -571,7 +571,7 @@ function simulate_CO2R(grid, celldata; voltages = (-1.5:0.1:0.0) * V, kwargs...)
 end;
 
 # ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
-cell, result = simulate_CO2R(grid, celldata; voltages, verbose="");
+cell, result = simulate_CO2R(grid, celldata; voltages, verbose = "");
 
 # ╔═╡ 114d2324-5289-4e44-8d77-736a9bdec365
 md"""

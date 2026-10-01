@@ -54,7 +54,7 @@ end;
 # ╔═╡ 5d8702a4-f953-404e-ae3f-8012db643d3d
 md"""
 # CO2R
-This notebook shows how to use CatmapInterface with relying on`generate_function` and `ReactionTerm`.  This approach removes the user from the need of to explicitely handle index maps.
+This notebook shows how to use CatmapInterface with relying on`generate_function` and `ReactionTerm`.  This approach removes the user from the need of to explicitly handle index maps.
 """
 
 # ╔═╡ 312785db-c787-419a-ba91-14a8c93bc0e5
@@ -368,6 +368,12 @@ Catalyst.parameters(odesys_catmap)
 # ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
 react_catmap = generate_function(odesys_catmap, species_dict_catmap);
 
+# ╔═╡ 3081fe60-dd3e-4334-bffc-a7c40f052dd3
+typeof(react_catmap)
+
+# ╔═╡ 524eaf41-533d-49c9-8764-dca3b2a7facd
+react_catmap
+
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
 ##### Reaction Rates
@@ -387,6 +393,9 @@ where the gap capacitance between the working electrode and the reaction plane (
 
 __Question is the pH-dependence only in the reaction rate constants (i.e. activity of OH⁻ must be set to 0)?__
 """
+
+# ╔═╡ f5353cbb-2192-47ab-8e6b-9b28c4c3c062
+ps = parameter_cache(react_catmap, Float64)
 
 # ╔═╡ 91113083-d80e-4528-be41-82d10f6860fc
 function we_breactions(
@@ -531,7 +540,7 @@ Show only pH: $(@bind useonly_pH PlutoUI.CheckBox(default=false))
 """
 
 # ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
-cell, result = simulate_CO2R(grid, celldata; voltages, verbose="");
+cell, result = simulate_CO2R(grid, celldata; voltages);
 
 # ╔═╡ 659091d3-60b2-4158-80e2-cd28a492e870
 (~, default_index) = findmin(abs, result.voltages .+ 0.9 * ufac"V");
@@ -825,8 +834,11 @@ html"""<style>.dont-panic{ display: none }</style>"""
 # ╠═6b5cf93c-0df3-4a18-8786-502361736838
 # ╠═30939809-60ab-4d35-b0b9-b83d41021395
 # ╠═28ba113c-c352-4841-b634-2e1205f231cb
+# ╠═3081fe60-dd3e-4334-bffc-a7c40f052dd3
+# ╠═524eaf41-533d-49c9-8764-dca3b2a7facd
 # ╟─d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 # ╟─06d45088-ab8b-4e5d-931d-b58701bf8464
+# ╠═f5353cbb-2192-47ab-8e6b-9b28c4c3c062
 # ╠═91113083-d80e-4528-be41-82d10f6860fc
 # ╟─d0093605-0e35-4888-a93c-8456c698e6f0
 # ╟─f0b5d356-6b97-4878-98de-bee5f380d41a

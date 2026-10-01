@@ -31,7 +31,7 @@ module CatmapInterface
     include("ideal-gas-model.jl")
     include("harmonic-model.jl")
     include("species.jl")
-    export AbstractSpecies, GasSpecies, LocalGasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictiousSpecies
+    export AbstractSpecies, GasSpecies, LocalGasSpecies, AdsorbateSpecies, SiteSpecies, TStateSpecies, FictitiousSpecies
     include("interface.jl")
     export CatmapParams, parse_catmap_input
     include("corrections.jl")

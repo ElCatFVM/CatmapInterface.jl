@@ -177,8 +177,8 @@ The activity coefficients of the gaseous species can specified as parameters.
 The thermodynamical corrections to the DFT-data of the formation energies are applied according to the specified modes.
 New modes can be added by the user by adding a function with the same name to the module. 
 
-if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
-The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
+if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictitious species involved in the heterogeneous reaction network.
+The pressures of the gaseous and fictitious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
 function create_reaction_network(
         catmap_params::CatmapParams;
@@ -192,7 +192,7 @@ function create_reaction_network(
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc
     @independent_variables t
-    vars = Dict{String, Num}() # converages and concentrations
+    vars = Dict{String, Num}() # coverages and concentrations
     θ = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
     β = Dict{String, Num}() # transition state beta
@@ -214,7 +214,7 @@ function create_reaction_network(
             as = Symbol("a$s")
             vars[s] = first(@parameters $as)
             formation_energies[s] = sp.formation_energy
-        elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
+        elseif (isa(sp, FictitiousSpecies) && s ≠ "ele_g") # fictitious species and adsorbates have no activity coeff
             ss = Symbol(s)
             vars[s] = first(@species $ss(t))
             formation_energies[s] = sp.formation_energy
@@ -256,7 +256,7 @@ function create_reaction_network(
             sp = species_list[reactant]
             if (reactant == "H2O_g" || isa(sp, SiteSpecies))
                 a *= vars[reactant]^factor
-            elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
+            elseif (isa(sp, FictitiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
                 push!(rs, vars[reactant])
                 push!(γs, factor)
             elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies) # activity coefficients are assumed to be 1
@@ -273,7 +273,7 @@ function create_reaction_network(
         return Gf, rs, γs, a
     end
 
-    function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+    function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to include ad-ad interaction in Gf_FS, Gf_IS in this function.
         float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
@@ -364,7 +364,7 @@ function create_reaction_network(
         nr = numreactions(rn)
         for (isp, s) in enumerate(species(rn))
             sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-            if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
+            if isa(sp, GasSpecies) || isa(sp, FictitiousSpecies)
                 R = sum([stoichmat[isp, i] * rr[i] for i in 1:nr])
                 r = Reaction(R, [s], nothing; only_use_rate = true)
                 push!(rxs, r)
@@ -377,7 +377,7 @@ function create_reaction_network(
                 new_stoichmat = netstoichmat(rn1)
                 new_rr = reactionrates(rn1)
                 new_nr = numreactions(rn1)
-                isequal(sum([new_stoichmat[isp, i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp, i] * rr[i] for i in 1:nr]))
+                isequal(sum([new_stoichmat[isp, i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictitiousSpecies) ? Num(0.0) : sum([stoichmat[isp, i] * rr[i] for i in 1:nr]))
             end
         )
         if with_free_energies
@@ -522,8 +522,8 @@ function init_params!(ps, odesys::ODESystem)
     for p in params
         name = nameof(p)
         if haskey(pidx, name)
-            if hasmetadata(p,VariableDefaultValue)
-                val=getmetadata(p,VariableDefaultValue)
+            if hasmetadata(p, VariableDefaultValue)
+                val = getmetadata(p, VariableDefaultValue)
                 ps[pidx[name]] = val
             end
         end
@@ -589,7 +589,7 @@ function generate_function(
         symb2name = s -> replace(string(s), "(t)" => "")
     )
     pdict = parameter_dict(odesys)
-    cache = DiffCache(zeros(nparams); warn_on_resize=false)
+    cache = DiffCache(zeros(nparams); warn_on_resize = false)
     return ReactionTerm(prob.f, uidx, pdict, pdefaults, cache)
 end
 
@@ -648,4 +648,3 @@ function (r::ReactionTerm)(f, u, p::ReactionTermParameterCache)
     @views f[uidx] .*= -1
     return nothing
 end
-

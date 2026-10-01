@@ -1,5 +1,5 @@
 module Utils
-    using CatmapInterface: CatmapInterface, AdsorbateSpecies, FictiousSpecies, GasSpecies
+    using CatmapInterface: CatmapInterface, AdsorbateSpecies, FictitiousSpecies, GasSpecies
     using DelimitedFiles: DelimitedFiles, readdlm, writedlm
     using Format: Format, cfmt
     using PyCall: PyCall, @py_str, @pyinclude, keys, pyimport
@@ -169,10 +169,10 @@ module Utils
                     """
 
             """
-                runcatmap(instance_file_path::String)
+            runcatmap(instance_file_path::String)
 
-                Run CatMAP on the microkinetic model at `instance_file_path`.
-                """
+            Run CatMAP on the microkinetic model at `instance_file_path`.
+            """
             function runcatmap(instance_file_path)
                 @assert isfile(instance_file_path)
                 currdir = pwd()
@@ -185,10 +185,10 @@ module Utils
             end
 
             """
-                get_coverage_map(logfile_path::String)
+            get_coverage_map(logfile_path::String)
 
-                Get the coverage map from CatMAP's logfile at `logfile_path`
-                """
+            Get the coverage map from CatMAP's logfile at `logfile_path`
+            """
             function get_coverage_map(logfile_path)
                 @assert isfile(logfile_path)
                 currdir = pwd()
@@ -211,10 +211,10 @@ module Utils
             end
 
             """
-                catmap_ssolve(template_file_path::String, params::SSParams)
+            catmap_ssolve(template_file_path::String, params::SSParams)
 
-                Solve the microkinetic model specified in `template_file_path` for the steady state using CatMAP for each parameter set in `params_iter` and add it to `ssols`. 
-                """
+            Solve the microkinetic model specified in `template_file_path` for the steady state using CatMAP for each parameter set in `params_iter` and add it to `ssols`. 
+            """
             function catmap_ssolve(template_file_path::String, params::SSParams)
                 @assert isfile(template_file_path)
                 instance_file_path = joinpath(dirname(template_file_path), "test.mkm")
@@ -302,7 +302,7 @@ module Utils
                 if isa(sp, GasSpecies) && s ≠ "H2O_g"
                     push!(p_syms, Symbol("γ$s"))
                     push!(u0_syms, Symbol(s))
-                elseif isa(sp, FictiousSpecies) && s ≠ "ele_g"
+                elseif isa(sp, FictitiousSpecies) && s ≠ "ele_g"
                     push!(u0_syms, Symbol(s))
                 elseif isa(sp, AdsorbateSpecies)
                     push!(u0_syms, Symbol(s))
@@ -316,7 +316,7 @@ module Utils
             end
             for u0_sym in u0_syms
                 if u0_sym ∉ header_cells
-                    throw(ArgumentError("The column for the initial valye of $(string(u0_sym)) is missing."))
+                    throw(ArgumentError("The column for the initial value of $(string(u0_sym)) is missing."))
                 end
             end
 

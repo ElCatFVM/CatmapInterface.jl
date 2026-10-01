@@ -11,7 +11,7 @@ GasSpecies
 LocalGasSpecies
 AdsorbateSpecies
 TStateSpecies
-FictiousSpecies
+FictitiousSpecies
 SiteSpecies
 ```
 

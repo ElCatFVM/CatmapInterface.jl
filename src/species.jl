@@ -11,7 +11,7 @@ $(TYPEDEF)
 
 $(TYPEDFIELDS)
 """
-struct FictiousSpecies <: AbstractSpecies
+struct FictitiousSpecies <: AbstractSpecies
     """
     Name of the species
     """
@@ -24,7 +24,7 @@ struct FictiousSpecies <: AbstractSpecies
     Partial pressure of the species in pascal
     """
     pressure::Float64
-    function FictiousSpecies(; species_name, formation_energy, pressure)
+    function FictitiousSpecies(; species_name, formation_energy, pressure)
         if pressure < 0.0
             throw(DomainError("pressure must be nonnegative"))
         end

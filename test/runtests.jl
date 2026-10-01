@@ -75,7 +75,6 @@ notebooks = ["CO2R.jl", "XCO2R.jl"]
 end
 
 
-
 # const Cgap = 0.2 # in F/m^2
 # models = [
 #     (;

@@ -5,7 +5,7 @@ using PyCall: PyCall, @pyinclude, @py_str
 using CatmapInterface: CatmapInterface
 
 function test_doublebond_dict_loading()
-    @testset "doublebond_dict loading & content" begin
+    return @testset "doublebond_dict loading & content" begin
         @pyinclude(joinpath(@__DIR__, "..", "data", "parameter_data.py"))
         doublebond_dict = py"doublebond_dict"
         @test !isnothing(doublebond_dict)
@@ -18,7 +18,7 @@ function test_doublebond_dict_loading()
 end
 
 function runtests()
-    @testset "doublebond_dict Tests" begin
+    return @testset "doublebond_dict Tests" begin
         test_doublebond_dict_loading()
     end
 end

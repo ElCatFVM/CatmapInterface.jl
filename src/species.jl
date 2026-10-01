@@ -1,4 +1,3 @@
-
 """
 $(TYPEDEF)
 
@@ -12,7 +11,7 @@ $(TYPEDEF)
 
 $(TYPEDFIELDS)
 """
-struct FictiousSpecies <:AbstractSpecies
+struct FictiousSpecies <: AbstractSpecies
     """
     Name of the species
     """
@@ -29,7 +28,7 @@ struct FictiousSpecies <:AbstractSpecies
         if pressure < 0.0
             throw(DomainError("pressure must be nonnegative"))
         end
-        new(species_name, formation_energy, pressure)
+        return new(species_name, formation_energy, pressure)
     end
 end
 
@@ -69,7 +68,7 @@ struct GasSpecies <: AbstractSpecies
         if !ismissing(henry_const) && henry_const <= 0.0
             throw(DomainError("Henry constant must be positive"))
         end
-        new(species_name, formation_energy, pressure, frequencies, henry_const)
+        return new(species_name, formation_energy, pressure, frequencies, henry_const)
     end
 end
 
@@ -119,7 +118,7 @@ struct AdsorbateSpecies <: AbstractSpecies
     Parameter used in [`CatmapInterface.first_order_adsorbate_interaction`](@ref) to specify the formation energy's dependence on the coverage of other adsorbates
     """
     cross_interaction_params::Dict{String, Float64}
-    function AdsorbateSpecies(; species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, sigma_params=(;a=nothing, b=nothing), self_interaction_param=0.0, cross_interaction_params=Dict{String, Float64}())
+    function AdsorbateSpecies(; species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, sigma_params = (; a = nothing, b = nothing), self_interaction_param = 0.0, cross_interaction_params = Dict{String, Float64}())
         if coverage < 0.0 || coverage > 1.0
             throw(DomainError("coverage must be between 0 and 1"))
         end
@@ -129,7 +128,7 @@ struct AdsorbateSpecies <: AbstractSpecies
         if n_sites < 1
             throw(DomainError("number of needed sites for adsorption must be positive"))
         end
-        new(species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, sigma_params, self_interaction_param, cross_interaction_params)
+        return new(species_name, formation_energy, coverage, site, n_sites, surface_name, frequencies, sigma_params, self_interaction_param, cross_interaction_params)
     end
 end
 
@@ -191,22 +190,22 @@ struct TStateSpecies <: AbstractSpecies
     Parameter used in [`CatmapInterface.first_order_adsorbate_interaction`](@ref) to specify the formation energy's dependence on the coverage of other adsorbates
     """
     cross_interaction_params::Dict{String, Float64}
-    function TStateSpecies(; species_name, formation_energy, barrier, coverage, site, n_sites, surface_name, frequencies, β, between_species, sigma_params=(;a=nothing, b=nothing), self_interaction_param = 0.0, cross_interaction_params=Dict{String, Float64}())
+    function TStateSpecies(; species_name, formation_energy, barrier, coverage, site, n_sites, surface_name, frequencies, β, between_species, sigma_params = (; a = nothing, b = nothing), self_interaction_param = 0.0, cross_interaction_params = Dict{String, Float64}())
         if coverage < 0.0 || coverage > 1.0
             throw(DomainError("coverage must be between 0 and 1"))
         end
         if any(frequencies .<= 0.0)
             throw(DomainError("all frequencies must be positive"))
         end
-        new(species_name, formation_energy, n_sites, barrier, coverage, site, surface_name, frequencies, β, between_species, sigma_params, self_interaction_param, cross_interaction_params)
+        return new(species_name, formation_energy, n_sites, barrier, coverage, site, surface_name, frequencies, β, between_species, sigma_params, self_interaction_param, cross_interaction_params)
     end
 end
 #TStateSpecies(; formation_energy, coverage, site, surface_name, frequencies, sigma_params::Vector{Float64}) = TStateSpecies(; formation_energy, coverage, site, surface_name, frequencies, sigma_params=(; a=sigma_params[1], b=sigma_params[2]))
 
 @kwdef struct InteractionResponseParams
-    slope::Float64      = 1.0
-    cutoff::Float64     = 0.25
-    smoothing::Float64  = 0.05
+    slope::Float64 = 1.0
+    cutoff::Float64 = 0.25
+    smoothing::Float64 = 0.05
 end
 
 """
@@ -263,7 +262,7 @@ struct LocalGasSpecies <: AbstractSpecies
     Henry constant used to convert between gas and liquid phase
     """
     henry_const::Union{Float64, Missing}
-    function LocalGasSpecies(; species_name, formation_energy, pressure=1.0, site="b", frequencies=Float64[], parent_gas="$(replace(species_name, "local" => ""))_g", henry_const=missing)
+    function LocalGasSpecies(; species_name, formation_energy, pressure = 1.0, site = "b", frequencies = Float64[], parent_gas = "$(replace(species_name, "local" => ""))_g", henry_const = missing)
         if pressure < 0.0
             throw(DomainError("pressure must be nonnegative"))
         end
@@ -273,7 +272,7 @@ struct LocalGasSpecies <: AbstractSpecies
         if !ismissing(henry_const) && henry_const <= 0.0
             throw(DomainError("Henry constant must be positive"))
         end
-        new(species_name, formation_energy, pressure, site, frequencies, parent_gas, henry_const)
+        return new(species_name, formation_energy, pressure, site, frequencies, parent_gas, henry_const)
     end
 end
 
@@ -283,4 +282,3 @@ adsorbatespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(
 tstatespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, TStateSpecies), species_list)
 sitespecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, SiteSpecies), species_list)
 localgasspecies(species_list::Dict{String, AbstractSpecies}) = filter(p -> isa(p.second, LocalGasSpecies), species_list)
-

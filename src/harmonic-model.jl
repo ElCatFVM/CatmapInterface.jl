@@ -32,7 +32,7 @@ function entropy(harmonicphase::HarmonicPhase)
 
     vibrational = k_B * sum(@. h * ω / (k_B * T * (exp(h * ω / (k_B * T)) - 1)) - log(1 - exp(-h * ω / (k_B * T))))
 
-    vibrational
+    return vibrational
 end
 
 """
@@ -47,9 +47,9 @@ function enthalpy(harmonicphase::HarmonicPhase)
 
     T = harmonicphase.temperature
     ω = harmonicphase.frequencies .* c_0
-    
+
     zpe = h * sum(ω) / 2
     vibrational = h * sum(@. ω / (exp(h * ω / (k_B * T)) - 1))
 
-    zpe + vibrational
+    return zpe + vibrational
 end

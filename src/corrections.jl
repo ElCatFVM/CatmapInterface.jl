@@ -6,10 +6,10 @@ Correct the relative Gibbs free energies of formation due to ideal adsorbate int
 Model for the excess chemical potential that assumes ideal adsorbate interactions so that the corrections are zero.
 """
 function ideal_adsorbate_interaction(energies, catmap_params, coverages)
-    nothing
+    return nothing
 end
 
-    
+
 # c_0 = 0.0
 # if θ_tot <= x0
 #     c_0 = 0.0
@@ -30,18 +30,18 @@ function smooth_piecewise_linear_interaction_response(θ_tot, interaction_respon
     θ_1 = min(max(0.0, θ_tot - (cutoff - smoothing)), 2 * smoothing)
     θ_2 = max(0.0, θ_tot - (cutoff + smoothing))
 
-    α   = smoothing > 0 ? slope / (4 * smoothing) : 0.0
-    (α * θ_1^2 + slope * θ_2)
+    α = smoothing > 0 ? slope / (4 * smoothing) : 0.0
+    return (α * θ_1^2 + slope * θ_2)
 end
 
 function linear_interaction_response(θ_tot, interaction_response_params::InteractionResponseParams)
     (; slope) = interaction_response_params
-    smooth_piecewise_linear_interaction_response(θ_tot, InteractionResponseParams(; slope, cutoff=0.0, smoothing=0.0))
+    return smooth_piecewise_linear_interaction_response(θ_tot, InteractionResponseParams(; slope, cutoff = 0.0, smoothing = 0.0))
 end
 
 function piecewise_linear_interaction_response(θ_tot, interaction_response_params::InteractionResponseParams)
     (; slope, cutoff) = interaction_response_params
-    smooth_piecewise_linear_interaction_response(θ_tot, InteractionResponseParams(; slope, cutoff, smoothing=0.0))
+    return smooth_piecewise_linear_interaction_response(θ_tot, InteractionResponseParams(; slope, cutoff, smoothing = 0.0))
 end
 
 geometric_mean_cross_interaction(ϵ_s, ϵ_os) = √(ϵ_s * ϵ_os)
@@ -68,11 +68,11 @@ function _get_interaction_term(s::String, sp::AdsorbateSpecies, os::String, osp:
             ϵ = get(osp.cross_interaction_params, s, nothing)
         end
         if isnothing(ϵ)
-            ϵ_s  = sp.self_interaction_param
+            ϵ_s = sp.self_interaction_param
             ϵ_os = osp.self_interaction_param
-            ϵ    = cross_interaction_function(ϵ_s, ϵ_os)
+            ϵ = cross_interaction_function(ϵ_s, ϵ_os)
         end
-    end 
+    end
     return ϵ
 end
 
@@ -111,7 +111,7 @@ function _coverage_of_site(site, species_list, θ)
             θ_tot += θ[s]
         end
     end
-    θ_tot
+    return θ_tot
 end
 
 """
@@ -127,28 +127,29 @@ function first_order_adsorbate_interaction(energies, catmap_params::CatmapParams
     (; species_list, adsorbate_interaction_params) = catmap_params
     (; interaction_response_function, cross_interaction_mode, transition_state_cross_interaction_mode) = adsorbate_interaction_params
 
-    response_function                           = getfield(@__MODULE__, Symbol(interaction_response_function, "_interaction_response"))
-    cross_interaction_function                  = getfield(@__MODULE__, Symbol(cross_interaction_mode, "_cross_interaction"))
+    response_function = getfield(@__MODULE__, Symbol(interaction_response_function, "_interaction_response"))
+    cross_interaction_function = getfield(@__MODULE__, Symbol(cross_interaction_mode, "_cross_interaction"))
     transition_state_cross_interaction_function = getfield(@__MODULE__, Symbol(transition_state_cross_interaction_mode, "_transition_cross_interaction"))
 
     for (Species, interaction_function) in [(AdsorbateSpecies, cross_interaction_function), (TStateSpecies, transition_state_cross_interaction_function)]
         for (s, sp) in species_list
             if isa(sp, Species)
-                (; site)                        = sp
-                θ_tot                           = _coverage_of_site(site, species_list, θ)
+                (; site) = sp
+                θ_tot = _coverage_of_site(site, species_list, θ)
                 (; interaction_response_params) = species_list["_$site"]
-                response_value                  = response_function(θ_tot, interaction_response_params)
+                response_value = response_function(θ_tot, interaction_response_params)
                 for (os, osp) in species_list
                     if isa(osp, AdsorbateSpecies)
                         ϵ = _get_interaction_term(s, sp, os, osp, interaction_function, species_list)
                         sp.cross_interaction_params[os] = ϵ
                         osp.cross_interaction_params[s] = ϵ
-                        energies[s] += response_value * ϵ * ((θ[os])/(θ_tot + 1.0e-50)) * eV
+                        energies[s] += response_value * ϵ * ((θ[os]) / (θ_tot + 1.0e-50)) * eV
                     end
                 end
             end
         end
     end
+    return
 end
 
 """
@@ -158,8 +159,8 @@ Add thermodynamic correction terms for all gas species using the ideal gas appro
 
 An ab-initio statistical model to correct the DFT-energies in order to obtain relative Gibbs free energies of formation. A reference for the approach is given in the book 'Essentials of Computational Chemistry: Theories and Models', 2nd edition, by Cramer, C.J. and published by Wiley.
 """
-function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where Tval <: Real 
-    
+function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) where {Tval <: Real}
+
     ideal_gas_params = py"ideal_gas_params"
     (; species_list, T) = catmap_params
     for (s, sp) in species_list
@@ -167,10 +168,11 @@ function ideal_gas(energies::Dict{String, Tval}, catmap_params::CatmapParams) wh
             (; species_name, frequencies) = sp
             (; symmetrynumber, geometry, spin) = get_ideal_gas_params(species_name)
             (; numbers, positions, masses) = get_molecule_spec(species_name)
-            ideal_gas = IdealGas(; elements=numbers, masses, positions, symmetrynumber, frequencies, spin, geometry, temperature=T)
+            ideal_gas = IdealGas(; elements = numbers, masses, positions, symmetrynumber, frequencies, spin, geometry, temperature = T)
             energies[s] += enthalpy(ideal_gas) - T * entropy(ideal_gas)
         end
     end
+    return
 end
 
 """
@@ -207,7 +209,7 @@ function harmonic_adsorbate(energies, catmap_params::CatmapParams)
         end
 
     end
-    nothing
+    return nothing
 end
 
 """
@@ -234,7 +236,7 @@ function _get_echem_corrections(energies, catmap_params::CatmapParams, σ, ϕ_we
             energies["OH_g"] += G_OH
         end
     end
-    nothing
+    return nothing
 end
 
 """
@@ -249,25 +251,25 @@ function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we
     (; species_list, Uref) = catmap_params
     # simple_electrochem_corrections
     if haskey(energies, "ele_g")
-        energies["ele_g"] += - (ϕ_we-ϕ) * eV
+        energies["ele_g"] += - (ϕ_we - ϕ) * eV
     end
 
     #if haskey(energies, "H_g")
     #   energies["H_g"] += - ϕ * eV
-    #end 
+    #end
 
     #if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
     #   energies["OH_g"] +=  ϕ * eV
-    #end 
+    #end
 
     for (s, sp) in species_list
         if isa(sp, TStateSpecies) && occursin("ele", sp.species_name)
-            energies[s] += (-(ϕ_we-ϕ) + β[s] * (ϕ_we -ϕ - Uref)) * eV
+            energies[s] += (-(ϕ_we - ϕ) + β[s] * (ϕ_we - ϕ - Uref)) * eV
         end
     end
     # pH_correction
     _get_echem_corrections(energies, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
-    nothing
+    return nothing
 end
 
 """
@@ -278,30 +280,30 @@ Add electrochemical correction terms to the relative Gibbs free energies of form
 function hbond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
     # simple_electrochem
-    simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH, β)
+    simple_electrochemical(energies, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     hbond_dict = py"hbond_dict"
     (; species_list, beta_mode) = catmap_params
     # hbond_electrochemical
     for (s, sp) in species_list
-       if isa(sp, AdsorbateSpecies)
-          (; species_name) = sp
-          if haskey(hbond_dict, species_name)
-              energies[s] += hbond_dict[species_name] * eV
-          end
-       end
+        if isa(sp, AdsorbateSpecies)
+            (; species_name) = sp
+            if haskey(hbond_dict, species_name)
+                energies[s] += hbond_dict[species_name] * eV
+            end
+        end
     end
     # surface_charge_density
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
             (; a, b) = sp.sigma_params
-            if beta_mode==:simple||beta_mode==:effective_surface_charging
-               energies[s] += (a * σ) * eV
+            if beta_mode == :simple||beta_mode == :effective_surface_charging
+                energies[s] += (a * σ) * eV
             else
-               energies[s] += (a * σ + b * σ^2) * eV
+                energies[s] += (a * σ + b * σ^2) * eV
             end
         end
     end
-    nothing
+    return nothing
 end
 
 """
@@ -312,29 +314,28 @@ Add electrochemical correction terms to the relative Gibbs free energies of form
 function doublebond_surface_charge_density(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
     # simple_electrochem
-    simple_electrochemical(energies, catmap_params, σ , ϕ_we, ϕ, local_pH, β)
+    simple_electrochemical(energies, catmap_params, σ, ϕ_we, ϕ, local_pH, β)
     doublebond_dict = py"doublebond_dict"
     (; species_list, beta_mode) = catmap_params
     # doublebond_electrochemical
     for (s, sp) in species_list
-       if isa(sp, AdsorbateSpecies)
-          (; species_name) = sp
-          if haskey(doublebond_dict, species_name)
-              energies[s] += doublebond_dict[species_name] * eV
-          end
-       end
+        if isa(sp, AdsorbateSpecies)
+            (; species_name) = sp
+            if haskey(doublebond_dict, species_name)
+                energies[s] += doublebond_dict[species_name] * eV
+            end
+        end
     end
     # surface_charge_density
     for (s, sp) in species_list
         if (isa(sp, AdsorbateSpecies) || isa(sp, TStateSpecies))
             (; a, b) = sp.sigma_params
-            if beta_mode==:simple||beta_mode==:effective_surface_charging
-               energies[s] += (a * σ) * eV
+            if beta_mode == :simple||beta_mode == :effective_surface_charging
+                energies[s] += (a * σ) * eV
             else
-               energies[s] += (a * σ + b * σ^2) * eV
+                energies[s] += (a * σ + b * σ^2) * eV
             end
         end
     end
-    nothing
+    return nothing
 end
-

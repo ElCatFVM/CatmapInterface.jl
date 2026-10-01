@@ -29,25 +29,25 @@ end
 # ╔═╡ 91ac9e35-71eb-4570-bef7-f63c67ce3881
 begin
     using LiquidElectrolytes: ElectrolyteData, PNPSystem, ivsweep, bulkbcondition, voltages_solutions
-	using CatmapInterface: parse_catmap_input, create_reaction_network, liquidize
-	using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict
-	using CatmapInterface: generate_function, parameter_cache
-	using Catalyst: Catalyst, @variables, @species, @parameters, @reaction_network
+    using CatmapInterface: parse_catmap_input, create_reaction_network, liquidize
+    using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict
+    using CatmapInterface: generate_function, parameter_cache
+    using Catalyst: Catalyst, @variables, @species, @parameters, @reaction_network
     using Catalyst: ode_model, complete, ODEProblem
-	using VoronoiFVM: VoronoiFVM, boundary_robin!
-	using LessUnitful: @ufac_str, @unitfactors, @phconstants
-	using ExtendableGrids: simplexgrid, geomspace, XCoordinates
-	using GridVisualize: GridVisualize,GridVisualizer, scalarplot, scalarplot!, reveal, movie
-	using DelimitedFiles: readdlm
-	using FileIO: load
-	using PlutoUI: PlutoUI, LocalResource, TableOfContents
-	using Latexify: latexify
-	using Printf: @sprintf
-	using Test: @test, @testset
-	if isdefined(Main,:PlutoRunner)
-        using CairoMakie: CairoMakie	
-   	 	GridVisualize.default_plotter!(CairoMakie)
- 		CairoMakie.activate!(type="svg")
+    using VoronoiFVM: VoronoiFVM, boundary_robin!
+    using LessUnitful: @ufac_str, @unitfactors, @phconstants
+    using ExtendableGrids: simplexgrid, geomspace, XCoordinates
+    using GridVisualize: GridVisualize, GridVisualizer, scalarplot, scalarplot!, reveal, movie
+    using DelimitedFiles: readdlm
+    using FileIO: load
+    using PlutoUI: PlutoUI, LocalResource, TableOfContents
+    using Latexify: latexify
+    using Printf: @sprintf
+    using Test: @test, @testset
+    if isdefined(Main, :PlutoRunner)
+        using CairoMakie: CairoMakie
+        GridVisualize.default_plotter!(CairoMakie)
+        CairoMakie.activate!(type = "svg")
     end
 end;
 
@@ -74,163 +74,165 @@ md"""
 
 # ╔═╡ 5a146a44-03dc-45f3-ae15-993d11c2edac
 begin
-	@phconstants N_A c_0 k_B e h
-	const F = N_A * e
+    @phconstants N_A c_0 k_B e h
+    const F = N_A * e
 
-	const voltages = (-1.5:0.1:-0.0) * V
-	
-	# geometrical constants
-	const hmin 		= 1.0e-6 	* μm
-	const hmax 		= 1.0 		* μm 
-	const nref  	= 0
-	const L 		= 80.0 		* μm 
-	const Γ_we 		= 1
-	const Γ_bulk 	= 2
-	
-	# bulk constants
-	const pH 		= 6.8
-	const T 		= 298.0 * K
-	const Hcp_CO  	= 9.7e-6 * mol/(m^3 * Pa)
-    const Hcp_CO2 	= 3.3e-4 * mol/(m^3 * Pa)
-	# species not involved in reactions
-	const ikplus 	= 1
-	# species involved in buffer reactions but not in surface reactions
-	const ihplus 	= 2
-	const ihco3 	= 3
-    const ico3 		= 4
-	# species involved in buffer reactions and surface reactions
-	const ico2 		= 5
-    const iohminus 	= 6
-	# species involved in surface reactions but not in buffer reactions
-	const ico  		= 7
-	#overall number of bulk species
-	const nc 		= 7
-	## reaction rate constants for bulk reactions
-	### CO2 + OH- <=> HCO3-
-	const kbe1 = 4.44e7 / (mol/dm^3)
-	const kbf1 = 5.93e3 / (mol/dm^3) / s
-	const kbr1 = kbf1 / kbe1
-	### HCO3- + OH- <=> CO3-- + H2O
-	const kbe2 = 4.66e3 / (mol/dm^3)
-	const kbf2 = 1.0e8 / (mol/dm^3) / s
-	const kbr2 = kbf2 / kbe2
-	### CO2 + H20 <=> HCO3- + H+
-    const kae1 = 4.44e-7 * (mol/dm^3)
+    const voltages = (-1.5:0.1:-0.0) * V
+
+    # geometrical constants
+    const hmin = 1.0e-6 * μm
+    const hmax = 1.0 * μm
+    const nref = 0
+    const L = 80.0 * μm
+    const Γ_we = 1
+    const Γ_bulk = 2
+
+    # bulk constants
+    const pH = 6.8
+    const T = 298.0 * K
+    const Hcp_CO = 9.7e-6 * mol / (m^3 * Pa)
+    const Hcp_CO2 = 3.3e-4 * mol / (m^3 * Pa)
+    # species not involved in reactions
+    const ikplus = 1
+    # species involved in buffer reactions but not in surface reactions
+    const ihplus = 2
+    const ihco3 = 3
+    const ico3 = 4
+    # species involved in buffer reactions and surface reactions
+    const ico2 = 5
+    const iohminus = 6
+    # species involved in surface reactions but not in buffer reactions
+    const ico = 7
+    #overall number of bulk species
+    const nc = 7
+    ## reaction rate constants for bulk reactions
+    ### CO2 + OH- <=> HCO3-
+    const kbe1 = 4.44e7 / (mol / dm^3)
+    const kbf1 = 5.93e3 / (mol / dm^3) / s
+    const kbr1 = kbf1 / kbe1
+    ### HCO3- + OH- <=> CO3-- + H2O
+    const kbe2 = 4.66e3 / (mol / dm^3)
+    const kbf2 = 1.0e8 / (mol / dm^3) / s
+    const kbr2 = kbf2 / kbe2
+    ### CO2 + H20 <=> HCO3- + H+
+    const kae1 = 4.44e-7 * (mol / dm^3)
     const kaf1 = 3.7e-2 / s
     const kar1 = kaf1 / kae1
-    ### HCO3- <=> CO3-- + H+ 
-    const kae2 = 4.66e-5 / (mol/dm^3)
-    const kaf2 = 59.44e3 / (mol/dm^3) / s
+    ### HCO3- <=> CO3-- + H+
+    const kae2 = 4.66e-5 / (mol / dm^3)
+    const kaf2 = 59.44e3 / (mol / dm^3) / s
     const kar2 = kaf2 / kae2
-	### autoprotolyse
-    const kwe  = 1.0e-14 * (mol/dm^3)^2
-    const kwf  = 2.4e-5 * (mol/dm^3) / s
-    const kwr  = kwf / kwe
-	const aH₂O = 1.0 #* mol/dm^3
+    ### autoprotolyse
+    const kwe = 1.0e-14 * (mol / dm^3)^2
+    const kwf = 2.4e-5 * (mol / dm^3) / s
+    const kwr = kwf / kwe
+    const aH₂O = 1.0 #* mol/dm^3
 
-	# surface constants
-	const S 		= 9.61e-5 / N_A * (1.0e10)^2 * mol/m^2
-	const C_gap 	= 20 * μF/cm^2
-    const ϕ_pzc 	= 0.16 * V
-	# surface species indices (must continue after nc)
-	const ico_t 	= nc+1
-	const icooh_t 	= nc+2
-	const ico2_t 	= nc+3
-	# overall number of surface species
-	const na 		= 3 # CO_t, CO2_t, COOH_t
+    # surface constants
+    const S = 9.61e-5 / N_A * (1.0e10)^2 * mol / m^2
+    const C_gap = 20 * μF / cm^2
+    const ϕ_pzc = 0.16 * V
+    # surface species indices (must continue after nc)
+    const ico_t = nc + 1
+    const icooh_t = nc + 2
+    const ico2_t = nc + 3
+    # overall number of surface species
+    const na = 3 # CO_t, CO2_t, COOH_t
 
-	const M0 		= 18.0153 * ufac"g/mol"
-	const v0        = N_A * (8.2 * Å)^3 # 1 / (55.4 * ufac"M") #
-	
-	const species_dict = Dict(
-		"K⁺" => ikplus,
-		"HCO₃⁻" => ihco3,
-		"CO₃²⁻" => ico3,
-		"CO₂" => ico2,
-		"OH⁻" => iohminus, 
-		"H⁺" => ihplus,
-		"CO" => ico,
-		"CO_t" => ico_t,
-		"COOH_t" => icooh_t,
-		"CO2_t" => ico2_t,
-	)
+    const M0 = 18.0153 * ufac"g/mol"
+    const v0 = N_A * (8.2 * Å)^3 # 1 / (55.4 * ufac"M") #
 
-	const species_dict_catmap = Dict(
-		"OH_g" => iohminus,
-		"CO2_aq" => ico2,
-		"CO_aq" => ico,
-		"CO_t" => ico_t,
-		"COOH_t" => icooh_t,
-		"CO2_t" => ico2_t,
-	)
+    const species_dict = Dict(
+        "K⁺" => ikplus,
+        "HCO₃⁻" => ihco3,
+        "CO₃²⁻" => ico3,
+        "CO₂" => ico2,
+        "OH⁻" => iohminus,
+        "H⁺" => ihplus,
+        "CO" => ico,
+        "CO_t" => ico_t,
+        "COOH_t" => icooh_t,
+        "CO2_t" => ico2_t,
+    )
+
+    const species_dict_catmap = Dict(
+        "OH_g" => iohminus,
+        "CO2_aq" => ico2,
+        "CO_aq" => ico,
+        "CO_t" => ico_t,
+        "COOH_t" => icooh_t,
+        "CO2_t" => ico2_t,
+    )
 end;
 
 # ╔═╡ 00947475-c96e-4ecc-a1ef-5be5e3e3c864
 begin
-	@kwdef struct BulkSpecies
-		name::String 
-		z::Int
-		D::Float64
-		c_bulk::Union{Nothing, Float64}
-		κ::Float64
-		a::Float64
-		v::Float64
-		M::Float64
-		color::Symbol
-	end
-	function BulkSpecies(;name, z, c_bulk=nothing, D, κ=0.0, a=0.0, color)
-		D *= m^2/s
-		c_bulk = isnothing(c_bulk) ? nothing : c_bulk * mol/dm^3
-		a *= Å
-		v = N_A * a^3
-		M = M0 * v
-		BulkSpecies(name, z, D, c_bulk, κ, a, v, M, color)
-	end
-	function make_eneutral(bulk_species::Vector{BulkSpecies}
-						  ;name, z, D, κ=0.0, a=0.0, v=N_A*(a*Å)^3, M=M0*v, color)
-		a *= Å
-		c_bulk = -mapreduce(x -> x.c_bulk * x.z, +, bulk_species)/z
-		BulkSpecies(name, z, D, c_bulk, κ, a, v, M, color)
-	end
+    @kwdef struct BulkSpecies
+        name::String
+        z::Int
+        D::Float64
+        c_bulk::Union{Nothing, Float64}
+        κ::Float64
+        a::Float64
+        v::Float64
+        M::Float64
+        color::Symbol
+    end
+    function BulkSpecies(; name, z, c_bulk = nothing, D, κ = 0.0, a = 0.0, color)
+        D *= m^2 / s
+        c_bulk = isnothing(c_bulk) ? nothing : c_bulk * mol / dm^3
+        a *= Å
+        v = N_A * a^3
+        M = M0 * v
+        return BulkSpecies(name, z, D, c_bulk, κ, a, v, M, color)
+    end
+    function make_eneutral(
+            bulk_species::Vector{BulkSpecies}
+            ; name, z, D, κ = 0.0, a = 0.0, v = N_A * (a * Å)^3, M = M0 * v, color
+        )
+        a *= Å
+        c_bulk = -mapreduce(x -> x.c_bulk * x.z, +, bulk_species) / z
+        return BulkSpecies(name, z, D, c_bulk, κ, a, v, M, color)
+    end
 end;
 
 # ╔═╡ ed1812f4-fdab-4fb5-88e1-0ece3c1e26b1
 begin
-	const bulk = let 
-		bulk = [
-		BulkSpecies(;name="HCO₃⁻", z=-1, D=1.185e-9, c_bulk=0.091, color=:brown),
-		BulkSpecies(;name="CO₃²⁻", z=-2, D=0.923e-9, c_bulk=2.68e-5, color=:violet),
-		BulkSpecies(;name="CO₂", z=0, D=1.91e-9, c_bulk=0.033, a=0.0, color=:red),
-		BulkSpecies(;name="OH⁻", z=-1, D=5.273e-9, c_bulk=10^(pH-14), color=:green),
-		BulkSpecies(;name="H⁺", z=1, D=9.310e-9, c_bulk=10^(-pH), a=0.0, color=:gray),
-		BulkSpecies(;name="CO", z=0, D=2.23e-9, c_bulk=0.0, a=0.0, color=:blue)
-		]
-		push!(bulk, make_eneutral(bulk;name="K⁺",z=1, D=1.957e-9, a=8.2, color=:orange))
-		sort(bulk, by=x->species_dict[x.name])
-	end
+    const bulk = let
+        bulk = [
+            BulkSpecies(; name = "HCO₃⁻", z = -1, D = 1.185e-9, c_bulk = 0.091, color = :brown),
+            BulkSpecies(; name = "CO₃²⁻", z = -2, D = 0.923e-9, c_bulk = 2.68e-5, color = :violet),
+            BulkSpecies(; name = "CO₂", z = 0, D = 1.91e-9, c_bulk = 0.033, a = 0.0, color = :red),
+            BulkSpecies(; name = "OH⁻", z = -1, D = 5.273e-9, c_bulk = 10^(pH - 14), color = :green),
+            BulkSpecies(; name = "H⁺", z = 1, D = 9.31e-9, c_bulk = 10^(-pH), a = 0.0, color = :gray),
+            BulkSpecies(; name = "CO", z = 0, D = 2.23e-9, c_bulk = 0.0, a = 0.0, color = :blue),
+        ]
+        push!(bulk, make_eneutral(bulk; name = "K⁺", z = 1, D = 1.957e-9, a = 8.2, color = :orange))
+        sort(bulk, by = x -> species_dict[x.name])
+    end
 end;
 
 # ╔═╡ 06f52599-7006-4a5c-ba86-0b668b6952c9
 begin
-	function create_markdown(bulk::Vector{BulkSpecies})
-		table = """
-| Name | z | D | c_bulk | a | v | M | κ | color |
-|------|---|---|--------|---|---|---|---|-------|
-"""
-		for sp in bulk
-			(; name, z, D, c_bulk, a, v, M, κ, color) = sp
-			table *= @sprintf("| %s | %i | %1.3e | %1.3e | %1.3e | %1.3e | %1.3e | %1.2f | %s |\n", name, z, D, c_bulk, a, v, M, κ, color) 
-		end
-		Markdown.parse(table)
-	end
-	create_markdown(bulk)
+    function create_markdown(bulk::Vector{BulkSpecies})
+        table = """
+        | Name | z | D | c_bulk | a | v | M | κ | color |
+        |------|---|---|--------|---|---|---|---|-------|
+        """
+        for sp in bulk
+            (; name, z, D, c_bulk, a, v, M, κ, color) = sp
+            table *= @sprintf("| %s | %i | %1.3e | %1.3e | %1.3e | %1.3e | %1.3e | %1.2f | %s |\n", name, z, D, c_bulk, a, v, M, κ, color)
+        end
+        return Markdown.parse(table)
+    end
+    create_markdown(bulk)
 end
 
 # ╔═╡ 39e58387-a272-4bd8-8a9f-ef8dfcddb013
-datadir(args...)= joinpath(@__DIR__,"..","data", args...)
+datadir(args...) = joinpath(@__DIR__, "..", "data", args...)
 
 # ╔═╡ ee0d1338-7807-4d38-abbe-b56b51e4aa31
-catmapfile=datadir("models","Au","catmap_CO2R_template.mkm")
+catmapfile = datadir("models", "Au", "catmap_CO2R_template.mkm")
 
 # ╔═╡ a538a6a3-5a35-4516-a19f-64960886e829
 catmap_params = parse_catmap_input(catmapfile)
@@ -241,12 +243,14 @@ md"""
 """
 
 # ╔═╡ 4c95d645-f909-492b-a425-927c093ae31a
-solver_control = (; max_round 	= 4,
-					maxiters 	= 20,
-              		tol_round 	= 1.0e-9,
-              		verbose 	= "a",
-              		reltol 		= 1.0e-8,
-              		tol_mono 	= 1.0e-10)
+solver_control = (;
+    max_round = 4,
+    maxiters = 20,
+    tol_round = 1.0e-9,
+    verbose = "a",
+    reltol = 1.0e-8,
+    tol_mono = 1.0e-10,
+)
 
 # ╔═╡ 4b64e168-5fe9-4202-9657-0d4afc237ddc
 md"""
@@ -265,57 +269,57 @@ Consider the bicarbonate buffer system in base and acid as well as autoprotolysi
 
 # ╔═╡ 47b36c81-b57e-4dd0-a22f-999e4fd3ac9f
 begin
-	@variables t
-	@species H⁺(t), HCO₃⁻(t), CO₃²⁻(t), CO₂(t), OH⁻(t)
-	@parameters  γH⁺ γHCO₃⁻ γCO₃²⁻ γCO₂ γOH⁻
-	buffer_rn = @reaction_network buffer begin
-		($kbf1 * γCO₂ * γOH⁻, $kbr1 * γHCO₃⁻), CO₂ + OH⁻ <--> HCO₃⁻
-		($kbf2 * γHCO₃⁻ * γOH⁻, $kbr2 * $aH₂O * γCO₃²⁻), HCO₃⁻ + OH⁻ <--> CO₃²⁻
-		($kaf1 * $aH₂O * γCO₂, $kar1 * γHCO₃⁻ * γH⁺), CO₂ <--> HCO₃⁻ + H⁺
-		($kaf2 * γHCO₃⁻, $kar2 * γCO₃²⁻ * γH⁺), HCO₃⁻ <--> CO₃²⁻ + H⁺
-		($kwf * $aH₂O, $kwr * γH⁺ * γOH⁻), ∅ <--> H⁺ + OH⁻
-	end
-	odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws=false) |> complete
- end
+    @variables t
+    @species H⁺(t), HCO₃⁻(t), CO₃²⁻(t), CO₂(t), OH⁻(t)
+    @parameters  γH⁺ γHCO₃⁻ γCO₃²⁻ γCO₂ γOH⁻
+    buffer_rn = @reaction_network buffer begin
+        ($kbf1 * γCO₂ * γOH⁻, $kbr1 * γHCO₃⁻), CO₂ + OH⁻ <--> HCO₃⁻
+        ($kbf2 * γHCO₃⁻ * γOH⁻, $kbr2 * $aH₂O * γCO₃²⁻), HCO₃⁻ + OH⁻ <--> CO₃²⁻
+        ($kaf1 * $aH₂O * γCO₂, $kar1 * γHCO₃⁻ * γH⁺), CO₂ <--> HCO₃⁻ + H⁺
+        ($kaf2 * γHCO₃⁻, $kar2 * γCO₃²⁻ * γH⁺), HCO₃⁻ <--> CO₃²⁻ + H⁺
+        ($kwf * $aH₂O, $kwr * γH⁺ * γOH⁻), ∅ <--> H⁺ + OH⁻
+    end
+    odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws = false) |> complete
+end
 
 # ╔═╡ 398a9cb8-2022-4909-99c2-c3b3e1f189db
 Catalyst.parameters(odesys_buffer)
 
 # ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
-const react_buffer=generate_function(odesys_buffer, species_dict);
+const react_buffer = generate_function(odesys_buffer, species_dict);
 
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
-	function reaction(
-		f, 
-		u, 
-		node, 
-		data
-	)	
-		(; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
+function reaction(
+        f,
+        u,
+        node,
+        data
+    )
+    (; ip, iϕ, v0, v, M0, M, κ, ε_0, ε, RT, nc, pscale, p_bulk) = data
 
-		# compute activity coefficients according to the approach in Ringe et al.
-		γ=1.0/(1-v[ikplus]*u[ikplus]/(mol/dm^3))
-		p = parameter_cache(react_buffer, eltype(u))
-	        p[:γH⁺]=γ
-            p[:γHCO₃⁻]=γ
-            p[:γCO₃²⁻]=γ
-            p[:γCO₂]=γ
-            p[:γOH⁻]=γ
+    # compute activity coefficients according to the approach in Ringe et al.
+    γ = 1.0 / (1 - v[ikplus] * u[ikplus] / (mol / dm^3))
+    p = parameter_cache(react_buffer, eltype(u))
+    p[:γH⁺] = γ
+    p[:γHCO₃⁻] = γ
+    p[:γCO₃²⁻] = γ
+    p[:γCO₂] = γ
+    p[:γOH⁻] = γ
 
-		
-		# compute activity coefficients according to the approach in Dreyer et al.
-		# p = u[ip] * pscale-p_bulk
-    	# c0, bar_c = c0_barc(u, data)
-		# for ic in 1:nc
-		#	Mrel = M[ic] / M0
-		#	barv = v[ic] + κ[ic] * v0
-		#	tildev = barv - Mrel * v0
-		# 	γ[ic] = exp(tildev * p / (RT)) * (bar_c / c0)^Mrel*(1/bar_c) /v0
-		# end
-		
-		react_buffer(f,u,p)
-		nothing
-	end;
+
+    # compute activity coefficients according to the approach in Dreyer et al.
+    # p = u[ip] * pscale-p_bulk
+    # c0, bar_c = c0_barc(u, data)
+    # for ic in 1:nc
+    #	Mrel = M[ic] / M0
+    #	barv = v[ic] + κ[ic] * v0
+    #	tildev = barv - Mrel * v0
+    # 	γ[ic] = exp(tildev * p / (RT)) * (bar_c / c0)^Mrel*(1/bar_c) /v0
+    # end
+
+    react_buffer(f, u, p)
+    return nothing
+end;
 
 # ╔═╡ 8912f990-6b02-467a-bd11-92f94818b1c7
 md"""
@@ -343,20 +347,20 @@ $*CO_{(ad)} \rightleftharpoons CO_{(aq)} + *$
 """
 
 # ╔═╡ 489ead3b-04b8-44bb-9d73-7b1d13cf5346
-const symbolic_formation_energies=true
+const symbolic_formation_energies = true
 
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
-	rn					= create_reaction_network(catmap_params;	symbolic_formation_energies)
-	odesys0 			= ode_model(rn; combinatoric_ratelaws=false)
-	odesys_catmap 		= liquidize(odesys0, catmap_params)|> complete
- end
+    rn = create_reaction_network(catmap_params; symbolic_formation_energies)
+    odesys0 = ode_model(rn; combinatoric_ratelaws = false)
+    odesys_catmap = liquidize(odesys0, catmap_params) |> complete
+end
 
 # ╔═╡ 30939809-60ab-4d35-b0b9-b83d41021395
 Catalyst.parameters(odesys_catmap)
 
 # ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
-react_catmap=generate_function(odesys_catmap, species_dict_catmap);
+react_catmap = generate_function(odesys_catmap, species_dict_catmap);
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -379,37 +383,38 @@ __Question is the pH-dependence only in the reaction rate constants (i.e. activi
 """
 
 # ╔═╡ 91113083-d80e-4528-be41-82d10f6860fc
-function we_breactions(f, 
-		u, 
-		bnode, 
-		data
-	) 
-	(; ip, iϕ, v0, v, M0, M, κ, RT, nc, pscale, p_bulk, ϕ_we) = data
-	
-	γ_co2	= 1.0 / (1 - v[ikplus] * u[ikplus] / (mol/dm^3))
-	γ_co	= 1.0 / (1 - v[ikplus] * u[ikplus] / (mol/dm^3))
-	σ			= C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
-	local_pH	= -log10(u[ihplus] / (mol/dm^3))
-	ps=parameter_cache(react_catmap,eltype(u))
-	ps[:σ] = σ
-	ps[:γCO2_aq] = γ_co2
-	ps[:aH2O_g] = aH₂O
-	ps[:ϕ] = u[iϕ]
-	ps[:ϕ_we] = ϕ_we
-	ps[:local_pH] = local_pH
-	ps[:γCO_aq] = γ_co
-	ps[:βCOOHΔH2OΔele_t] = 0.59
-	if symbolic_formation_energies
-		ps[:ECOOHΔH2OΔele_t] = 0.95*e
-	end
-	react_catmap(f,u,ps)
-	
-	# conversion from turnover frequency (appropriate for change in coverage) to 
-	# production rate (per unit area) (approprite for change in concentration)
-	# by S = number of free catalyst sites in mole per unit area
-	f[ico2] *= S
-	f[iohminus] *= S
-	f[ico] *= S
+function we_breactions(
+        f,
+        u,
+        bnode,
+        data
+    )
+    (; ip, iϕ, v0, v, M0, M, κ, RT, nc, pscale, p_bulk, ϕ_we) = data
+
+    γ_co2 = 1.0 / (1 - v[ikplus] * u[ikplus] / (mol / dm^3))
+    γ_co = 1.0 / (1 - v[ikplus] * u[ikplus] / (mol / dm^3))
+    σ = C_gap * (ϕ_we - u[iϕ] - ϕ_pzc)
+    local_pH = -log10(u[ihplus] / (mol / dm^3))
+    ps = parameter_cache(react_catmap, eltype(u))
+    ps[:σ] = σ
+    ps[:γCO2_aq] = γ_co2
+    ps[:aH2O_g] = aH₂O
+    ps[:ϕ] = u[iϕ]
+    ps[:ϕ_we] = ϕ_we
+    ps[:local_pH] = local_pH
+    ps[:γCO_aq] = γ_co
+    ps[:βCOOHΔH2OΔele_t] = 0.59
+    if symbolic_formation_energies
+        ps[:ECOOHΔH2OΔele_t] = 0.95 * e
+    end
+    react_catmap(f, u, ps)
+
+    # conversion from turnover frequency (appropriate for change in coverage) to
+    # production rate (per unit area) (approprite for change in concentration)
+    # by S = number of free catalyst sites in mole per unit area
+    f[ico2] *= S
+    f[iohminus] *= S
+    return f[ico] *= S
 end
 
 
@@ -451,47 +456,48 @@ md"""
 
 # ╔═╡ e7e0eb0d-fe3e-4f1d-876f-cc13a9aaf84c
 grid = let
-#	X = geomspace(0, L, hmin*200, hmax*20)
-	X = geomspace(0, L, hmin, hmax)
-	simplexgrid(X)
+    #	X = geomspace(0, L, hmin*200, hmax*20)
+    X = geomspace(0, L, hmin, hmax)
+    simplexgrid(X)
 end
 
 # ╔═╡ e510bce3-d33f-47bb-98d6-121eee8f2252
-celldata = ElectrolyteData(;nc    = nc,
-						  	na    = na,
-						  	z     = getproperty.(bulk, :z),
-						  	D     = getproperty.(bulk, :D),
-						  	T     = T,
-						  	eneutral=false,
-						  	κ     = getproperty.(bulk, :κ),
-                            c_bulk= getproperty.(bulk, :c_bulk),
-						    v0 	  = v0,
-							v     = getproperty.(bulk, :v),
-							M0 	  = M0,
-							M     = getproperty.(bulk, :M),
-						  	Γ_we  = Γ_we,
-						  	Γ_bulk= Γ_bulk,
+celldata = ElectrolyteData(;
+    nc = nc,
+    na = na,
+    z = getproperty.(bulk, :z),
+    D = getproperty.(bulk, :D),
+    T = T,
+    eneutral = false,
+    κ = getproperty.(bulk, :κ),
+    c_bulk = getproperty.(bulk, :c_bulk),
+    v0 = v0,
+    v = getproperty.(bulk, :v),
+    M0 = M0,
+    M = getproperty.(bulk, :M),
+    Γ_we = Γ_we,
+    Γ_bulk = Γ_bulk,
 );
 
 # ╔═╡ dc203e95-7763-4b13-8408-038b933c5c9c
 function halfcellbc(
-	f,
-	u, 
-	bnode,
-	data
-)
-	
-	(; Γ_we, Γ_bulk, ϕ_we, iϕ) = data
+        f,
+        u,
+        bnode,
+        data
+    )
 
-	bulkbcondition(f, u, bnode, data; region = Γ_bulk)
+    (; Γ_we, Γ_bulk, ϕ_we, iϕ) = data
 
-	# Robin b.c. for the Poisson equation
-	boundary_robin!(f, u, bnode, iϕ, Γ_we, C_gap , C_gap * (ϕ_we - ϕ_pzc))
+    bulkbcondition(f, u, bnode, data; region = Γ_bulk)
 
-	if bnode.region == Γ_we
-			we_breactions(f, u, bnode, data)
-	end
-	nothing
+    # Robin b.c. for the Poisson equation
+    boundary_robin!(f, u, bnode, iϕ, Γ_we, C_gap, C_gap * (ϕ_we - ϕ_pzc))
+
+    if bnode.region == Γ_we
+        we_breactions(f, u, bnode, data)
+    end
+    return nothing
 end;
 
 # ╔═╡ 842b074b-f808-48d8-8dc5-110ddd907f90
@@ -501,14 +507,16 @@ md"""
 
 # ╔═╡ 84d1270b-8df5-4d5d-a153-da4ffdb1d283
 function simulate_CO2R(grid, celldata; voltages = (-1.5:0.1:0.0) * V, kwargs...)
-    kwargs 	 	= merge(solver_control, kwargs) 
-    cell        = PNPSystem(grid; 
-							bcondition=halfcellbc, 
-							reaction=reaction, 
-							celldata)
-	ivresult    = ivsweep(cell; voltages, store_solutions=true, kwargs...)
+    kwargs = merge(solver_control, kwargs)
+    cell = PNPSystem(
+        grid;
+        bcondition = halfcellbc,
+        reaction = reaction,
+        celldata
+    )
+    ivresult = ivsweep(cell; voltages, store_solutions = true, kwargs...)
 
-	cell, ivresult
+    return cell, ivresult
 end;
 
 # ╔═╡ 114d2324-5289-4e44-8d77-736a9bdec365
@@ -534,7 +542,7 @@ $(vshow = result.voltages[vindex]; @sprintf("%+1.4f", vshow))
 """
 
 # ╔═╡ 4e5c1eb4-9d2a-4a6e-8a6d-3c1fe7911a5f
-reftable = readdlm(datadir("IV-Ringe-digitized.csv"), ',', Float64, '\n')	
+reftable = readdlm(datadir("IV-Ringe-digitized.csv"), ',', Float64, '\n')
 
 # ╔═╡ c1d2305e-fb8b-4845-a414-08fff84aa9b0
 md"""
@@ -543,123 +551,131 @@ md"""
 
 # ╔═╡ 2ce5aa45-4aa5-4c2a-a608-f581266e55f0
 begin
-	function addplot(vis, sol, vshow)
-		species = getproperty.(bulk, :name)
-		colors = getproperty.(bulk, :color)
-		
-		scale = 1.0 / (mol / dm^3)
-	    title = @sprintf("Φ_we=%+1.2f [V vs. SHE]", vshow)
-	
-		if useonly_pH
-			i = findfirst(isequal("H⁺"), species)
-			scalarplot!(vis, 
-					    grid.components[XCoordinates] .+ 1.0e-14, 
-					    log10.(sol[ihplus, :] * scale), 
-					    color = colors[i],
-					    label = species[i],
-					    clear = true,
-						title = title)
-		else
-			scalarplot!(vis, 
-						grid.components[XCoordinates] .+ 1.0e-14, 
-						log10.(sol[1, :] * scale), 
-						color = colors[1],
-						label = species[1],
-						clear = true,
-						title = title)
-			for ia = 2:nc			
-				scalarplot!(vis, 
-						    grid.components[XCoordinates] .+ 1.0e-14, 
-						    log10.(sol[ia, :] * scale), 
-						    color = colors[ia],
-						    label = species[ia],
-						    clear = false,)
-			end
-		end
-	end
+    function addplot(vis, sol, vshow)
+        species = getproperty.(bulk, :name)
+        colors = getproperty.(bulk, :color)
 
-	# function addplot(vis, df)
-		
-	# 	function extract_interpolation(df, i)
-	# 		X = collect(skipmissing(df[!, 2*i-1]))
-	# 		I = sortperm(X)
-	# 		X .= X[I]
-	# 		Y = collect(skipmissing(df[!, 2*i]))[I]
-	# 		linear_interpolation(X, Y, extrapolation_bc=Line())
-	# 	end
-		
-	# 	species = getproperty(bulk, :name)
-	# 	colors = [:orange, :brown, :violet, :red, :blue, :green, :gray]
+        scale = 1.0 / (mol / dm^3)
+        title = @sprintf("Φ_we=%+1.2f [V vs. SHE]", vshow)
 
-	# 	knots = grid.components[XCoordinates] .+ 1.0e-14
-	# 	sol = [extract_interpolation(df, i) for i in 1:nc]
-		
-	# 	if useonly_pH
-	# 		scalarplot!(vis, 
-	# 				    knots, 
-	# 				    log10.(sol[ihplus].(knots)), 
-	# 				    color = colors[ihplus],
-	# 				    clear = false,
-	# 					linewidth = 0,
-	# 					label = "",
-	# 					markershape = :cross,
-	# 					markersize = 8,
-	# 					markevery = 20)
-	# 	else
-	# 		for ia = 1:nc			
-	# 			scalarplot!(vis, 
-	# 					    knots, 
-	# 					    log10.(sol[ia].(knots)), 
-	# 					    color = colors[ia],
-	# 					    clear = false,
-	# 						linewidth = 0,
-	# 						label = "",
-	# 						markershape = :cross,
-	# 						markersize = 8,
-	# 						markevery = 20)
-	# 		end
-	# 	end
-	# end
+        return if useonly_pH
+            i = findfirst(isequal("H⁺"), species)
+            scalarplot!(
+                vis,
+                grid.components[XCoordinates] .+ 1.0e-14,
+                log10.(sol[ihplus, :] * scale),
+                color = colors[i],
+                label = species[i],
+                clear = true,
+                title = title
+            )
+        else
+            scalarplot!(
+                vis,
+                grid.components[XCoordinates] .+ 1.0e-14,
+                log10.(sol[1, :] * scale),
+                color = colors[1],
+                label = species[1],
+                clear = true,
+                title = title
+            )
+            for ia in 2:nc
+                scalarplot!(
+                    vis,
+                    grid.components[XCoordinates] .+ 1.0e-14,
+                    log10.(sol[ia, :] * scale),
+                    color = colors[ia],
+                    label = species[ia],
+                    clear = false,
+                )
+            end
+        end
+    end
 
-	function plot1d(result, celldata, vshow; df_compare = nothing)
-		tsol 	= voltages_solutions(result)
-		vis 	= GridVisualizer(;
-								 size 	= (600, 300),
-								 clear 	= true,
-								 legend 	= :rt,
-								 limits 	= (-14, 2),
-								 xlimits    = (10e-12, 80 * μm),
-								 xlabel 	= "Distance from electrode [m]",
-	 							 ylabel 	= "log c(aᵢ)", 
-								 xscale 	= :log,)
-	    addplot(vis, tsol(vshow), vshow)
-		if !isnothing(df_compare)
-			addplot(vis, df_compare)
-		end
-		reveal(vis)
-	end
+    # function addplot(vis, df)
 
-	function plot1d(result, celldata)
-    	tsol  	= voltages_solutions(result)
-		vis  	= GridVisualizer(; 
-								 size 	= (600, 300),
-								 clear 	= true,
-							 	 legend = :rt,
-								 limits = (-14, 2),
-								 xlimits= (10e-12, 80 * μm),
-								 xlabel = "Distance from electrode [m]",
- 								 ylabel = "log c(aᵢ)", 
-								 xscale = :log,)
-	
-		vrange = result.voltages[end:-5:1]
-		movie(vis, file="concentrations.gif", framerate=3) do vis
-		for vshow_it in vrange
-			addplot(vis, tsol(vshow_it), vshow_it)
-			reveal(vis)
-		end
-		end
-		isdefined(Main, :PlutoRunner) && LocalResource("concentrations.gif")
-	end
+    # 	function extract_interpolation(df, i)
+    # 		X = collect(skipmissing(df[!, 2*i-1]))
+    # 		I = sortperm(X)
+    # 		X .= X[I]
+    # 		Y = collect(skipmissing(df[!, 2*i]))[I]
+    # 		linear_interpolation(X, Y, extrapolation_bc=Line())
+    # 	end
+
+    # 	species = getproperty(bulk, :name)
+    # 	colors = [:orange, :brown, :violet, :red, :blue, :green, :gray]
+
+    # 	knots = grid.components[XCoordinates] .+ 1.0e-14
+    # 	sol = [extract_interpolation(df, i) for i in 1:nc]
+
+    # 	if useonly_pH
+    # 		scalarplot!(vis,
+    # 				    knots,
+    # 				    log10.(sol[ihplus].(knots)),
+    # 				    color = colors[ihplus],
+    # 				    clear = false,
+    # 					linewidth = 0,
+    # 					label = "",
+    # 					markershape = :cross,
+    # 					markersize = 8,
+    # 					markevery = 20)
+    # 	else
+    # 		for ia = 1:nc
+    # 			scalarplot!(vis,
+    # 					    knots,
+    # 					    log10.(sol[ia].(knots)),
+    # 					    color = colors[ia],
+    # 					    clear = false,
+    # 						linewidth = 0,
+    # 						label = "",
+    # 						markershape = :cross,
+    # 						markersize = 8,
+    # 						markevery = 20)
+    # 		end
+    # 	end
+    # end
+
+    function plot1d(result, celldata, vshow; df_compare = nothing)
+        tsol = voltages_solutions(result)
+        vis = GridVisualizer(;
+            size = (600, 300),
+            clear = true,
+            legend = :rt,
+            limits = (-14, 2),
+            xlimits = (10.0e-12, 80 * μm),
+            xlabel = "Distance from electrode [m]",
+            ylabel = "log c(aᵢ)",
+            xscale = :log,
+        )
+        addplot(vis, tsol(vshow), vshow)
+        if !isnothing(df_compare)
+            addplot(vis, df_compare)
+        end
+        return reveal(vis)
+    end
+
+    function plot1d(result, celldata)
+        tsol = voltages_solutions(result)
+        vis = GridVisualizer(;
+            size = (600, 300),
+            clear = true,
+            legend = :rt,
+            limits = (-14, 2),
+            xlimits = (10.0e-12, 80 * μm),
+            xlabel = "Distance from electrode [m]",
+            ylabel = "log c(aᵢ)",
+            xscale = :log,
+        )
+
+        vrange = result.voltages[end:-5:1]
+        movie(vis, file = "concentrations.gif", framerate = 3) do vis
+            for vshow_it in vrange
+                addplot(vis, tsol(vshow_it), vshow_it)
+                reveal(vis)
+            end
+        end
+        return isdefined(Main, :PlutoRunner) && LocalResource("concentrations.gif")
+    end
 end
 
 # ╔═╡ 5dd1a1e6-7db1-479e-a684-accec53ce06a
@@ -670,50 +686,54 @@ plot1d(result, celldata)
 
 # ╔═╡ d5ab1a28-3a60-49d9-bb3e-ca589b1c79fd
 begin
-	curr(J, ix) = [F * abs(j[ix]) for j in J]
-	
-	function plotcurr(result; df = nothing)
-	    scale = 1 / (mol / dm^3)
-	    volts = result.voltages[result.voltages .< -0.4]
-	    vis = GridVisualizer(;
-	                         size = (600, 400),
-	                         tilte = "IV Curve",
-	                         xlabel = "Φ_WE/(V vs. SHE)",
-	                         ylabel = "I/(mA/cm²)",
-	                         legend = :lb,
-							 yscale = :log,
-		)
-							 
-	    scalarplot!(vis,
-	                volts,
-	                curr(result.j_we, iohminus)[result.voltages .< -0.4] .* cm^2/mA;
-	                color = :green,
-	                clear = false,
-	                linestyle = :solid,
-	                label = "e⁻, we")
-		if !isnothing(df)
-			scalarplot!(vis,
-						df[:voltage],
-						df[:current],
-						clear = false,
-						linewidth = 0,
-						markershape = :cross,
-						markersize = 8,
-						markevery = 1,
-						color = :red,
-						label = "Ringe et. al")
-		end
-		if isdefined(Main, :PlutoRunner)
-			GridVisualize.save("CO2Rcompare.png",vis)
-		end
-	    reveal(vis)
-	end
+    curr(J, ix) = [F * abs(j[ix]) for j in J]
+
+    function plotcurr(result; df = nothing)
+        scale = 1 / (mol / dm^3)
+        volts = result.voltages[result.voltages .< -0.4]
+        vis = GridVisualizer(;
+            size = (600, 400),
+            tilte = "IV Curve",
+            xlabel = "Φ_WE/(V vs. SHE)",
+            ylabel = "I/(mA/cm²)",
+            legend = :lb,
+            yscale = :log,
+        )
+
+        scalarplot!(
+            vis,
+            volts,
+            curr(result.j_we, iohminus)[result.voltages .< -0.4] .* cm^2 / mA;
+            color = :green,
+            clear = false,
+            linestyle = :solid,
+            label = "e⁻, we"
+        )
+        if !isnothing(df)
+            scalarplot!(
+                vis,
+                df[:voltage],
+                df[:current],
+                clear = false,
+                linewidth = 0,
+                markershape = :cross,
+                markersize = 8,
+                markevery = 1,
+                color = :red,
+                label = "Ringe et. al"
+            )
+        end
+        if isdefined(Main, :PlutoRunner)
+            GridVisualize.save("CO2Rcompare.png", vis)
+        end
+        return reveal(vis)
+    end
 end
 
 # ╔═╡ 1cd669ac-05eb-48b2-b457-8c395cd5807d
 let
-	df = Dict(:voltage => reftable[:,1], :current => reftable[:,2])
-	plotcurr(result; df=df)
+    df = Dict(:voltage => reftable[:, 1], :current => reftable[:, 2])
+    plotcurr(result; df = df)
 end
 
 # ╔═╡ 686ac3dc-c191-4575-ba0c-d4c2551474b5
@@ -727,39 +747,43 @@ sresult = load(datadir("regressionresults-CMI-v0.3.0.jld2"))["regressionresults"
 # ╔═╡ 32eb1122-5013-4a8e-be54-18a30c151515
 begin
 
-	vidxs_result = [findfirst(isequal(v), result.voltages) for v in voltages[1:end-1]]
-	vidxs_sresult = [findfirst(isequal(v), sresult.voltages) for v in voltages[1:end-1]]
-	
-	if any(isnothing.(vidxs_sresult))
-		throw(ArgumentError("For the full regression test use the applied voltages  -1.5:0.1:0.0"))
-	end
+    vidxs_result = [findfirst(isequal(v), result.voltages) for v in voltages[1:(end - 1)]]
+    vidxs_sresult = [findfirst(isequal(v), sresult.voltages) for v in voltages[1:(end - 1)]]
 
-	@testset begin
-	@testset "Concentrations" begin
-		@testset "$(bulk[ia].name)" for ia in 1:nc
-			@testset "U=$(result.voltages[vidx_result])" for (vidx_result, vidx_sresult) in zip(vidxs_result, vidxs_sresult)	
-				@test all(isapprox(
-					result.solutions[vidx_result][ia,:], sresult.solutions[vidx_sresult][ia,:], 
-					rtol = 1.0e-5
-				))
-			end
-		end
-	end
+    if any(isnothing.(vidxs_sresult))
+        throw(ArgumentError("For the full regression test use the applied voltages  -1.5:0.1:0.0"))
+    end
 
-	@testset "Currents" begin
-		for (vidx_result, vidx_sresult) in zip(vidxs_result, vidxs_sresult)
-			for (j_result, j_sresult) in zip(result.j_we[vidx_result][iohminus], 
-											sresult.j_we[vidx_result][iohminus])
-				@test isapprox(j_result, j_sresult, atol=1.0e-13)
-			end
-		end
-	end
-	end
-	ok=true
+    @testset begin
+        @testset "Concentrations" begin
+            @testset "$(bulk[ia].name)" for ia in 1:nc
+                @testset "U=$(result.voltages[vidx_result])" for (vidx_result, vidx_sresult) in zip(vidxs_result, vidxs_sresult)
+                    @test all(
+                        isapprox(
+                            result.solutions[vidx_result][ia, :], sresult.solutions[vidx_sresult][ia, :],
+                            rtol = 1.0e-5
+                        )
+                    )
+                end
+            end
+        end
+
+        @testset "Currents" begin
+            for (vidx_result, vidx_sresult) in zip(vidxs_result, vidxs_sresult)
+                for (j_result, j_sresult) in zip(
+                        result.j_we[vidx_result][iohminus],
+                        sresult.j_we[vidx_result][iohminus]
+                    )
+                    @test isapprox(j_result, j_sresult, atol = 1.0e-13)
+                end
+            end
+        end
+    end
+    ok = true
 end;
 
 # ╔═╡ d0985ca6-fef5-4b67-9ad6-f51d84b595b4
-TableOfContents(title="📚 Table of Contents", indent=true, depth=4, aside=true)
+TableOfContents(title = "📚 Table of Contents", indent = true, depth = 4, aside = true)
 
 # ╔═╡ 894d8ec6-b7c6-41dd-b55d-c6ae30480b99
 html"""<style>.dont-panic{ display: none }</style>"""

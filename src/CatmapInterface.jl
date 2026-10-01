@@ -40,7 +40,7 @@ module CatmapInterface
     include("reaction_network.jl")
     export create_reaction_network, generate_function, liquidize
     export parameter_cache, parameter_defaults
-    @public ReactionTerm,  ReactionTermParameterCache
+    @public ReactionTerm, ReactionTermParameterCache
     export unknown_indexes, parameter_indexes, parameter_dict, paramsidx
     export default_params, init_params!
 

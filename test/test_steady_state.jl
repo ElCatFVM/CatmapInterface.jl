@@ -24,10 +24,10 @@ struct ModelInstance
     ss_params_iter
 end
 function ModelInstance(; name, path, test_params_path)
-    catmap_params   = parse_catmap_input(path)
-    rn           = create_reaction_network(catmap_params; conserve_pressures=true)
-    ss_params_iter  = load_test_params(test_params_path, catmap_params)
-    ModelInstance(name, path, catmap_params, rn, ss_params_iter)
+    catmap_params = parse_catmap_input(path)
+    rn = create_reaction_network(catmap_params; conserve_pressures = true)
+    ss_params_iter = load_test_params(test_params_path, catmap_params)
+    return ModelInstance(name, path, catmap_params, rn, ss_params_iter)
 end
 
 ## Model definitions

@@ -8,9 +8,8 @@ CatmapParams
 ```@docs
 AbstractSpecies
 GasSpecies
-CatmapInterface.LocalGasSpecies
-AdsorbateSpecies
 LocalGasSpecies
+AdsorbateSpecies
 TStateSpecies
 FictiousSpecies
 SiteSpecies
@@ -19,21 +18,22 @@ SiteSpecies
 ## Reaction Network
 ```@docs
 create_reaction_network
+liquidize
+parameter_cache
+parameter_defaults
+generate_function
+CatmapInterface.ReactionTerm
+CatmapInterface.ReactionTermParameterCache
+```
+
+### To be removed from API
+```@docs
 paramsidx
 default_params
 init_params!
-CatmapInterface.generate_function
-liquidize
-paramsidx
 unknown_indexes
 parameter_indexes
 parameter_dict
-ReactionTerm
-ReactionTermParameterCache
-parametercache
-default_parametervalues
-default_params
-init_params!
 ```
 
 ## Package

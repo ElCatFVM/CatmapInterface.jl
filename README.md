@@ -27,4 +27,3 @@ trust the registry maintainer for handling things in a correct way. In particula
 the registry should not register higher versions of packages which are already
 registered in the Julia General Registry. One can check this by visiting the above mentionend
 github repository URL and inspecting the contents.
-

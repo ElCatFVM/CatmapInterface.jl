@@ -7,7 +7,7 @@ $(read(joinpath(@__DIR__, "..", "README.md"), String))
 module CatmapInterface
     using Artifacts: Artifacts, @artifact_str
     using Catalyst: Catalyst, @parameters, @species, @variables, @independent_variables, Equation,
-        Num, ODESystem, Reaction, ReactionSystem, complete,
+        Num, System, Reaction, ReactionSystem, complete,
         equations, expand_derivatives, netstoichmat, numreactions,
         parameters, reactionrates, species,
         substitute, substitute_in_deriv,

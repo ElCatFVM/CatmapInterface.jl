@@ -245,11 +245,11 @@ module Utils
 
 
     """
-    ssolve!(ssols::Dict{String, Dict{Utils.SSParamsType, SciMLBase.NonlinearSolution}}, odesys::ModelingToolkit.ODESystem, params_iter)
+    ssolve!(ssols::Dict{String, Dict{Utils.SSParamsType, SciMLBase.NonlinearSolution}}, odesys::ModelingToolkit.System, params_iter)
 
     Solve the `odesys` for the steady state for each parameter set in `params_iter` and add it to `ssols`. 
     """
-    function ssolve!(ssols, odesys::ModelingToolkit.ODESystem, params_iter)
+    function ssolve!(ssols, odesys::ModelingToolkit.System, params_iter)
         for params in params_iter
             (; u0, ps) = params
             ssprob = SteadyStateProblem(

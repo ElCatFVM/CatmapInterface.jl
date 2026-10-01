@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.0 
+### Breaking changes
+- `create_reaction_network` now returns free energies only when given the kwarg `with_free_energies=true`
+- `generate_function`is now a constructor of a `ReactionTerm`, a callable struct ReactionTerm which contains the DiffCache and the index maps between VoronoiFVM and the symbolic names. It now can be directly calles with the VoronoiFVM unknown and rhs vectors, index mapping is
+handeled internally
+- Instead of constructing a DiffCache, users now instead of `get_tmp` can call `parameter_cache` on the reaction term, which also
+  automatically initializes the cache with possible default values. It returns an instance of `ReactionTermParameterCache` which contains
+  works contains the result of `get_tmp` from the DiffCache stored in the ReactionTerm instance, but can be directly addressed by the
+  symbolic names of the parameters. 
+
+### Updated API
+After these changes, the general usage scheme is:
+- Create a reaction network and an odesys as before.
+- Create ReactionTerm instances like:
+```
+   react_buffer=generate_function(odesys_buffer, species_dict_buffer);
+   react_catmap=generate_function(odesys_catmap, species_dict_catmap);
+```
+- The keys of the species dicts are the variable names (symbols) involved in the reaction. The values are the VoronoiFVM species indices.
+- In the rate callbacks, obtain and fill the Parameter caches:
+```
+    p = parameter_cache(react_buffer, eltype(u))
+    p[:γH⁺]=γ
+    p[:γHCO₃⁻]=γ
+	...
+```
+or 
+```
+    p=parameter_cache(react_catmap,eltype(u))
+    p[:σ] = σ
+    p[:γCO2_aq] = γ_co2
+    ...
+```
+
+- Then call
+```
+		react_catmap(f,u,p)
+```
+or
+```
+		react_buffer(f,u,p)
+```
+`f` and `u` are the vectors passed by VoronoiFVM into the reaction functions.
+
+
 ## 0.5.0 2026-09-30
 ### Breaking changes
 - `create_reaction_network` now returns the reaction network  and the free energies
@@ -10,8 +55,7 @@ All notable changes to this project will be documented in this file.
         ps = get_tmp(ps_cache, u[iϕ])
         init_params!(ps, odesys)
 ```
-
-## General description
+### General description
 - Introduction of LocalGasSpecies & Automated Thermo Correction Inheritance
   • Introduced struct LocalGasSpecies <: AbstractSpecies in src/species.jl.
   • Resolves architectural issues where local boundary species were misclassified as AdsorbateSpecies, preventing unphysical catalyst active site coverage deductions (1 -

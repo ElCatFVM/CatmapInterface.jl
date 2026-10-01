@@ -25,7 +25,7 @@ struct ModelInstance
 end
 function ModelInstance(; name, path, test_params_path)
     catmap_params   = parse_catmap_input(path)
-    rn, _           = create_reaction_network(catmap_params; conserve_pressures=true)
+    rn           = create_reaction_network(catmap_params; conserve_pressures=true)
     ss_params_iter  = load_test_params(test_params_path, catmap_params)
     ModelInstance(name, path, catmap_params, rn, ss_params_iter)
 end

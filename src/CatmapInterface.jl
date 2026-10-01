@@ -21,6 +21,7 @@ module CatmapInterface
     using PreallocationTools: DiffCache, get_tmp
     using PyCall: PyCall, @py_str, @pyinclude, keys
     using SciMLBase: ODEProblem
+    using SciMLPublic: @public
     using Symbolics: Symbolics, SymbolicUtils, getmetadata, VariableDefaultValue, hasmetadata
     using SymbolicIndexingInterface: getname
 
@@ -37,8 +38,10 @@ module CatmapInterface
     export CatmapParams, parse_catmap_input
     include("corrections.jl")
     include("reaction_network.jl")
-    export create_reaction_network, generate_function, liquidize, paramsidx
-    export unknown_indexes, parameter_indexes, parameter_dict
+    export create_reaction_network, generate_function, liquidize
+    export parameter_cache, parameter_defaults
+    @public ReactionTerm,  ReactionTermParameterCache
+    export unknown_indexes, parameter_indexes, parameter_dict, paramsidx
     export default_params, init_params!
-    export ReactionTerm, parametercache, ReactionTermParameterCache, default_parametervalues
+
 end

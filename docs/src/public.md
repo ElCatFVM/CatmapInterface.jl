@@ -31,6 +31,8 @@ CatmapInterface.ReactionTermParameterCache
 unknown_indexes
 parameter_indexes
 parameter_dict
+init_params!
+default_params
 ```
 
 ## Package

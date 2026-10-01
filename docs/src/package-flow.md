@@ -144,7 +144,7 @@ c_aq = p_gas · H / (1 bar)
 ```
 Activity coefficients are renamed accordingly (`γCO_g` → `γCO_aq`).
 
-### [`paramsidx`](@ref)
+### [`parameter_dict`](@ref)
 
 Returns a `Dict{Symbol, Int}` mapping parameter names to their indices in the parameter vector, for convenient parameter access (e.g., `pidx[:σ]`).
 
@@ -157,7 +157,7 @@ Returns a `Dict{Symbol, Int}` mapping parameter names to their indices in the pa
 | `CatmapInterface.jl`  | Module definition, imports, includes, exports                        |
 | `species.jl`          | `AbstractSpecies` type hierarchy and constructors                    |
 | `interface.jl`        | `CatmapParams`, parsing (reactions, energy tables, species lists)    |
-| `reaction_network.jl` | `create_reaction_network`, `compute_free_energies!`, `generate_function`, `liquidize`, `paramsidx` |
+| `reaction_network.jl` | `create_reaction_network`, `compute_free_energies!`, `generate_function`, `liquidize`, `parameter_dict` |
 | `corrections.jl`      | Adsorbate interaction models, thermodynamic & electrochemical corrections |
 | `ideal-gas-model.jl`  | `IdealGas` struct, entropy/enthalpy (translational, rotational, vibrational, electronic) |
 | `harmonic-model.jl`   | `HarmonicPhase` struct, entropy/enthalpy (vibrational)               |
@@ -258,7 +258,7 @@ flowchart TD
 
     RS_COMPLETE -->|"user calls"| LIQ["liquidize()\nConvert gas ↔ liquid\nvia Henry's law\n→ ODESystem with\naqueous species"]
 
-    RS_COMPLETE -->|"user calls"| PIDX["paramsidx()\n→ Dict{Symbol,Int}\nparameter index map"]
+    RS_COMPLETE -->|"user calls"| PIDX["parameter_dict()\n→ Dict{Symbol,Int}\nparameter index map"]
 
     subgraph SUPPORT["📦 Support Modules"]
         direction LR

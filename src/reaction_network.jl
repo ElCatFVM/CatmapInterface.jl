@@ -500,6 +500,37 @@ function parameter_dict(odesys)
     return Dict([psymbols[i] => i for i in 1:length(psymbols)]...)
 end
 
+"""
+$(SIGNATURES)
+
+Return parameter vector for `odesys` initialized with default parameter values from ModelingToolkit defaults.
+"""
+function default_params(odesys::ODESystem)
+    ps = zeros(length(Catalyst.parameters(odesys)))
+    init_params!(ps, odesys)
+    return ps
+end
+
+"""
+$(SIGNATURES)
+
+Populate parameter vector `ps` with default parameter values from `odesys`.
+"""
+function init_params!(ps, odesys::ODESystem)
+    params = Catalyst.parameters(odesys)
+    pidx = parameter_dict(odesys)
+    for p in params
+        name = nameof(p)
+        if haskey(pidx, name)
+            if hasmetadata(p,VariableDefaultValue)
+                val=getmetadata(p,VariableDefaultValue)
+                ps[pidx[name]] = val
+            end
+        end
+    end
+    return ps
+end
+
 
 """
     struct ReactionTerm

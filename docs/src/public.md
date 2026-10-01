@@ -19,11 +19,11 @@ SiteSpecies
 ```@docs
 create_reaction_network
 liquidize
-parameter_cache
 parameter_defaults
 generate_function
 CatmapInterface.ReactionTerm
 CatmapInterface.ReactionTermParameterCache
+parameter_cache
 ```
 
 ###  API for direct handling of ODE functions

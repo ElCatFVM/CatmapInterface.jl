@@ -7,6 +7,28 @@ using Catalyst
 using Pkg
 
 
+# from https://github.com/Sienna-Platform/PowerSystems.jl/pull/1814
+# Pin Mermaid to 11.16.1 (issue #1812). Mermaid 11.17.0 started bundling fastdom, which
+# registers with Documenter's RequireJS instead of exporting itself: no diagram renders, and in
+# Safari KaTeX breaks too. DocumenterMermaid hard-codes `mermaid@11`, so override its script.
+# Remove this override once a Mermaid release includes the fix (mermaid-js/mermaid#8154).
+function Documenter.HTMLWriter.domify(
+        ::Documenter.HTMLWriter.DCtx,
+        ::DocumenterMermaid.MarkdownAST.Node,
+        ::DocumenterMermaid.MermaidScriptBlock,
+    )
+    Documenter.DOM.@tags script
+    return script[:type => "module"](
+        """
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: "neutral"
+        });
+        """
+    )
+end
+
 function mkdocs()
 
     ExampleJuggler.verbose!(true)

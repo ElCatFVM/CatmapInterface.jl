@@ -1,6 +1,8 @@
 # Package Flow
 
-This documentation page was created from the information in the repository with the help of github copilote using Claude Opus 4.6.
+This documentation page was created from the information in the repository with the help of github copilot using Claude Opus 4.6
+and updated reflecting API changes.
+
 ## 1. Parsing — [`parse_catmap_input`](@ref)
 
 The entry point is `parse_catmap_input(input_file_path)`, which reads a CatMAP `.mkm` template file. Because CatMAP configuration files use Python syntax, the file contents are evaluated by an embedded Python interpreter (via **PyCall.jl**). From the evaluated Python namespace the following are extracted:
@@ -133,8 +135,11 @@ The final result is a `complete(ReactionSystem)`.
 ## 5. Post-Processing
 
 ### [`CatmapInterface.generate_function`](@ref)
-
-Converts the symbolic `ReactionSystem` or `ODESystem` into a fast, compiled `RuntimeGeneratedFunction`. This produces a mutating function `f!(du, u, p, t)` suitable for ODE solvers. The RHS is multiplied by −1 for compatibility with VoronoiFVM.jl conventions.
+Returns an instance of  `CatmapInterface.ReactionTerm`, a callable struct which contains the right hand side function of an ODE problem
+generated from a the symbolic `ReactionSystem` or `System`, index maps managing the mapping between the unkwnowns of the created
+reaction system and the species of a VoronoiFVM.System, and a `PreallocationTools.DiffCache` which allows to obtain type specific 
+parameter buffers via `parameter_cache(reaction_term, eltype(u))`. As a callable struct, it can be called as `reaction_term(f, u, p)` in VoronoiFVM
+reaction callbacks. Mapping and  multiplication by  −1 for compatibility with VoronoiFVM.jl conventions are managed within this call.
 
 ### [`liquidize`](@ref)
 
@@ -254,9 +259,9 @@ flowchart TD
     CONSERVE --> RS_COMPLETE["complete(ReactionSystem)"]
     RS -->|"conserve_pressures=false"| RS_COMPLETE
 
-    RS_COMPLETE -->|"user calls"| GF["generate_function()\n→ RuntimeGeneratedFunction\n(mutating RHS for ODE solver,\ncompatible with VoronoiFVM)"]
+    RS_COMPLETE -->|"user calls"| GF["generate_function()\n→ ReactionTerm\n(compatible with VoronoiFVM)"]
 
-    RS_COMPLETE -->|"user calls"| LIQ["liquidize()\nConvert gas ↔ liquid\nvia Henry's law\n→ ODESystem with\naqueous species"]
+    RS_COMPLETE -->|"user calls"| LIQ["liquidize()\nConvert gas ↔ liquid\nvia Henry's law\n→ System with\naqueous species"]
 
     RS_COMPLETE -->|"user calls"| PIDX["parameter_dict()\n→ Dict{Symbol,Int}\nparameter index map"]
 

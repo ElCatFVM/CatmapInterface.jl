@@ -7,12 +7,9 @@
 CatmapInterface implements the functionality of a subset of the Python package [CatMAP](https://catmap.readthedocs.io) that is used in the Python package [CatINT](https://catint.readthedocs.io).
 Whereas [CatINT](https://catint.readthedocs.io) uses an iterative approach for combining the Poisson-Nernst-Planck transport model with a microkinetic model of the surface reactions at the electrode, the output of CatmapInterface can be directly plugged into the functionality of [LiquidElectrolytes](https://j-fu.github.io/LiquidElectrolytes.jl) to solve the coupled system.
 
-## Installation
+The package can be installed via the Julia General Registry using the Julia package manager.
 
-### Version >=0.4
-Starting with version 0.4, the package can be installed using the Julia package manager from the Julia General Registry
-
-### Older versions
+### Installation of older versions
 Package versions up to v0.3.1 are registered in the julia package registry [https://github.com/j-fu/PackageNursery](https://github.com/j-fu/PackageNursery)
 To add the registry (needed only once), and to install the package, 
 from the Julia REPL, type `]` to enter the Pkg REPL mode and run:

@@ -173,12 +173,13 @@ Create a [ReactionSystem](https://docs.sciml.ai/Catalyst/stable/api/catalyst_api
 For each elementary reaction the [`CatmapInterface.ratelaw_TS`](@ref) is used.
 No separate rate equations for the solvent (= H₂O) and the active sites are created but their activities can be specified as parameters.
 For ficitious gases (OH⁻ and H⁺) and adsorbates the activity coefficients are assumed to be 1.
-The activity coefficients of the gaseous species can specified as parameters.
+The activity coefficients of the gaseous species can be specified as parameters.
 The thermodynamical corrections to the DFT-data of the formation energies are applied according to the specified modes.
 New modes can be added by the user by adding a function with the same name to the module. 
 
-if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictitious species involved in the heterogeneous reaction network.
-The pressures of the gaseous and fictitious species are conserved by adding an additional (production/elimination) reaction for each species.
+- If `conserve_pressures==true`,  conserve the pressures of the gaseous and fictitious species involved in the heterogeneous reaction network.
+  The pressures of the gaseous and fictitious species are conserved by adding an additional (production/elimination) reaction for each species.
+- If `with_free_energies=true`, return the species free energies along with the reaction network.
 """
 function create_reaction_network(
         catmap_params::CatmapParams;
@@ -400,12 +401,12 @@ $(SIGNATURES)
 
 Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law
 """
-function liquidize(odesys, catmap_params::CatmapParams)
+function liquidize(sys, catmap_params::CatmapParams)
     @local_unitfactors bar
     (; species_list) = catmap_params
 
-    sts = unknowns(odesys)
-    ps = parameters(odesys)
+    sts = unknowns(sys)
+    ps = parameters(sys)
 
     usubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     csubs = Pair{Num, Num}[]
@@ -422,14 +423,14 @@ function liquidize(odesys, catmap_params::CatmapParams)
 
             gs = Symbol("γ$(sp.species_name)_aq")
             activ_coef = first(@parameters $gs)
-            p = getproperty(odesys, Symbol("γ$(sp.species_name)_g"); namespace = false)
+            p = getproperty(sys, Symbol("γ$(sp.species_name)_g"); namespace = false)
             p = Symbolics.value(p)
             push!(psubs, p => Symbolics.value(activ_coef))
         end
     end
 
     new_eqs = Equation[]
-    for eq in equations(odesys)
+    for eq in equations(sys)
         lhs = expand_derivatives(substitute_in_deriv(eq.lhs, Dict(usubs)))
         rhs = substitute_in_deriv(eq.rhs, Dict(csubs..., psubs...))
         push!(new_eqs, Equation(lhs, rhs))
@@ -437,19 +438,19 @@ function liquidize(odesys, catmap_params::CatmapParams)
 
     # JF: this runs into the fact that the symbolic tools now require to work with `ifelse()` instead of
     # `if ... then ... else ... end`. The later seems to be used deep down in some packages.
-    # structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
+    # structural_simplify(System(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=sys.name))
 
-    return ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name = nameof(odesys))
+    return System(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name = nameof(sys))
 end
 
 
 """
-     parameter_defaults(odsysys)
+     parameter_defaults(system)
 
 Obtain dictionary of default parameter values.
 """
-function parameter_defaults(odesys::ODESystem)
-    params = Catalyst.parameters(odesys)
+function parameter_defaults(sys::System)
+    params = Catalyst.parameters(sys)
     pdict = Dict{Symbol, Float64}()
     for p in params
         if hasmetadata(p, VariableDefaultValue)
@@ -461,64 +462,64 @@ end
 
 
 """
-	unknown_indexes(odesys, species_dict::Dict{String, Int}; symb2name)
+	unknown_indexes(sys, species_dict::Dict{String, Int}; symb2name)
 
-For the symbolic names of unknowns in odesys, return the species
+For the symbolic names of unknowns in sys, return the species
 indices given in `species_dict`.
 
 `symb2name` is a function which takes
 a symbolic object and converts it into a string serving as
 the key in `species_dict`. Default is `string`.
 """
-function unknown_indexes(odesys, species_dict::Dict{String, Int}; symb2name = string)
-    names = symb2name.(Catalyst.unknowns(odesys))
+function unknown_indexes(sys, species_dict::Dict{String, Int}; symb2name = string)
+    names = symb2name.(Catalyst.unknowns(sys))
     return [species_dict[s] for s in names]
 end
 
 
 """
-	parameter_indexes(odesys, params_dict::Dict{String, Int}; symb2name)
+	parameter_indexes(sys, params_dict::Dict{String, Int}; symb2name)
 
-For the symbolic names of parameters in odesys, return the indices given in `params_dict`.
+For the symbolic names of parameters in sys, return the indices given in `params_dict`.
 
 `symb2name` is a function which takes a symbolic object and converts it
 into a string serving as the key in `params_dict`. Default is `string`.
 """
-function parameter_indexes(odesys, species_dict; symb2name = string)
-    names = symb2name.(Catalyst.parameters(odesys))
+function parameter_indexes(sys, species_dict; symb2name = string)
+    names = symb2name.(Catalyst.parameters(sys))
     return [species_dict[s] for s in names]
 end
 
 """
-	parameter_dict(odesys)
+	parameter_dict(sys)
 
 Return a `Dict{Symbol, Int}` which allows to
 retrieve the index of a parameter in a vector of values.
 """
-function parameter_dict(odesys)
-    psymbols = Catalyst.parameters(odesys) .|> Symbol
+function parameter_dict(sys)
+    psymbols = Catalyst.parameters(sys) .|> Symbol
     return Dict([psymbols[i] => i for i in 1:length(psymbols)]...)
 end
 
 """
 $(SIGNATURES)
 
-Return parameter vector for `odesys` initialized with default parameter values from ModelingToolkit defaults.
+Return parameter vector for `sys` initialized with default parameter values from ModelingToolkit defaults.
 """
-function default_params(odesys::ODESystem)
-    ps = zeros(length(Catalyst.parameters(odesys)))
-    init_params!(ps, odesys)
+function default_params(sys::System)
+    ps = zeros(length(Catalyst.parameters(sys)))
+    init_params!(ps, sys)
     return ps
 end
 
 """
 $(SIGNATURES)
 
-Populate parameter vector `ps` with default parameter values from `odesys`.
+Populate parameter vector `ps` with default parameter values from `sys`.
 """
-function init_params!(ps, odesys::ODESystem)
-    params = Catalyst.parameters(odesys)
-    pidx = parameter_dict(odesys)
+function init_params!(ps, sys::System)
+    params = Catalyst.parameters(sys)
+    pidx = parameter_dict(sys)
     for p in params
         name = nameof(p)
         if haskey(pidx, name)
@@ -537,6 +538,17 @@ end
 
 Callable struct describing a parametrized reaction term built by Catalyst
 for use in reaction functions in VoronoiFVM.
+
+### Call signature
+
+    (reaction_term)(f,u,p)
+
+Calls the an instance of [`ReactionTerm`](@ref). `f` and `u` are the right hand side and unknowns
+provided by [VoronoiFVM bulk or surface reaction functions](https://wias-pdelib.github.io/VoronoiFVM.jl/stable/physics/#VoronoiFVM.Physics).
+`p` is an instance of  [`ReactionTermParameterCache`](@ref) obtained from the `reaction_term` via [`parameter_cache`](@ref).
+
+
+### Struct fields:
 
 $(TYPEDFIELDS)
 """
@@ -563,32 +575,32 @@ struct ReactionTerm{F, C}
     pdefaults::Union{Dict{Symbol, Float64}, Nothing}
 
     """
-    PreallocationTools.DiffCache providing workspace for parameters.
+    [PreallocationTools.DiffCache](https://docs.sciml.ai/PreallocationTools/stable/#DiffCache) providing workspace for parameters.
     """
     cache::C
 end
 
 """
-        generate_function(odesys, species_dict; pdefaults)
+        generate_function(system, species_dict; pdefaults)
 
-Create a [`ReactionTerm`](@ref) from the right hand side of `odesys`.
-- `species_dict` is a dictionary which for each unknown from odesys contains the
-  species index in a VoronoiFVM.System
+Create a [`ReactionTerm`](@ref) from the right hand side of `system`.
+- `species_dict` is a dictionary which for each unknown from sys contains the
+  species index in a [VoronoiFVM.System](https://wias-pdelib.github.io/VoronoiFVM.jl/stable/system/#System)
 - `pdefaults` is a dictionary which holds default parameter values.
 """
 function generate_function(
-        odesys, species_dict;
-        pdefaults = parameter_defaults(odesys)
+        sys, species_dict;
+        pdefaults = parameter_defaults(sys)
     )
-    nparams = length(parameters(odesys))
-    u0 = Dict(Catalyst.unknowns(odesys) .=> 0)
-    p = Dict(Catalyst.parameters(odesys) .=> 0)
-    prob = ODEProblem(odesys, merge(u0, p), (0, 1))
+    nparams = length(parameters(sys))
+    u0 = Dict(Catalyst.unknowns(sys) .=> 0)
+    p = Dict(Catalyst.parameters(sys) .=> 0)
+    prob = ODEProblem(sys, merge(u0, p), (0, 1))
     uidx = unknown_indexes(
-        odesys, species_dict;
+        sys, species_dict;
         symb2name = s -> replace(string(s), "(t)" => "")
     )
-    pdict = parameter_dict(odesys)
+    pdict = parameter_dict(sys)
     cache = DiffCache(zeros(nparams); warn_on_resize = false)
     return ReactionTerm(prob.f, uidx, pdict, pdefaults, cache)
 end
@@ -619,9 +631,10 @@ end
 """
         parameter_cache(reactionterm, T)
 
-Return a work vector which an hold parameter values of type T.
-It is indexed by the symbolic parameter names. In the background,
-it calls the `get_tmp` function from PreallocationTools.
+Return an instance of [`ReactionTermParameterCache`](@ref) which holds a vector of parameter values of type T.
+It is indexed like a dictionary by the symbolic parameter names.
+
+In the background, it calls  [`PreallocationTools.get_tmp`](https://docs.sciml.ai/PreallocationTools/stable/preallocationtools/#PreallocationTools.get_tmp).
 """
 function parameter_cache(r::ReactionTerm, t::Type{T}) where {T}
     p = get_tmp(r.cache, t)
@@ -637,10 +650,7 @@ end
 """
     (reaction_term)(f,u,p)
 
-Call the reaction term. `f` and `u` are the right hand side and unknowns
-provided by VoronoiFVM bulk or surface reaction functions.
-`p` is the parameter workspace obtained from the `reaction_term` via
-`parametercache`.
+Call an instance of [`ReactionTerm`](@ref).
 """
 function (r::ReactionTerm)(f, u, p::ReactionTermParameterCache)
     (; func, uidx) = r

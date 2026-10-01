@@ -30,10 +30,9 @@ end
 begin
     using LiquidElectrolytes: ElectrolyteData, PNPSystem, ivsweep, bulkbcondition, voltages_solutions
     using CatmapInterface: parse_catmap_input, create_reaction_network, liquidize
-    using CatmapInterface: unknown_indexes, parameter_indexes, parameter_dict
     using CatmapInterface: generate_function, parameter_cache
     using Catalyst: Catalyst, @variables, @species, @parameters, @reaction_network
-    using Catalyst: ode_model, complete, ODEProblem
+    using Catalyst: ode_model, complete
     using VoronoiFVM: VoronoiFVM, boundary_robin!
     using LessUnitful: @ufac_str, @unitfactors, @phconstants
     using ExtendableGrids: simplexgrid, geomspace, XCoordinates
@@ -285,14 +284,14 @@ begin
         ($kaf2 * γHCO₃⁻, $kar2 * γCO₃²⁻ * γH⁺), HCO₃⁻ <--> CO₃²⁻ + H⁺
         ($kwf * $aH₂O, $kwr * γH⁺ * γOH⁻), ∅ <--> H⁺ + OH⁻
     end
-    odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws = false) |> complete
+    sys_buffer = ode_model(buffer_rn; combinatoric_ratelaws = false) |> complete
 end
 
 # ╔═╡ 398a9cb8-2022-4909-99c2-c3b3e1f189db
-Catalyst.parameters(odesys_buffer)
+Catalyst.parameters(sys_buffer)
 
 # ╔═╡ 214bdb75-0bb9-4b4a-96b9-a6a0a6de781b
-const react_buffer = generate_function(odesys_buffer, species_dict);
+const react_buffer = generate_function(sys_buffer, species_dict);
 
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
 function reaction(
@@ -358,15 +357,15 @@ const symbolic_formation_energies = true
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
     rn = create_reaction_network(catmap_params; symbolic_formation_energies)
-    odesys0 = ode_model(rn; combinatoric_ratelaws = false)
-    odesys_catmap = liquidize(odesys0, catmap_params) |> complete
+    sys0 = ode_model(rn; combinatoric_ratelaws = false)
+    sys_catmap = liquidize(sys0, catmap_params) |> complete
 end
 
 # ╔═╡ 30939809-60ab-4d35-b0b9-b83d41021395
-Catalyst.parameters(odesys_catmap)
+Catalyst.parameters(sys_catmap)
 
 # ╔═╡ 28ba113c-c352-4841-b634-2e1205f231cb
-react_catmap = generate_function(odesys_catmap, species_dict_catmap);
+react_catmap = generate_function(sys_catmap, species_dict_catmap);
 
 # ╔═╡ 3081fe60-dd3e-4334-bffc-a7c40f052dd3
 typeof(react_catmap)

@@ -287,29 +287,29 @@ begin
         ($kaf2 * γHCO₃⁻, $kar2 * γCO₃²⁻ * γH⁺), HCO₃⁻ <--> CO₃²⁻ + H⁺
         ($kwf * $aH₂O, $kwr * γH⁺ * γOH⁻), ∅ <--> H⁺ + OH⁻
     end
-    odesys_buffer = ode_model(buffer_rn; combinatoric_ratelaws = false) |> complete
-    u0_buffer = Dict(Catalyst.unknowns(odesys_buffer) .=> 0)
-    p_buffer = Dict(Catalyst.parameters(odesys_buffer) .=> 0)
-    const prob_buffer = ODEProblem(odesys_buffer, merge(u0_buffer, p_buffer), (0, 1.0))
+    sys_buffer = ode_model(buffer_rn; combinatoric_ratelaws = false) |> complete
+    u0_buffer = Dict(Catalyst.unknowns(sys_buffer) .=> 0)
+    p_buffer = Dict(Catalyst.parameters(sys_buffer) .=> 0)
+    const prob_buffer = ODEProblem(sys_buffer, merge(u0_buffer, p_buffer), (0, 1.0))
 end
 
 # ╔═╡ d802b1bd-2d14-4e7c-910f-e2b6231e008e
-typeof(odesys_buffer)
+typeof(sys_buffer)
 
 # ╔═╡ ee6062f3-5ccc-4392-8431-d975aa756312
 const uidx_buffer = unknown_indexes(
-    odesys_buffer, species_dict;
+    sys_buffer, species_dict;
     symb2name = s -> replace(string(s), "(t)" => "")
 )
 
 # ╔═╡ 4e5ed7bb-0700-4240-9246-2bae7edb3d63
 const pidx_buffer = parameter_indexes(
-    odesys_buffer, species_dict,
+    sys_buffer, species_dict,
     symb2name = s -> replace(string(s), "γ" => "")
 )
 
 # ╔═╡ 1e877f17-0219-45f1-b640-3a25ae085dbd
-latexify(odesys_buffer)
+latexify(sys_buffer)
 
 # ╔═╡ 8a1047fa-e483-40d9-8904-7576f30acfb4
 begin
@@ -380,25 +380,25 @@ const symbolic_formation_energies = true
 # ╔═╡ 6b5cf93c-0df3-4a18-8786-502361736838
 begin
     rn = create_reaction_network(catmap_params; symbolic_formation_energies)
-    odesys0 = ode_model(rn; combinatoric_ratelaws = false)
-    odesys_catmap = liquidize(odesys0, catmap_params) |> complete
-    u0_catmap = Dict(Catalyst.unknowns(odesys_catmap) .=> 0)
-    p_catmap = Dict(Catalyst.parameters(odesys_catmap) .=> 0)
-    const prob_catmap = ODEProblem(odesys_catmap, merge(u0_catmap, p_catmap), (0, 1.0))
-    latexify(odesys_catmap)
+    sys0 = ode_model(rn; combinatoric_ratelaws = false)
+    sys_catmap = liquidize(sys0, catmap_params) |> complete
+    u0_catmap = Dict(Catalyst.unknowns(sys_catmap) .=> 0)
+    p_catmap = Dict(Catalyst.parameters(sys_catmap) .=> 0)
+    const prob_catmap = ODEProblem(sys_catmap, merge(u0_catmap, p_catmap), (0, 1.0))
+    latexify(sys_catmap)
 end
 
 # ╔═╡ 7af0462f-3b99-46dc-9dbe-25987c890019
 const uidx_catmap = unknown_indexes(
-    odesys_catmap, species_dict_catmap;
+    sys_catmap, species_dict_catmap;
     symb2name = s -> replace(string(s), "(t)" => "")
 )
 
 # ╔═╡ 3b23808f-4aef-4e8f-bdfa-8e7503ea70fc
-pdict_catmap = parameter_dict(odesys_catmap)
+pdict_catmap = parameter_dict(sys_catmap)
 
 # ╔═╡ fb5fa604-4a4d-431f-8ddf-2dba330e12c2
-Catalyst.parameters(odesys_catmap)
+Catalyst.parameters(sys_catmap)
 
 # ╔═╡ d2c0642d-dfa5-4a76-bd36-ac4a735a3299
 md"""
@@ -422,7 +422,7 @@ __Question is the pH-dependence only in the reaction rate constants (i.e. activi
 
 # ╔═╡ 91113083-d80e-4528-be41-82d10f6860fc
 begin
-    const nparams = length(Catalyst.parameters(odesys_catmap))
+    const nparams = length(Catalyst.parameters(sys_catmap))
     const ps_cache = DiffCache(zeros(nparams), warn_on_resize = false)
 
     function we_breactions(
@@ -440,7 +440,7 @@ begin
 
 
         ps = get_tmp(ps_cache, u[iϕ])
-        init_params!(ps, odesys_catmap)
+        init_params!(ps, sys_catmap)
         ps[pdict_catmap[:σ]] = σ
         ps[pdict_catmap[:γCO2_aq]] = γ_co2
         ps[pdict_catmap[:aH2O_g]] = aH₂O

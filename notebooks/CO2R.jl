@@ -383,7 +383,7 @@ md"""
 md"""
 For the calculation of the reaction rates a __mean field approach__ based is applied.
 
-The acitivities of H⁺, OH⁻ and e⁻ are set to be zero. The dependence on the rates on the pH-value, applied voltage and surface charges are contained in the reaction rate constants.
+The activities of H⁺, OH⁻ and e⁻ are set to be zero. The dependence on the rates on the pH-value, applied voltage and surface charges are contained in the reaction rate constants.
 
 The surface charging relation $σ = σ(U)$ is given by the Robin boundary condition
 
@@ -425,7 +425,7 @@ function we_breactions(
     react_catmap(f, u, ps)
 
     # conversion from turnover frequency (appropriate for change in coverage) to
-    # production rate (per unit area) (approprite for change in concentration)
+    # production rate (per unit area) (appropriate for change in concentration)
     # by S = number of free catalyst sites in mole per unit area
     f[ico2] *= S
     f[iohminus] *= S

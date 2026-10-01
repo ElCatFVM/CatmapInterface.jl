@@ -73,4 +73,3 @@ tolerance = 1e-50 #all d_theta/d_t's must be less than this at the solution
 max_rootfinding_iterations = 100
 
 max_bisections = 3
-

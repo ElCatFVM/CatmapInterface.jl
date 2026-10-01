@@ -6,7 +6,7 @@ $(read(joinpath(@__DIR__, "..", "README.md"), String))
 """
 module CatmapInterface
     using Artifacts: Artifacts, @artifact_str
-    using Catalyst: Catalyst, @parameters, @species, @variables, Equation,
+    using Catalyst: Catalyst, @parameters, @species, @variables, @independent_variables, Equation,
         Num, ODESystem, Reaction, ReactionSystem, complete,
         equations, expand_derivatives, netstoichmat, numreactions,
         parameters, reactionrates, species,
@@ -41,7 +41,5 @@ module CatmapInterface
     export create_reaction_network, generate_function, liquidize
     export parameter_cache, parameter_defaults
     @public ReactionTerm, ReactionTermParameterCache
-    export unknown_indexes, parameter_indexes, parameter_dict, paramsidx
-    export default_params, init_params!
-
+    export unknown_indexes, parameter_indexes, parameter_dict
 end

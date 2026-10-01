@@ -11,8 +11,7 @@ handeled internally
   automatically initializes the cache with possible default values. It returns an instance of `ReactionTermParameterCache` which contains
   works contains the result of `get_tmp` from the DiffCache stored in the ReactionTerm instance, but can be directly addressed by the
   symbolic names of the parameters. 
-
-### Updated API
+#### Updated API
 After these changes, the general usage scheme is:
 - Create a reaction network and an odesys as before.
 - Create ReactionTerm instances like:
@@ -45,6 +44,9 @@ or
 		react_buffer(f,u,p)
 ```
 `f` and `u` are the vectors passed by VoronoiFVM into the reaction functions.
+
+### Further changes
+- runic formatting + precommit
 
 
 ## 0.5.0 2026-09-30

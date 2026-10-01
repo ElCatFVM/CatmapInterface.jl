@@ -191,7 +191,7 @@ function create_reaction_network(
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc
-    @variables t
+    @independent_variables t
     vars = Dict{String, Num}() # converages and concentrations
     θ = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
@@ -400,7 +400,7 @@ $(SIGNATURES)
 
 Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law
 """
-function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
+function liquidize(odesys, catmap_params::CatmapParams)
     @local_unitfactors bar
     (; species_list) = catmap_params
 
@@ -410,7 +410,7 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     usubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     csubs = Pair{Num, Num}[]
     psubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
-    @variables t
+    @independent_variables t
     for st in sts
         sp = species_list[string(Symbolics.operation(Symbolics.value(st)))]
         if isa(sp, GasSpecies)
@@ -440,21 +440,6 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     # structural_simplify(ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name=odesys.name))
 
     return ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name = nameof(odesys))
-end
-
-"""
-    $(SIGNATURES)
-
-Create index map of odesys parameters as a `Dict{Symbol,Int}`.
-E.g. with `pidx=paramsidx(odesys)`, the index of `odesys.σ` can be accessed via `pidx[:σ]`.
-"""
-function paramsidx(odesys)
-    pidx = Dict{Symbol, Int}()
-    px = Catalyst.parameters(odesys)
-    for i in 1:length(px)
-        pidx[getname(px[i])] = i
-    end
-    return pidx
 end
 
 
@@ -573,7 +558,7 @@ function generate_function(
         symb2name = s -> replace(string(s), "(t)" => "")
     )
     pdict = parameter_dict(odesys)
-    cache = DiffCache(zeros(nparams))
+    cache = DiffCache(zeros(nparams); warn_on_resize=false)
     return ReactionTerm(prob.f, uidx, pdict, pdefaults, cache)
 end
 
@@ -633,86 +618,3 @@ function (r::ReactionTerm)(f, u, p::ReactionTermParameterCache)
     return nothing
 end
 
-
-###############################################################################
-
-
-"""
-$(SIGNATURES)
-Deprecated method.
-
-Generate a mutating function from a `ODESystem` that computes the concentration fluxes due to the reaction.
-"""
-function generate_function(sys::ODESystem, udict, pdict)
-    dvs = unknowns(sys)
-    ps = parameters(sys) .=> 1.0
-
-    prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
-
-    fp_cache = DiffCache(zeros(length(dvs)), 13)
-    up_cache = DiffCache(zeros(length(dvs)), 13)
-    pp_cache = DiffCache(zeros(length(ps)), 13)
-
-    uindexmap = getuindexmap(sys, udict)
-    pindexmap = getpindexmap(sys, pdict)
-
-    invuindexmap = invperm(uindexmap)
-    invpindexmap = invperm(pindexmap)
-    return function (f, u, p, t)
-        up = get_tmp(up_cache, u[1])
-        up .= getindex.(Ref(u), uindexmap)
-        pp = get_tmp(pp_cache, p[1])
-        pp .= getindex.(Ref(p), pindexmap)
-        fp = get_tmp(fp_cache, u[1])
-        prob.f(fp, up, pp, t)
-        f .= getindex.(Ref(fp), invuindexmap) .* -1
-        return nothing
-    end
-end
-
-
-function getuindexmap(odesys::ODESystem, udict)
-    us = unknowns(odesys)
-    us = tosymbol.(us; escape = false)
-    varmap = Dict([getproperty(odesys, u; namespace = false) => i  for (u, i) in udict if u in us])
-    return varmap_to_vars(varmap, unknowns(odesys); tofloat = false)
-end
-
-function getpindexmap(odesys::ODESystem, pdict)
-    ps = parameters(odesys)
-    ps = tosymbol.(ps; escape = false)
-    varmap = Dict([getproperty(odesys, p; namespace = false) => i for (p, i) in pdict if p in ps])
-    return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
-end
-
-
-"""
-$(SIGNATURES)
-
-Return parameter vector for `odesys` initialized with default parameter values from ModelingToolkit defaults.
-"""
-function default_params(odesys::ODESystem)
-    ps = zeros(length(Catalyst.parameters(odesys)))
-    init_params!(ps, odesys)
-    return ps
-end
-
-"""
-$(SIGNATURES)
-
-Populate parameter vector `ps` with default parameter values from `odesys`.
-"""
-function init_params!(ps, odesys::ODESystem)
-    params = Catalyst.parameters(odesys)
-    pidx = paramsidx(odesys)
-    for p in params
-        name = nameof(p)
-        if haskey(pidx, name)
-            if hasmetadata(p, VariableDefaultValue)
-                val = getmetadata(p, VariableDefaultValue)
-                ps[pidx[name]] = val
-            end
-        end
-    end
-    return ps
-end

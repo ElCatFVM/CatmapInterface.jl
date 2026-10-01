@@ -51,6 +51,12 @@ begin
     end
 end;
 
+# ╔═╡ 5d8702a4-f953-404e-ae3f-8012db643d3d
+md"""
+# CO2R
+This notebook shows how to use CatmapInterface with relying on`generate_function` and `ReactionTerm`.  This approach removes the user from the need of to explicitely handle index maps.
+"""
+
 # ╔═╡ 312785db-c787-419a-ba91-14a8c93bc0e5
 pkgversion(Catalyst)
 
@@ -525,7 +531,7 @@ Show only pH: $(@bind useonly_pH PlutoUI.CheckBox(default=false))
 """
 
 # ╔═╡ 11b12556-5b61-42c2-a911-4ea98a0a1e85
-cell, result = simulate_CO2R(grid, celldata; voltages);
+cell, result = simulate_CO2R(grid, celldata; voltages, verbose="");
 
 # ╔═╡ 659091d3-60b2-4158-80e2-cd28a492e870
 (~, default_index) = findmin(abs, result.voltages .+ 0.9 * ufac"V");
@@ -789,6 +795,7 @@ TableOfContents(title = "📚 Table of Contents", indent = true, depth = 4, asid
 html"""<style>.dont-panic{ display: none }</style>"""
 
 # ╔═╡ Cell order:
+# ╟─5d8702a4-f953-404e-ae3f-8012db643d3d
 # ╠═46f8adfa-8d28-44eb-9617-3b82f378ec7c
 # ╠═91ac9e35-71eb-4570-bef7-f63c67ce3881
 # ╠═312785db-c787-419a-ba91-14a8c93bc0e5

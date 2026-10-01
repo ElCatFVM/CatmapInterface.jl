@@ -3,16 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 ## 1.0.0 
+
 ### Breaking changes
 - `create_reaction_network` now returns free energies only when given the kwarg `with_free_energies=true`
-- `generate_function`is now a constructor of a `ReactionTerm`, a callable struct ReactionTerm which contains the DiffCache and the index maps between VoronoiFVM and the symbolic names. It now can be directly calles with the VoronoiFVM unknown and rhs vectors, index mapping is
-handeled internally
+- `generate_function`is now a constructor of a `ReactionTerm`, a callable struct ReactionTerm which contains the DiffCache and the index maps between VoronoiFVM and the symbolic names. It now can be directly calls with the VoronoiFVM unknown and rhs vectors, index mapping is
+handled internally
 - Instead of constructing a DiffCache, users now instead of `get_tmp` can call `parameter_cache` on the reaction term, which also
   automatically initializes the cache with possible default values. It returns an instance of `ReactionTermParameterCache` which contains
   works contains the result of `get_tmp` from the DiffCache stored in the ReactionTerm instance, but can be directly addressed by the
   symbolic names of the parameters. 
+- Renamed `FictiousSpecies` to `FictitiousSpecies`
 
-### Updated API
+#### Updated API
 After these changes, the general usage scheme is:
 - Create a reaction network and an odesys as before.
 - Create ReactionTerm instances like:
@@ -45,6 +47,9 @@ or
 		react_buffer(f,u,p)
 ```
 `f` and `u` are the vectors passed by VoronoiFVM into the reaction functions.
+
+### Further changes
+- Introduces runic formatting + precommit code quality checks.
 
 
 ## 0.5.0 2026-09-30
@@ -139,7 +144,7 @@ The goal is to also implement the second specification of the free energy of the
 - Restructure tests
 * Remove the heavy dependency on DifferentialEquations, replace it by OrdinaryDiffEqRosenbrock
   and SteadyStateDiffEq
-* Now we can (in an approriate environment) run each test_* file separately,
+* Now we can (in an appropriate environment) run each test_* file separately,
   outside of the runtests.jl
 - Use explixit imports in test files
 
@@ -214,9 +219,9 @@ PkgTemplates version: 0.7.38
 - Corrected bugs: energy tstate, better rxn network
 - Some refactoring and better testing
 - Improved testing, fixed bugs in correction terms
-- Manifest was tracked accidentially
+- Manifest was tracked accidentally
 - Remove .gitignore from repo
-- Corrected activity coefs, improved buffer sytem
+- Corrected activity coefs, improved buffer system
 - Some clean up and documentation
 - Added generate_function for reaction network
 - Some refactoring, notebook works well

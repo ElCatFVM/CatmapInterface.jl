@@ -69,7 +69,7 @@ function compute_free_energies!(
     thermo_corrections = Dict(zip(keys(free_energies), zeros(valtype(free_energies), length(free_energies))))
     gas_thermo_correction!(thermo_corrections, catmap_params)
     adsorbate_thermo_correction!(thermo_corrections, catmap_params)
-    
+
     for (s, sp) in catmap_params.species_list
         if isa(sp, LocalGasSpecies) && haskey(thermo_corrections, s) && haskey(thermo_corrections, sp.parent_gas)
             thermo_corrections[s] = thermo_corrections[sp.parent_gas]
@@ -89,7 +89,7 @@ function compute_free_energies!(
             free_energies[species] += thermo_correction
         end
     end
-    nothing
+    return nothing
 end
 
 """
@@ -177,24 +177,26 @@ The activity coefficients of the gaseous species can specified as parameters.
 The thermodynamical corrections to the DFT-data of the formation energies are applied according to the specified modes.
 New modes can be added by the user by adding a function with the same name to the module. 
 
-if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictious species involved in the heterogeneous reaction network.
-The pressures of the gaseous and fictious species are conserved by adding an additional (production/elimination) reaction for each species.
+if `conserve_pressures==true`,  conserve the pressures of the gaseous and fictitious species involved in the heterogeneous reaction network.
+The pressures of the gaseous and fictitious species are conserved by adding an additional (production/elimination) reaction for each species.
 """
-function create_reaction_network(catmap_params::CatmapParams;
-                                 conserve_pressures = false,
-                                 symbolic_formation_energies= true,
-                                 with_free_energies = false,
-                                 C_gap_val = 0.2,
-                                 ϕ_pzc_val =0.11)
+function create_reaction_network(
+        catmap_params::CatmapParams;
+        conserve_pressures = false,
+        symbolic_formation_energies = true,
+        with_free_energies = false,
+        C_gap_val = 0.2,
+        ϕ_pzc_val = 0.11
+    )
     (; species_list, T) = catmap_params
 
     @parameters σ ϕ_we ϕ local_pH C_gap ϕ_pzc
-    @variables t
-    vars = Dict{String, Num}() # converages and concentrations
+    @independent_variables t
+    vars = Dict{String, Num}() # coverages and concentrations
     θ = Dict{String, Num}() # coverages
     activ_coefs = Dict{String, Num}()
-    β           = Dict{String, Num}() # transition state beta 
-    formation_energies = Dict{String, Num}()# I changed this 8/1
+    β = Dict{String, Num}() # transition state beta
+    formation_energies = Dict{String, Num}() # I changed this 8/1
     numeric_formation_energies = Dict{String, Float64}()
     Ga = Dict{String, Num}() ## barrier
     prefactors = Dict{String, Num}()
@@ -204,7 +206,7 @@ function create_reaction_network(catmap_params::CatmapParams;
             vars[s] = Num(1)
         end
     end
-    
+
     for (s, sp) in species_list
         Es = Symbol("E$s")
         formation_energies[s] = sp.formation_energy
@@ -212,24 +214,24 @@ function create_reaction_network(catmap_params::CatmapParams;
             as = Symbol("a$s")
             vars[s] = first(@parameters $as)
             formation_energies[s] = sp.formation_energy
-        elseif (isa(sp, FictiousSpecies) && s ≠ "ele_g") # fictious species and adsorbates have no activity coeff
+        elseif (isa(sp, FictitiousSpecies) && s ≠ "ele_g") # fictitious species and adsorbates have no activity coeff
             ss = Symbol(s)
             vars[s] = first(@species $ss(t))
             formation_energies[s] = sp.formation_energy
         elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies)
-            ss                  = Symbol(s)
-            vars[s]             = first(@species $ss(t))
-            θ[s]                = vars[s] #* Num(sp.n_sites)
+            ss = Symbol(s)
+            vars[s] = first(@species $ss(t))
+            θ[s] = vars[s] #* Num(sp.n_sites)
             if isa(sp, AdsorbateSpecies)
-                vars["_$(sp.site)"]-= vars[s] #* Num(sp.n_sites)
+                vars["_$(sp.site)"] -= vars[s] #* Num(sp.n_sites)
             end
             formation_energies[s] = first(@parameters $Es = sp.formation_energy) ## added
             numeric_formation_energies[s] = sp.formation_energy
-        elseif (isa(sp, GasSpecies) && s ≠  "H2O_g")
-            ss              = Symbol(s)
-            vars[s]         = first(@species $ss(t))
-            gs              = Symbol("γ$s")
-            activ_coefs[s]  = first(@parameters $gs)
+        elseif (isa(sp, GasSpecies) && s ≠ "H2O_g")
+            ss = Symbol(s)
+            vars[s] = first(@species $ss(t))
+            gs = Symbol("γ$s")
+            activ_coefs[s] = first(@parameters $gs)
             formation_energies[s] = sp.formation_energy
         elseif isa(sp, TStateSpecies)
             Es = Symbol("E$s")
@@ -254,7 +256,7 @@ function create_reaction_network(catmap_params::CatmapParams;
             sp = species_list[reactant]
             if (reactant == "H2O_g" || isa(sp, SiteSpecies))
                 a *= vars[reactant]^factor
-            elseif (isa(sp, FictiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
+            elseif (isa(sp, FictitiousSpecies) && reactant ≠ "ele_g") # activity is assumed 1 b/c their influence is in rate constant
                 push!(rs, vars[reactant])
                 push!(γs, factor)
             elseif isa(sp, AdsorbateSpecies) || isa(sp, LocalGasSpecies) # activity coefficients are assumed to be 1
@@ -271,7 +273,7 @@ function create_reaction_network(catmap_params::CatmapParams;
         return Gf, rs, γs, a
     end
 
-    function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to inlclude ad-ad interaction in Gf_FS, Gf_IS in this funciton.
+    function compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val) #While calculating revpot, energies[OH_g], energies[H_g] should be replaced by the pH-indepedent value(it's in _get_echem_corrections in catmap) & we have to thinks about is it okay to include ad-ad interaction in Gf_FS, Gf_IS in this function.
         float_type = promote_type(typeof(C_gap_val))
         @local_unitfactors μF cm
         ΔGf_r = substitute(Gf_FS - Gf_IS, Dict(surface_charge_relation))
@@ -302,7 +304,7 @@ function create_reaction_network(catmap_params::CatmapParams;
     rxs = Reaction[]
     rev_pot = Dict()
     for ((; educts, products, tstate), prefactor_val) in zip(catmap_params.reactions, catmap_params.prefactors)
-        number_electron = get(Dict(educts), "ele_g",0.0)
+        number_electron = get(Dict(educts), "ele_g", 0.0)
         if occursin("local", products[1].first)
             param_name = Symbol("diffusion_prefactor")
         elseif !isnothing(tstate)
@@ -317,65 +319,67 @@ function create_reaction_network(catmap_params::CatmapParams;
         (Gf_FS, ps, βs, ar) = process_reaction_side(products)
         @local_phconstants e
         @local_unitfactors eV cm μF
-        Gf_TS= if isnothing(tstate)
-                    max(Gf_IS, Gf_FS)
-               elseif isnothing(tstate.barrier) || catmap_params.beta_mode == :none
-                    tstate_name = first(tstate.components)[1]
-                    max(Gf_IS, Gf_FS, mapreduce(x-> free_energies[first(x)]^last(x), +, tstate.components))
-               elseif !isnothing(tstate.barrier)
-                    surface_charge_relation = σ => C_gap*(ϕ_we - ϕ - ϕ_pzc)
-                    ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we , θ, local_pH, C_gap_val, ϕ_pzc_val)
-                    tstate_name = first(tstate.components)[1]
-                    tstate_factor = first(tstate.components)[2]
-                    rev_pot[tstate_name] = ϕ_rev
-                    if catmap_params.beta_mode == :simple
-                        ΔGf_r = Gf_FS - Gf_IS
-                        ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0)) 
-                        ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
-                        IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*ΔGf_r) 
+        Gf_TS = if isnothing(tstate)
+            max(Gf_IS, Gf_FS)
+        elseif isnothing(tstate.barrier) || catmap_params.beta_mode == :none
+            tstate_name = first(tstate.components)[1]
+            max(Gf_IS, Gf_FS, mapreduce(x -> free_energies[first(x)]^last(x), +, tstate.components))
+        elseif !isnothing(tstate.barrier)
+            surface_charge_relation = σ => C_gap * (ϕ_we - ϕ - ϕ_pzc)
+            ϕ_rev = compute_reversiblepotential(Gf_IS, Gf_FS, formation_energies, numeric_formation_energies, surface_charge_relation, ϕ_we, θ, local_pH, C_gap_val, ϕ_pzc_val)
+            tstate_name = first(tstate.components)[1]
+            tstate_factor = first(tstate.components)[2]
+            rev_pot[tstate_name] = ϕ_rev
+            if catmap_params.beta_mode == :simple
+                ΔGf_r = Gf_FS - Gf_IS
+                ΔGf_r = substitute(ΔGf_r, Dict(local_pH => 0))
+                ΔGf_r = substitute(ΔGf_r, Dict(collect(values(θ)) .=> 0))
+                IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
+                max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name] * tstate_factor + β[tstate_name] * ΔGf_r)
 
-                    elseif catmap_params.beta_mode == :effective_surface_charging
-                        IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
-                        max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name]*tstate_factor + β[tstate_name]*e*(ϕ_we - ϕ - ϕ_rev))
-                    else
-                        throw(ArgumentError("$beta_mode is not a valid beta-mode"))
-                    end
-               else 
-                    throw(ArgumentError("$beta_mode is not defined in mkm file"))
-               end
+            elseif catmap_params.beta_mode == :effective_surface_charging
+                IS_no_int = substitute(Gf_IS, Dict(collect(values(θ)) .=> 0))
+                max(Gf_IS, Gf_FS, IS_no_int + free_energies[tstate_name] * tstate_factor + β[tstate_name] * e * (ϕ_we - ϕ - ϕ_rev))
+            else
+                throw(ArgumentError("$beta_mode is not a valid beta-mode"))
+            end
+        else
+            throw(ArgumentError("$beta_mode is not defined in mkm file"))
+        end
         if isnothing(tstate)
             nothing
         else
             free_energies[tstate_name] = Gf_TS
         end
-        rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate=true)
-        rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate=true)
+        rxn_f = Reaction(ratelaw_TS(prefactor, Gf_IS, Gf_TS, T, af), es, ps, αs, βs; only_use_rate = true)
+        rxn_r = Reaction(ratelaw_TS(prefactor, Gf_FS, Gf_TS, T, ar), ps, es, βs, αs; only_use_rate = true)
         push!(rxs, rxn_f)
         push!(rxs, rxn_r)
     end
 
-    rn=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
-    if conserve_pressures
+    rn = ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws = false)
+    return if conserve_pressures
         stoichmat = netstoichmat(rn)
         rr = reactionrates(rn)
         nr = numreactions(rn)
         for (isp, s) in enumerate(species(rn))
             sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-            if isa(sp, GasSpecies) || isa(sp, FictiousSpecies)
+            if isa(sp, GasSpecies) || isa(sp, FictitiousSpecies)
                 R = sum([stoichmat[isp, i] * rr[i] for i in 1:nr])
                 r = Reaction(R, [s], nothing; only_use_rate = true)
                 push!(rxs, r)
             end
         end
-        rn1=ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws=false)
-        @assert all(map(enumerate(species(rn1))) do (isp, s)
-                    sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
-                    new_stoichmat = netstoichmat(rn1)
-                    new_rr = reactionrates(rn1)
-                    new_nr = numreactions(rn1)
-                    isequal(sum([new_stoichmat[isp ,i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictiousSpecies) ? Num(0.0) : sum([stoichmat[isp ,i] * rr[i] for i in 1:nr]))
-                    end)
+        rn1 = ReactionSystem(rxs, t, name = :microkinetics, combinatoric_ratelaws = false)
+        @assert all(
+            map(enumerate(species(rn1))) do (isp, s)
+                sp = species_list[string(Symbolics.operation(Symbolics.value(s)))]
+                new_stoichmat = netstoichmat(rn1)
+                new_rr = reactionrates(rn1)
+                new_nr = numreactions(rn1)
+                isequal(sum([new_stoichmat[isp, i] * new_rr[i] for i in 1:new_nr]), isa(sp, GasSpecies) || isa(sp, FictitiousSpecies) ? Num(0.0) : sum([stoichmat[isp, i] * rr[i] for i in 1:nr]))
+            end
+        )
         if with_free_energies
             return complete(rn1), free_energies
         else
@@ -391,14 +395,12 @@ function create_reaction_network(catmap_params::CatmapParams;
 end
 
 
-
-
 """
 $(SIGNATURES)
 
 Transform the (micro-)kinetic model from surface/gas-reactions to surface/electrolyte-reactions using Henry's law
 """
-function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
+function liquidize(odesys, catmap_params::CatmapParams)
     @local_unitfactors bar
     (; species_list) = catmap_params
 
@@ -408,7 +410,7 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     usubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
     csubs = Pair{Num, Num}[]
     psubs = Pair{SymbolicUtils.BasicSymbolic, SymbolicUtils.BasicSymbolic}[]
-    @variables t
+    @independent_variables t
     for st in sts
         sp = species_list[string(Symbolics.operation(Symbolics.value(st)))]
         if isa(sp, GasSpecies)
@@ -440,33 +442,18 @@ function liquidize(odesys::ODESystem, catmap_params::CatmapParams)
     return ODESystem(new_eqs, t, replace(sts, usubs...), replace(ps, psubs...); name = nameof(odesys))
 end
 
-"""
-    $(SIGNATURES)
-
-Create index map of odesys parameters as a `Dict{Symbol,Int}`.
-E.g. with `pidx=paramsidx(odesys)`, the index of `odesys.σ` can be accessed via `pidx[:σ]`.
-"""
-function paramsidx(odesys)
-    pidx = Dict{Symbol, Int}()
-    px = Catalyst.parameters(odesys)
-    for i in 1:length(px)
-        pidx[getname(px[i])] = i
-    end
-    return pidx
-end
-
 
 """
      parameter_defaults(odsysys)
 
 Obtain dictionary of default parameter values.
 """
-function parameter_defaults(odesys:: ODESystem)
+function parameter_defaults(odesys::ODESystem)
     params = Catalyst.parameters(odesys)
-    pdict=Dict{Symbol, Float64}()
+    pdict = Dict{Symbol, Float64}()
     for p in params
-        if hasmetadata(p,VariableDefaultValue)
-            pdict[nameof(p)]= getmetadata(p,VariableDefaultValue)
+        if hasmetadata(p, VariableDefaultValue)
+            pdict[nameof(p)] = getmetadata(p, VariableDefaultValue)
         end
     end
     return pdict
@@ -511,6 +498,37 @@ retrieve the index of a parameter in a vector of values.
 function parameter_dict(odesys)
     psymbols = Catalyst.parameters(odesys) .|> Symbol
     return Dict([psymbols[i] => i for i in 1:length(psymbols)]...)
+end
+
+"""
+$(SIGNATURES)
+
+Return parameter vector for `odesys` initialized with default parameter values from ModelingToolkit defaults.
+"""
+function default_params(odesys::ODESystem)
+    ps = zeros(length(Catalyst.parameters(odesys)))
+    init_params!(ps, odesys)
+    return ps
+end
+
+"""
+$(SIGNATURES)
+
+Populate parameter vector `ps` with default parameter values from `odesys`.
+"""
+function init_params!(ps, odesys::ODESystem)
+    params = Catalyst.parameters(odesys)
+    pidx = parameter_dict(odesys)
+    for p in params
+        name = nameof(p)
+        if haskey(pidx, name)
+            if hasmetadata(p, VariableDefaultValue)
+                val = getmetadata(p, VariableDefaultValue)
+                ps[pidx[name]] = val
+            end
+        end
+    end
+    return ps
 end
 
 
@@ -571,7 +589,7 @@ function generate_function(
         symb2name = s -> replace(string(s), "(t)" => "")
     )
     pdict = parameter_dict(odesys)
-    cache = DiffCache(zeros(nparams))
+    cache = DiffCache(zeros(nparams); warn_on_resize = false)
     return ReactionTerm(prob.f, uidx, pdict, pdefaults, cache)
 end
 
@@ -630,93 +648,3 @@ function (r::ReactionTerm)(f, u, p::ReactionTermParameterCache)
     @views f[uidx] .*= -1
     return nothing
 end
-
-
-
-###############################################################################
-
-
-"""
-$(SIGNATURES)
-Deprecated method.
-
-Generate a mutating function from a `ODESystem` that computes the concentration fluxes due to the reaction.
-"""
-function generate_function(sys::ODESystem, udict, pdict)
-    dvs = unknowns(sys)
-    ps = parameters(sys) .=> 1.0
-
-    prob = ODEProblem(sys, zeros(length(dvs)), (0, 1.0), ps)
-
-    fp_cache = DiffCache(zeros(length(dvs)), 13)
-    up_cache = DiffCache(zeros(length(dvs)), 13)
-    pp_cache = DiffCache(zeros(length(ps)), 13)
-
-    uindexmap = getuindexmap(sys, udict)
-    pindexmap = getpindexmap(sys, pdict)
-
-    invuindexmap = invperm(uindexmap)
-    invpindexmap = invperm(pindexmap)
-    return function (f, u, p, t)
-        up = get_tmp(up_cache, u[1])
-        up .= getindex.(Ref(u), uindexmap)
-        pp = get_tmp(pp_cache, p[1])
-        pp .= getindex.(Ref(p), pindexmap)
-        fp = get_tmp(fp_cache, u[1])
-        prob.f(fp, up, pp, t)
-        f .= getindex.(Ref(fp), invuindexmap) .* -1
-        return nothing
-    end
-end
-
-
-function getuindexmap(odesys::ODESystem, udict)
-    us = unknowns(odesys)
-    us = tosymbol.(us; escape = false)
-    varmap = Dict([getproperty(odesys, u; namespace = false) => i  for (u, i) in udict if u in us])
-    return varmap_to_vars(varmap, unknowns(odesys); tofloat = false)
-end
-
-function getpindexmap(odesys::ODESystem, pdict)
-    ps = parameters(odesys)
-    ps = tosymbol.(ps; escape = false)
-    varmap = Dict([getproperty(odesys, p; namespace = false) => i for (p, i) in pdict if p in ps])
-    return varmap_to_vars(varmap, parameters(odesys); tofloat = false)
-end
-
-
-
-
-
-"""
-$(SIGNATURES)
-
-Return parameter vector for `odesys` initialized with default parameter values from ModelingToolkit defaults.
-"""
-function default_params(odesys::ODESystem)
-    ps = zeros(length(Catalyst.parameters(odesys)))
-    init_params!(ps, odesys)
-    return ps
-end
-
-"""
-$(SIGNATURES)
-
-Populate parameter vector `ps` with default parameter values from `odesys`.
-"""
-function init_params!(ps, odesys::ODESystem)
-    params = Catalyst.parameters(odesys)
-    pidx = paramsidx(odesys)
-    for p in params
-        name = nameof(p)
-        if haskey(pidx, name)
-            if hasmetadata(p,VariableDefaultValue)
-                val=getmetadata(p,VariableDefaultValue)
-                ps[pidx[name]] = val
-            end
-        end
-    end
-    return ps
-end
-
-

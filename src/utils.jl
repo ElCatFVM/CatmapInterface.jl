@@ -13,10 +13,10 @@ const atomic_masses = [
     22.98976928,    # Na
     24.305,         # Mg
     26.9815385,     # Al
-    28.085,         # Si 
+    28.085,         # Si
     30.973761998,   # P
-    32.06,          # S 
-    35.45,          # Cl 
+    32.06,          # S
+    35.45,          # Cl
     39.948,         # Ar
     39.0983,        # K
     40.078,         # Ca
@@ -31,10 +31,10 @@ const atomic_masses = [
     63.546,         # Cu
     65.38,          # Zn
     69.723,         # Ga
-    72.630,         # Ge
+    72.63,         # Ge
     74.921595,      # As
     78.971,         # Se
-    79.904,         # Br 
+    79.904,         # Br
     83.798,         # Kr
     85.4678,        # Rb
     87.62,          # Sr
@@ -44,14 +44,14 @@ const atomic_masses = [
     95.95,          # Mo
     97.90721,       # 98Tc
     101.07,         # Ru
-    102.90550,      # Rh
+    102.9055,      # Rh
     106.42,         # Pd
     107.8682,       # Ag
     112.414,        # Cd
     114.818,        # In
-    118.710,        # Sn
-    121.760,        # Sb
-    127.60,         # Te
+    118.71,        # Sn
+    121.76,        # Sb
+    127.6,         # Te
     126.90447,      # I
     131.293,        # Xe
     132.90545196,   # Cs
@@ -65,7 +65,7 @@ const atomic_masses = [
     151.964,        # Eu
     157.25,         # Gd
     158.92535,      # Tb
-    162.500,        # Dy
+    162.5,        # Dy
     164.93033,      # Ho
     167.259,        # Er
     168.93422,      # Tm
@@ -82,7 +82,7 @@ const atomic_masses = [
     200.592,        # Hg
     204.38,         # Tl
     207.2,          # Pb
-    208.98040,      # Bi
+    208.9804,      # Bi
     208.98243,      # 209Po
     209.98715,      # 210At
     222.01758,      # 222Rn
@@ -98,11 +98,11 @@ const atomic_masses = [
     247.07035,      # 247Cm
     247.07031,      # 247Bk
     251.07959,      # 251Cf
-    252.0830,       # 252Es
+    252.083,       # 252Es
     257.09511,      # 257Fm
     258.09843,      # 258Md
-    259.1010,       # 259No
-    262.110,        # 262Lr
+    259.101,       # 259No
+    262.11,        # 262Lr
     267.122,        # 267Rf
     268.126,        # 268Db
     271.134,        # 271Sg
@@ -113,7 +113,7 @@ const atomic_masses = [
     281.166,        # 281Rg
     285.177,        # 285Cn
     286.182,        # 286Nh
-    289.190,        # 289Fl
+    289.19,        # 289Fl
     289.194,        # 289Mc
     293.204,        # 293Lv
     293.208,        # 293Ts
@@ -123,7 +123,7 @@ const atomic_masses = [
 @kwdef struct MoleculeSpec
     name::String
     numbers::Vector{Int}
-    masses::Vector{Float64} 
+    masses::Vector{Float64}
     positions::Matrix{Float64}
 end
 
@@ -151,7 +151,7 @@ function parse_molecule_spec(js)
         end
     end
     @assert all(map(number -> 1 ≤ number ≤ length(atomic_masses), numbers)) "Invalid atoms in the molecule"
-    masses = map(number->atomic_masses[number], numbers)
+    masses = map(number -> atomic_masses[number], numbers)
 
     positions = try
         convert.(Vector{Float64}, js["positions"])
@@ -166,8 +166,8 @@ function parse_molecule_spec(js)
     end
     @assert length(positions) == length(numbers) "Too many/few positions"
     @assert all(length.(positions) .== 3) "Every positions must be a coordinate in 3D"
-    positions = stack(positions; dims=1) * ufac"Å"
- 
+    positions = stack(positions; dims = 1) * ufac"Å"
+
     return MoleculeSpec(; name, numbers, masses, positions)
 end
 
@@ -192,7 +192,7 @@ function parse_molecule_data(filename)
     delete!(js, "ids")
     haskey(js, "nextid") && delete!(js, "nextid") # also delete nextid from json
 
-    @assert all(map(id->haskey(js, "$id"), ids)) "Invalid molecule database."
+    @assert all(map(id -> haskey(js, "$id"), ids)) "Invalid molecule database."
 
     molecule_specs = Dict{String, MoleculeSpec}()
     for id in ids
@@ -202,7 +202,7 @@ function parse_molecule_data(filename)
     return molecule_specs
 end
 
-const molecule_specs = parse_molecule_data(joinpath(readdir(artifact"ase_collections", join=true)[1], "ase", "collections", "g2.json"))
+const molecule_specs = parse_molecule_data(joinpath(readdir(artifact"ase_collections", join = true)[1], "ase", "collections", "g2.json"))
 
 
 """
@@ -214,7 +214,7 @@ function get_molecule_spec(name)
     if !haskey(molecule_specs, name)
         throw(ArgumentError("The molecule $name is not included in the molecule database"))
     end
-    return  molecule_specs[name]
+    return molecule_specs[name]
 end
 
 """
@@ -233,7 +233,7 @@ function get_ideal_gas_params(name)
         end
     end
     if geometry == "monoatomic"
-        geometry = monoatomic    
+        geometry = monoatomic
     elseif geometry == "linear"
         geometry = linear
     elseif geometry == "nonlinear"
@@ -256,12 +256,12 @@ function instantiate_catmap_template!(instance_file_path, template_file_path, pa
         read(template_file, String)
     end
 
-	replacements = [
-		r"descriptor_ranges.?=.*" =>"descriptor_ranges = [[$ϕ_we, $ϕ_we], [$T, $T]]",
-		r"voltage_diff_drop.?=.*" => "voltage_diff_drop = $ϕ",
-		r"pH.?=.*" => "pH = $local_pH",
-		r"\nsigma_input.?=.*" => "\nsigma_input = $σ/0.01", # in μF/cm^2
-	]
+    replacements = [
+        r"descriptor_ranges.?=.*" => "descriptor_ranges = [[$ϕ_we, $ϕ_we], [$T, $T]]",
+        r"voltage_diff_drop.?=.*" => "voltage_diff_drop = $ϕ",
+        r"pH.?=.*" => "pH = $local_pH",
+        r"\nsigma_input.?=.*" => "\nsigma_input = $σ/0.01", # in μF/cm^2
+    ]
     instance_string = replace(instance_string, replacements...)
 
     open(instance_file_path, "w") do instance_file
@@ -271,17 +271,17 @@ function instantiate_catmap_template!(instance_file_path, template_file_path, pa
     return instance_file_path
 end
 
-function rename_tstate(text::AbstractString; without_site=false)
+function rename_tstate(text::AbstractString; without_site = false)
     if without_site
         re = r"(?<before>(([A-Z]+[1-9]?)+|ele))-(?<after>(([A-Z]+[1-9]?)+|ele|\w|$))"
     else
         re = r"(?<before>(([A-Z]+[1-9]?)+|ele))-(?<after>(([A-Z]+[1-9]?)+|ele|\*?_[a-z]))"
     end
     old_text = text
-    text = replace(text, re => s"\g<before>Δ\g<after>") 
+    text = replace(text, re => s"\g<before>Δ\g<after>")
     while old_text ≠ text
         old_text = text
-        text = replace(text, re => s"\g<before>Δ\g<after>") 
+        text = replace(text, re => s"\g<before>Δ\g<after>")
     end
     return text
 end

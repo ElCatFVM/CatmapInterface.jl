@@ -47,22 +47,22 @@ $(TYPEDFIELDS)
 end
 
 function totalmass(idealgas::IdealGas)
-    sum(idealgas.masses)
+    return sum(idealgas.masses)
 end
 
 function momentsofinertia(idealgas::IdealGas)
     m = idealgas.masses
     x = idealgas.positions
     M = sum(m)
-    
-    cm = sum(x .* m, dims=1) / M
+
+    cm = sum(x .* m, dims = 1) / M
     x .-= cm
 
-    IM = zeros(3,3)
+    IM = zeros(3, 3)
     for i in 1:length(m)
-        IM += m[i] * ((x[i, :])' * x[i, :] * I - x[i, :] * (x[i, :])') 
+        IM += m[i] * ((x[i, :])' * x[i, :] * I - x[i, :] * (x[i, :])')
     end
-    eigvals(Symmetric(IM))
+    return eigvals(Symmetric(IM))
 end
 
 """
@@ -82,28 +82,28 @@ function entropy(idealgas::IdealGas)
     if geometry == monoatomic
         ω = []
     elseif geometry == linear
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 5)] .* c_0
+        ω = sort(idealgas.frequencies, rev = true)[1:(3 * N - 5)] .* c_0
     else
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 6)] .* c_0
+        ω = sort(idealgas.frequencies, rev = true)[1:(3 * N - 6)] .* c_0
     end
     S = idealgas.spin
     (IA, IB, IC) = momentsofinertia(idealgas)
     if geometry == linear
-        @assert isapprox(IA, 0.0, atol = 1e-6) && isapprox(IB, IC, rtol = 1e-6)
+        @assert isapprox(IA, 0.0, atol = 1.0e-6) && isapprox(IB, IC, rtol = 1.0e-6)
     end
     P° = 1 * bar
 
-    translational = k_B * (log((2 * π * M * k_B * T / h^2)^(3/2) * k_B * T / P°) + 5 / 2)
+    translational = k_B * (log((2 * π * M * k_B * T / h^2)^(3 / 2) * k_B * T / P°) + 5 / 2)
     rotational = 0.0
     if geometry == linear
-        rotational +=  k_B * (log(2 * IC * k_B * T / (ħ^2 * σ)) + 1)
+        rotational += k_B * (log(2 * IC * k_B * T / (ħ^2 * σ)) + 1)
     elseif geometry == nonlinear
-        rotational += k_B * (log(sqrt(π * IA * IB * IC) / σ * (2 * k_B * T / ħ^2)^(3/2)) + 3/2)
+        rotational += k_B * (log(sqrt(π * IA * IB * IC) / σ * (2 * k_B * T / ħ^2)^(3 / 2)) + 3 / 2)
     end
     vibrational = k_B * sum(@. h * ω / (k_B * T * (exp(h * ω / (k_B * T)) - 1)) - log(1 - exp(-h * ω / (k_B * T))))
     electronic = k_B * log(2 * S + 1)
 
-    translational + rotational + vibrational + electronic
+    return translational + rotational + vibrational + electronic
 end
 
 """
@@ -121,9 +121,9 @@ function enthalpy(idealgas::IdealGas)
     if geometry == monoatomic
         ω = []
     elseif geometry == linear
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 5)] .* c_0
+        ω = sort(idealgas.frequencies, rev = true)[1:(3 * N - 5)] .* c_0
     else
-        ω = sort(idealgas.frequencies, rev=true)[1:(3 * N - 6)] .* c_0
+        ω = sort(idealgas.frequencies, rev = true)[1:(3 * N - 6)] .* c_0
     end
 
     zpe = h * sum(ω) / 2
@@ -131,11 +131,11 @@ function enthalpy(idealgas::IdealGas)
     rotational = 0
     if geometry == linear
         rotational += k_B * T
-    elseif  geometry == nonlinear
+    elseif geometry == nonlinear
         rotational += 3 / 2 * k_B * T
     end
     vibrational = h * sum(@. ω / (exp(h * ω / (k_B * T)) - 1))
     corr = k_B * T
 
-    zpe + translational + rotational + vibrational + corr
+    return zpe + translational + rotational + vibrational + corr
 end

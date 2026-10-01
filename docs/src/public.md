@@ -11,7 +11,7 @@ GasSpecies
 LocalGasSpecies
 AdsorbateSpecies
 TStateSpecies
-FictiousSpecies
+FictitiousSpecies
 SiteSpecies
 ```
 
@@ -26,14 +26,13 @@ CatmapInterface.ReactionTerm
 CatmapInterface.ReactionTermParameterCache
 ```
 
-### To be removed from API
+###  API for direct handling of ODE functions
 ```@docs
-paramsidx
-default_params
-init_params!
 unknown_indexes
 parameter_indexes
 parameter_dict
+init_params!
+default_params
 ```
 
 ## Package

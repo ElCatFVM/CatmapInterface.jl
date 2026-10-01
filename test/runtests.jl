@@ -68,12 +68,11 @@ end
 end
 
 # Run the notebooks as scripts in the test environment.
-notebooks = ["CO2R.jl", "XCO2R.jl"]
+notebooks = ["CO2R.jl", "CO2R_raw.jl"]
 
 @testset "notebooks" begin
     @testscripts(joinpath(@__DIR__, "..", "notebooks"), notebooks)
 end
-
 
 
 # const Cgap = 0.2 # in F/m^2

@@ -20,6 +20,7 @@ The entry point is `parse_catmap_input(input_file_path)`, which reads a CatMAP `
 | `gas_thermo_mode`                 | Gas-phase thermodynamic correction model                                |
 | `adsorbate_thermo_mode`           | Adsorbate thermodynamic correction model                                |
 | `electrochemical_thermo_mode`     | Electrochemical correction model                                        |
+| `ion_potential_correction`        | Optional, default `False`: reference electrons to `ϕ_we` and apply `ϕ` to `H_g`/`OH_g` |
 | `beta_mode`                       | BEP scaling mode for transition states (`:none`, `:simple`, `:effective_surface_charging`) |
 | Adsorbate interaction parameters  | Interaction model, response function, cross-interaction modes           |
 
@@ -102,7 +103,7 @@ The Gibbs free energies of all species are computed by sequentially applying fou
 - [`CatmapInterface.harmonic_adsorbate`](@ref) (internal) — harmonic approximation for adsorbed species using the `HarmonicPhase` model (vibrational contributions only). For transition states without frequencies, corrections are averaged from the species they connect.
 
 #### Stage 4: Electrochemical Correction
-- [`CatmapInterface.simple_electrochemical`](@ref) (internal) — electron energy correction `−(ϕ_we − ϕ)·eV`, BEP-type corrections for transition states involving electrons, and pH corrections via the internal function [`CatmapInterface._get_echem_corrections`](@ref) (computing G_H and G_OH from G_H₂ and G_H₂O)
+- [`CatmapInterface.simple_electrochemical`](@ref) (internal) — electron energy correction `−(ϕ_we − ϕ)·eV` (or `−ϕ_we·eV` together with ion corrections `±ϕ·eV` for `H_g`/`OH_g` if `ion_potential_correction = True`), BEP-type corrections for transition states involving electrons, and pH corrections via the internal function [`CatmapInterface._get_echem_corrections`](@ref) (computing G_H and G_OH from G_H₂ and G_H₂O)
 - [`CatmapInterface.hbond_surface_charge_density`](@ref) (internal) — extends `simple_electrochemical` with hydrogen-bond corrections and surface-charge-density-dependent corrections: `a·σ + b·σ²`
 
 ### 4c. Rate Law & Reaction Assembly

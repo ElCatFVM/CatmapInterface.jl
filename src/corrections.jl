@@ -245,26 +245,32 @@ $(SIGNATURES)
 Add electrochemical correction terms to the relative Gibbs free energies of formation of 'free' electrons and transition states including 'free' electrons.
 
 The model assumes a linear capacitor model for the double layer between the electrode surface and the inner Helmholtz plane. In this model the corrections accommodate the Frumkin effects of proton-coupled electron transfers. For a reference see 'Double layer charging driven carbon dioxide adsorption limits the rate of electrochemical carbon dioxide reduction on Gold' by Ringe, S. et al. and published in Nature Communications.
+
+If `catmap_params.ion_potential_correction` is `true`, free electrons are referenced to `ϕ_we` and the local potential `ϕ` is applied to the ions `H_g` and `OH_g` instead.
 """
 function simple_electrochemical(energies, catmap_params::CatmapParams, σ, ϕ_we, ϕ, local_pH, β)
     @local_unitfactors eV
-    (; species_list, Uref) = catmap_params
+    (; species_list, Uref, ion_potential_correction) = catmap_params
     # simple_electrochem_corrections
+    # potential acting on free electrons
+    ϕ_ele = ion_potential_correction ? ϕ_we : ϕ_we - ϕ
     if haskey(energies, "ele_g")
-        energies["ele_g"] += - (ϕ_we) * eV
+        energies["ele_g"] += - ϕ_ele * eV
     end
 
-    if haskey(energies, "H_g")
-        energies["H_g"] += - ϕ * eV
-    end
+    if ion_potential_correction
+        if haskey(energies, "H_g")
+            energies["H_g"] += ϕ * eV
+        end
 
-    if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
-        energies["OH_g"] += ϕ * eV
+        if haskey(energies, "OH_g") ## this can be expanded to all ionspecies.
+            energies["OH_g"] += - ϕ * eV
+        end
     end
 
     for (s, sp) in species_list
         if isa(sp, TStateSpecies) && occursin("ele", sp.species_name)
-            energies[s] += (-(ϕ_we) + β[s] * (ϕ_we - ϕ - Uref)) * eV
+            energies[s] += (-ϕ_ele + β[s] * (ϕ_we - ϕ - Uref)) * eV
         end
     end
     # pH_correction

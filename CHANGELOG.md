@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.0
+
+### New features
+- New optional setting `ion_potential_correction` in the CatMAP `.mkm` input file (default `False`) for `simple_electrochemical`
+  and the modes building on it (`hbond_surface_charge_density`, `doublebond_surface_charge_density`):
+  - `False` (default): unchanged behavior, free electrons are corrected by `-(ϕ_we - ϕ)·eV`.
+  - `True`: free electrons (`ele_g` and transition states containing `ele`) are referenced to the electrode potential
+    (`-ϕ_we·eV`), and the local potential is applied to the ions: `H_g` gets `+ϕ·eV`, `OH_g` gets `-ϕ·eV`.
+- `CatmapParams` has the new field `ion_potential_correction::Bool` (keyword argument, default `false`).
+
+### Further changes
+- `parse_catmap_input` resets `ion_potential_correction` before evaluating an input file, so the setting does not leak
+  between files parsed in the same session, and throws an `ArgumentError` if the value is not `True`/`False`.
+- New test `test/test_ion_potential_correction.jl`.
+
 ## 1.0.0 
 
 ### Breaking changes

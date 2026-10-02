@@ -1,6 +1,6 @@
 name = "CatmapInterface"
 uuid = "6b1bba67-9fa6-466a-8c93-71aaf28c16e6"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Steffen Maass", "Byungmin Chun", "Jürgen Fuhrmann"]
 
 [deps]

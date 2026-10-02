@@ -118,6 +118,10 @@ struct CatmapParams
     """
     electrochemical_thermo_mode::Symbol
     """
+    If `true`, `simple_electrochemical` references free electrons to the electrode potential `ϕ_we` and applies the local potential `ϕ` to the ions `H_g` (`+ϕ`) and `OH_g` (`-ϕ`). If `false` (default), free electrons are corrected by `-(ϕ_we - ϕ)` and ions are not corrected.
+    """
+    ion_potential_correction::Bool
+    """
     Mode for BEP scaling for TStateSpecies
     """
     beta_mode::Symbol
@@ -141,7 +145,7 @@ struct CatmapParams
     Parameter specifying the adsorbate interaction model
     """
     adsorbate_interaction_params::AdsorbateInteractionParams
-    function CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+    function CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, ion_potential_correction = false, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
         if !(length(prefactors) == length(reactions))
             throw(ArgumentError("The number of prefactors must match the number of reactions"))
         end
@@ -176,7 +180,7 @@ struct CatmapParams
         if T < 0.0
             throw(ArgumentError("temperature T=$T must be positive"))
         end
-        return new(reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+        return new(reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, ion_potential_correction, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
     end
 end
 
@@ -440,12 +444,15 @@ Moreover, the following information is optional and default values exist
 - `cross_interaction_mode` (only used if `adsorbate_interaction_model=first_order`, options: `geometric_mean` (default), `arithmetic_mean`, `neglect`)
 - `transition_state_cross_interaction_mode` (only used if `adsorbate_interaction_model=first_order`, options: `intermediate_state` (default), `initial_state`, `final_state`, `neglect`)
 - `interaction_response_function` (only used if `adsorbate_interaction_mode=first_order`, default: `smooth_piecewise_linear`)
+- `ion_potential_correction` (`True` or `False` (default), see [`CatmapParams`](@ref))
 See [CatMAP documentation](https://catmap.readthedocs.io/en/latest/index.html) for details.
 """
 function parse_catmap_input(input_file_path::AbstractString)
     @assert isfile(input_file_path)
     input = read(input_file_path, String)
     input = rename_tstate(input)
+    # remove optional flag possibly left over from a previously parsed input file
+    py"globals().pop('ion_potential_correction', None)"
     py"
 $$input
 "
@@ -492,12 +499,16 @@ $$input
         @warn "beta_mode not specified. Defaulting to :none."
         :none
     end
+    ion_potential_correction = py"globals().get('ion_potential_correction', False)"
+    if !isa(ion_potential_correction, Bool)
+        throw(ArgumentError("ion_potential_correction must be True or False, got $ion_potential_correction"))
+    end
     adsorbate_interaction_params = _get_adsorbate_interaction_params()
 
     species_list = specieslist(reactions, species_definitions, energy_table, surface_name; electrochemical_thermo_mode)
 
     T = 298
-    return CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
+    return CatmapParams(; reactions, prefactors, species_list, gas_thermo_mode, adsorbate_thermo_mode, electrochemical_thermo_mode, ion_potential_correction, beta_mode, bulk_pH, Uref, potential_reference_scale, T, adsorbate_interaction_params)
 end
 
 

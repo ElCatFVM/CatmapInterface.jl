@@ -13,6 +13,7 @@
   ],
   "description": "A Julia interface for CatMAP-based microkinetic models that can be coupled to electrolyte transport simulations.",
   "version": "1.1.2",
+  "doi": "10.5281/zenodo.24446204",
   "license": "mit",
   "upload_type": "software",
   "keywords": [

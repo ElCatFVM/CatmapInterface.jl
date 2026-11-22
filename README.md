@@ -1,5 +1,5 @@
 [![Development documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://elcatfvm.github.io/CatmapInterface.jl/dev/)
-[![Build status](https://github.com/ElCatFVM/CatmapInterface.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/ElCatFVM/CatmapInterface.jl/actions/workflows/CI.yml)
+[![Build status](https://github.com/ElCatFVM/CatmapInterface.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/ElCatFVM/CatmapInterface.jl/actions/workflows/CI.yml) [![DOI](https://zenodo.org/badge/654502927.svg)](https://doi.org/10.5281/zenodo.24446204)
 
 # CatmapInterface: [CatMap](https://github.com/SUNCAT-Center/catmap) based microkinetic models in Julia
 

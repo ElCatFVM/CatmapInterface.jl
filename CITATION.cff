@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use CatmapInterface.jl, please cite this software."
+type: software
+title: "CatmapInterface.jl: CatMAP-based microkinetic models in Julia"
+authors:
+  - given-names: Steffen
+    family-names: Maass
+  - given-names: Byungmin
+    family-names: Chun
+  - given-names: Jürgen
+    family-names: Fuhrmann
+version: "1.1.2"
+license: MIT
+url: "https://github.com/ElCatFVM/CatmapInterface.jl"
+abstract: "A Julia interface for CatMAP-based microkinetic models that can be coupled to electrolyte transport simulations."
+keywords:
+  - Julia
+  - CatMAP
+  - microkinetic modeling
+  - electrochemistry
